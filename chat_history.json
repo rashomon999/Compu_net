@@ -1,0 +1,10 @@
+[
+  {
+    "sender": "Jose",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-10-06 19:18:24"
+  }
+]
