@@ -6,5 +6,21 @@
     "content": "Hola",
     "isGroup": false,
     "timestamp": "2025-10-06 19:18:24"
+  },
+  {
+    "sender": "jose",
+    "recipient": "gius",
+    "type": "TEXT",
+    "content": "HOlsdgfsds",
+    "isGroup": false,
+    "timestamp": "2025-10-07 13:24:44"
+  },
+  {
+    "sender": "Jose",
+    "recipient": "Luis",
+    "type": "VOICE",
+    "content": "[Audio 338604 bytes]",
+    "isGroup": false,
+    "timestamp": "2025-10-08 07:56:10"
   }
 ]

@@ -31,14 +31,14 @@ public class ClientHandler implements Runnable {
             if (input != null && input.startsWith("REGISTER ")) {
                 username = input.split(" ", 2)[1].trim();
                 if (username.isEmpty() || clients.containsKey(username)) {
-                    out.println("❌ ERROR: Nombre de usuario inválido o ya en uso");
+                    out.println(" ERROR: Nombre de usuario inválido o ya en uso");
                     socket.close();
                     return;
                 }
                 synchronized (clients) {
                     clients.put(username, out);
                 }
-                out.println("✅ Registrado como " + username);
+                out.println(" Registrado como " + username);
                 broadcast(username + " se ha unido al chat");
             } else {
                 socket.close();
@@ -73,9 +73,9 @@ public class ClientHandler implements Runnable {
                         String groupName = parts[1];
                         boolean created = history.createGroup(groupName, username);
                         if (created) {
-                            out.println("✅ Grupo '" + groupName + "' creado exitosamente");
+                            out.println(" Grupo '" + groupName + "' creado exitosamente");
                         } else {
-                            out.println("❌ ERROR: El grupo '" + groupName + "' ya existe");
+                            out.println(" ERROR: El grupo '" + groupName + "' ya existe");
                         }
                     }
                     break;
@@ -86,13 +86,13 @@ public class ClientHandler implements Runnable {
                         String userToAdd = parts[2];
                         if (history.groupExists(groupName)) {
                             history.addUserToGroup(groupName, userToAdd);
-                            out.println("✅ Usuario " + userToAdd + " añadido a " + groupName);
+                            out.println("Usuario " + userToAdd + " añadido a " + groupName);
                             PrintWriter targetOut = clients.get(userToAdd);
                             if (targetOut != null) {
-                                targetOut.println("📢 Has sido añadido al grupo: " + groupName);
+                                targetOut.println(" Has sido añadido al grupo: " + groupName);
                             }
                         } else {
-                            out.println("❌ ERROR: El grupo no existe");
+                            out.println(" ERROR: El grupo no existe");
                         }
                     }
                     break;
@@ -103,11 +103,11 @@ public class ClientHandler implements Runnable {
                         String message = parts[2];
                         PrintWriter targetOut = clients.get(targetUser);
                         if (targetOut != null) {
-                            targetOut.println("💬 [" + username + "]: " + message);
-                            out.println("✅ Mensaje enviado a " + targetUser);
+                            targetOut.println(" [" + username + "]: " + message);
+                            out.println(" Mensaje enviado a " + targetUser);
                             history.saveMessage(username, targetUser, "TEXT", message, false);
                         } else {
-                            out.println("❌ ERROR: Usuario " + targetUser + " no conectado");
+                            out.println(" ERROR: Usuario " + targetUser + " no conectado");
                         }
                     }
                     break;
@@ -126,10 +126,10 @@ public class ClientHandler implements Runnable {
                                     }
                                 }
                             }
-                            out.println("✅ Mensaje enviado al grupo " + groupName);
+                            out.println("Mensaje enviado al grupo " + groupName);
                             history.saveMessage(username, groupName, "TEXT", message, true);
                         } else {
-                            out.println("❌ ERROR: El grupo no existe o está vacío");
+                            out.println(" ERROR: El grupo no existe o está vacío");
                         }
                     }
                     break;
@@ -141,10 +141,10 @@ public class ClientHandler implements Runnable {
                         PrintWriter targetOut = clients.get(targetUser);
                         if (targetOut != null) {
                             targetOut.println("VOICE_FROM " + username + " " + audioBase64);
-                            out.println("✅ Nota de voz enviada a " + targetUser);
+                            out.println(" Nota de voz enviada a " + targetUser);
                             history.saveMessage(username, targetUser, "VOICE", "[Audio " + audioBase64.length() + " bytes]", false);
                         } else {
-                            out.println("❌ ERROR: Usuario no conectado");
+                            out.println(" ERROR: Usuario no conectado");
                         }
                     }
                     break;
@@ -163,10 +163,10 @@ public class ClientHandler implements Runnable {
                                     }
                                 }
                             }
-                            out.println("✅ Nota de voz enviada al grupo " + groupName);
+                            out.println(" Nota de voz enviada al grupo " + groupName);
                             history.saveMessage(username, groupName, "VOICE", "[Audio " + audioBase64.length() + " bytes]", true);
                         } else {
-                            out.println("❌ ERROR: El grupo no existe");
+                            out.println(" ERROR: El grupo no existe");
                         }
                     }
                     break;
@@ -198,13 +198,13 @@ public class ClientHandler implements Runnable {
                     if (parts.length >= 2) {
                         String newUser = parts[1];
                         if (!clients.containsKey(newUser)) {
-                            out.println("❌ ERROR: El usuario " + newUser + " no está conectado");
+                            out.println(" ERROR: El usuario " + newUser + " no está conectado");
                         } else {
                             // Aquí podrías agregar lógica para invitar o notificar al usuario
-                            out.println("✅ Usuario " + newUser + " está disponible para interacción");
+                            out.println(" Usuario " + newUser + " está disponible para interacción");
                             PrintWriter targetOut = clients.get(newUser);
                             if (targetOut != null) {
-                                targetOut.println("📢 " + username + " te ha agregado como contacto");
+                                targetOut.println( username + " te ha agregado como contacto");
                             }
                         }
                     }
@@ -216,16 +216,16 @@ public class ClientHandler implements Runnable {
                     break;
 
                 default:
-                    out.println("❌ ERROR: Comando desconocido '" + cmd + "'");
+                    out.println(" ERROR: Comando desconocido '" + cmd + "'");
             }
         } catch (Exception e) {
-            out.println("❌ ERROR: " + e.getMessage());
+            out.println(" ERROR: " + e.getMessage());
         }
     }
 
     private void broadcast(String message) {
         for (PrintWriter writer : clients.values()) {
-            writer.println("📢 " + message);
+            writer.println(message);
         }
     }
 

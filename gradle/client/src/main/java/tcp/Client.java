@@ -25,7 +25,7 @@ public class Client {
         String username = sc.nextLine();
         out.println("REGISTER " + username); // Enviar comando de registro
         String response = in.readLine();
-        if (response != null && response.startsWith("❌")) {
+        if (response != null && response.startsWith("ERROR")) {
             System.out.println(response);
             socket.close();
             return;
