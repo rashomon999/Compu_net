@@ -1,3 +1,4 @@
+
 package utils;
 
 import java.io.*;
@@ -14,7 +15,7 @@ public class AudioFileManager {
             Files.createDirectories(Paths.get(AUDIO_DIR));
             System.out.println("✓ Directorio de audios disponible: " + AUDIO_DIR);
         } catch (IOException e) {
-            System.err.println(" Error creando directorio de audios: " + e.getMessage());
+            System.err.println("❌ Error creando directorio de audios: " + e.getMessage());
         }
     }
     
