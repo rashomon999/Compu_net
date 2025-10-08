@@ -31,7 +31,7 @@ public class ClientHandler implements Runnable {
             if (input != null && input.startsWith("REGISTER ")) {
                 username = input.split(" ", 2)[1].trim();
                 if (username.isEmpty() || clients.containsKey(username)) {
-                    out.println(" ERROR: Nombre de usuario inválido o ya en uso");
+                    out.println(" ERROR: Nombre de usuario invalido o ya en uso");
                     socket.close();
                     return;
                 }
@@ -47,7 +47,7 @@ public class ClientHandler implements Runnable {
 
             System.out.println("[+] " + username + " conectado desde " + socket.getInetAddress());
 
-            // Procesar comandos
+            // Procesar comandos del cliente
             String line;
             while ((line = in.readLine()) != null) {
                 processCommand(line);
@@ -65,18 +65,18 @@ public class ClientHandler implements Runnable {
         if (parts.length == 0) return;
 
         String cmd = parts[0];
-        
+
         try {
             switch (cmd) {
+                // =======================
+                // Gestión de grupos
+                // =======================
                 case "CREATE_GROUP":
                     if (parts.length >= 2) {
                         String groupName = parts[1];
                         boolean created = history.createGroup(groupName, username);
-                        if (created) {
-                            out.println(" Grupo '" + groupName + "' creado exitosamente");
-                        } else {
-                            out.println(" ERROR: El grupo '" + groupName + "' ya existe");
-                        }
+                        if (created) out.println(" Grupo '" + groupName + "' creado exitosamente");
+                        else out.println(" ERROR: El grupo '" + groupName + "' ya existe");
                     }
                     break;
 
@@ -88,131 +88,70 @@ public class ClientHandler implements Runnable {
                             history.addUserToGroup(groupName, userToAdd);
                             out.println("Usuario " + userToAdd + " añadido a " + groupName);
                             PrintWriter targetOut = clients.get(userToAdd);
-                            if (targetOut != null) {
-                                targetOut.println(" Has sido añadido al grupo: " + groupName);
-                            }
-                        } else {
-                            out.println(" ERROR: El grupo no existe");
-                        }
+                            if (targetOut != null) targetOut.println(" Has sido añadido al grupo: " + groupName);
+                        } else out.println(" ERROR: El grupo no existe");
                     }
                     break;
 
+                // =======================
+                // Mensajes de texto
+                // =======================
                 case "MSG_USER":
                     if (parts.length >= 3) {
-                        String targetUser = parts[1];
-                        String message = parts[2];
-                        PrintWriter targetOut = clients.get(targetUser);
-                        if (targetOut != null) {
-                            targetOut.println(" [" + username + "]: " + message);
-                            out.println(" Mensaje enviado a " + targetUser);
-                            history.saveMessage(username, targetUser, "TEXT", message, false);
-                        } else {
-                            out.println(" ERROR: Usuario " + targetUser + " no conectado");
-                        }
+                        sendTextToUser(parts[1], parts[2]);
                     }
                     break;
 
                 case "MSG_GROUP":
                     if (parts.length >= 3) {
-                        String groupName = parts[1];
-                        String message = parts[2];
-                        List<String> members = history.getGroupMembers(groupName);
-                        if (!members.isEmpty()) {
-                            for (String member : members) {
-                                if (!member.equals(username)) {
-                                    PrintWriter memberOut = clients.get(member);
-                                    if (memberOut != null) {
-                                        memberOut.println("👥 [" + groupName + "] " + username + ": " + message);
-                                    }
-                                }
-                            }
-                            out.println("Mensaje enviado al grupo " + groupName);
-                            history.saveMessage(username, groupName, "TEXT", message, true);
-                        } else {
-                            out.println(" ERROR: El grupo no existe o está vacío");
-                        }
+                        sendTextToGroup(parts[1], parts[2]);
                     }
                     break;
 
+                // =======================
+                // Notas de voz (TCP)
+                // =======================
                 case "VOICE_USER":
                     if (parts.length >= 3) {
-                        String targetUser = parts[1];
-                        String audioBase64 = parts[2];
-                        PrintWriter targetOut = clients.get(targetUser);
-                        if (targetOut != null) {
-                            targetOut.println("VOICE_FROM " + username + " " + audioBase64);
-                            out.println(" Nota de voz enviada a " + targetUser);
-                            history.saveMessage(username, targetUser, "VOICE", "[Audio " + audioBase64.length() + " bytes]", false);
-                        } else {
-                            out.println(" ERROR: Usuario no conectado");
-                        }
+                        sendVoiceToUser(parts[1], parts[2]);
                     }
                     break;
 
                 case "VOICE_GROUP":
                     if (parts.length >= 3) {
-                        String groupName = parts[1];
-                        String audioBase64 = parts[2];
-                        List<String> members = history.getGroupMembers(groupName);
-                        if (!members.isEmpty()) {
-                            for (String member : members) {
-                                if (!member.equals(username)) {
-                                    PrintWriter memberOut = clients.get(member);
-                                    if (memberOut != null) {
-                                        memberOut.println("VOICE_FROM " + username + " " + audioBase64);
-                                    }
-                                }
-                            }
-                            out.println(" Nota de voz enviada al grupo " + groupName);
-                            history.saveMessage(username, groupName, "VOICE", "[Audio " + audioBase64.length() + " bytes]", true);
-                        } else {
-                            out.println(" ERROR: El grupo no existe");
-                        }
+                        sendVoiceToGroup(parts[1], parts[2]);
                     }
                     break;
 
+                // =======================
+                // Historial
+                // =======================
                 case "GET_HISTORY":
                     if (parts.length >= 2) {
-                        String target = parts[1];
-                        List<HistoryManager.ChatMessage> msgs;
-                        if (history.groupExists(target)) {
-                            msgs = history.getGroupHistory(target);
-                        } else {
-                            msgs = history.getConversationHistory(username, target);
-                        }
-                        out.println("\n╔════════════════════════════════════╗");
-                        out.println("║   HISTORIAL CON " + target);
-                        out.println("╚════════════════════════════════════╝");
-                        if (msgs.isEmpty()) {
-                            out.println("No hay mensajes registrados");
-                        } else {
-                            for (HistoryManager.ChatMessage msg : msgs) {
-                                out.println(msg.toString());
-                            }
-                        }
-                        out.println("════════════════════════════════════");
+                        getHistory(parts[1]);
                     }
                     break;
 
+                // =======================
+                // Gestión de usuarios
+                // =======================
                 case "ADD_USER":
-                    if (parts.length >= 2) {
-                        String newUser = parts[1];
-                        if (!clients.containsKey(newUser)) {
-                            out.println(" ERROR: El usuario " + newUser + " no está conectado");
-                        } else {
-                            // Aquí podrías agregar lógica para invitar o notificar al usuario
-                            out.println(" Usuario " + newUser + " está disponible para interacción");
-                            PrintWriter targetOut = clients.get(newUser);
-                            if (targetOut != null) {
-                                targetOut.println( username + " te ha agregado como contacto");
-                            }
-                        }
-                    }
+                    if (parts.length >= 2) addUser(parts[1]);
                     break;
 
                 case "LIST_USERS":
-                    String userList = String.join(", ", clients.keySet());
-                    out.println("👥 Usuarios conectados: " + (userList.isEmpty() ? "Ninguno" : userList));
+                    listUsers();
+                    break;
+
+                // =======================
+                // Llamadas en vivo (UDP)
+                // =======================
+                case "START_CALL":
+                    if (parts.length >= 2) {
+                        String targetUser = parts[1];
+                        out.println("Para iniciar llamada en vivo, usa UDPVoiceClient hacia: " + targetUser);
+                        // Aquí solo notificamos que se puede usar UDP.
+                    }
                     break;
 
                 default:
@@ -223,10 +162,85 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void broadcast(String message) {
-        for (PrintWriter writer : clients.values()) {
-            writer.println(message);
+    // =======================
+    // Métodos auxiliares
+    // =======================
+
+    private void sendTextToUser(String targetUser, String message) {
+        PrintWriter targetOut = clients.get(targetUser);
+        if (targetOut != null) {
+            targetOut.println(" [" + username + "]: " + message);
+            out.println(" Mensaje enviado a " + targetUser);
+            history.saveMessage(username, targetUser, "TEXT", message, false);
+        } else out.println(" ERROR: Usuario " + targetUser + " no conectado");
+    }
+
+    private void sendTextToGroup(String groupName, String message) {
+        List<String> members = history.getGroupMembers(groupName);
+        if (!members.isEmpty()) {
+            for (String member : members) {
+                if (!member.equals(username)) {
+                    PrintWriter memberOut = clients.get(member);
+                    if (memberOut != null) memberOut.println("👥 [" + groupName + "] " + username + ": " + message);
+                }
+            }
+            out.println("Mensaje enviado al grupo " + groupName);
+            history.saveMessage(username, groupName, "TEXT", message, true);
+        } else out.println(" ERROR: El grupo no existe o esta vacio");
+    }
+
+    private void sendVoiceToUser(String targetUser, String audioBase64) {
+        PrintWriter targetOut = clients.get(targetUser);
+        if (targetOut != null) {
+            targetOut.println("VOICE_FROM " + username + " " + audioBase64);
+            out.println(" Nota de voz enviada a " + targetUser);
+            history.saveMessage(username, targetUser, "VOICE", "[Audio " + audioBase64.length() + " bytes]", false);
+        } else out.println(" ERROR: Usuario no conectado");
+    }
+
+    private void sendVoiceToGroup(String groupName, String audioBase64) {
+        List<String> members = history.getGroupMembers(groupName);
+        if (!members.isEmpty()) {
+            for (String member : members) {
+                if (!member.equals(username)) {
+                    PrintWriter memberOut = clients.get(member);
+                    if (memberOut != null) memberOut.println("VOICE_FROM " + username + " " + audioBase64);
+                }
+            }
+            out.println(" Nota de voz enviada al grupo " + groupName);
+            history.saveMessage(username, groupName, "VOICE", "[Audio " + audioBase64.length() + " bytes]", true);
+        } else out.println(" ERROR: El grupo no existe");
+    }
+
+    private void getHistory(String target) {
+        List<HistoryManager.ChatMessage> msgs;
+        if (history.groupExists(target)) msgs = history.getGroupHistory(target);
+        else msgs = history.getConversationHistory(username, target);
+
+        out.println("\n╔════════════════════════════════════╗");
+        out.println("║   HISTORIAL CON " + target);
+        out.println("╚════════════════════════════════════╝");
+        if (msgs.isEmpty()) out.println("No hay mensajes registrados");
+        else msgs.forEach(msg -> out.println(msg.toString()));
+        out.println("════════════════════════════════════");
+    }
+
+    private void addUser(String newUser) {
+        if (!clients.containsKey(newUser)) out.println(" ERROR: El usuario " + newUser + " no esta conectado");
+        else {
+            out.println(" Usuario " + newUser + " esta disponible para interaccion");
+            PrintWriter targetOut = clients.get(newUser);
+            if (targetOut != null) targetOut.println(username + " te ha agregado como contacto");
         }
+    }
+
+    private void listUsers() {
+        String userList = String.join(", ", clients.keySet());
+        out.println(" Usuarios conectados: " + (userList.isEmpty() ? "Ninguno" : userList));
+    }
+
+    private void broadcast(String message) {
+        for (PrintWriter writer : clients.values()) writer.println(message);
     }
 
     private void disconnect() {

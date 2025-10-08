@@ -13,7 +13,7 @@ public class AudioCapturer {
             DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
             
             if (!AudioSystem.isLineSupported(info)) {
-                System.err.println("❌ Línea de audio no soportada");
+                System.err.println(" Línea de audio no soportada");
                 return null;
             }
             
@@ -22,7 +22,7 @@ public class AudioCapturer {
             microphone.open(format);
             microphone.start();
             
-            System.out.println("🎙️  Grabando...");
+            System.out.println("  Grabando...");
             
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buffer = new byte[4096];
@@ -42,7 +42,7 @@ public class AudioCapturer {
                 }
             }
             
-            System.out.println(" ✅ Grabación completa!");
+            System.out.println("  Grabación completa!");
             
             microphone.stop();
             microphone.close();
@@ -50,11 +50,11 @@ public class AudioCapturer {
             return out.toByteArray();
             
         } catch (LineUnavailableException e) {
-            System.err.println("❌ Error: Micrófono no disponible");
+            System.err.println("Error: Micrófono no disponible");
             System.err.println("   Verifica los permisos del sistema");
             return null;
         } catch (Exception e) {
-            System.err.println("❌ Error capturando audio: " + e.getMessage());
+            System.err.println(" Error capturando audio: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
@@ -68,9 +68,9 @@ public class AudioCapturer {
         byte[] audio = captureAudio(3);
         
         if (audio != null) {
-            System.out.println("✅ Audio capturado: " + audio.length + " bytes");
+            System.out.println(" Audio capturado: " + audio.length + " bytes");
         } else {
-            System.out.println("❌ Falló la captura");
+            System.out.println(" Falló la captura");
         }
     }
 }

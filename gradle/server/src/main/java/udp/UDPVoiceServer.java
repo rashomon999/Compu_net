@@ -15,7 +15,7 @@ public class UDPVoiceServer {
         System.out.println("╚════════════════════════════════╝");
         System.out.println("Puerto UDP: " + UDP_PORT);
         System.out.println("Esperando paquetes de voz...\n");
-        
+
         DatagramSocket socket = new DatagramSocket(UDP_PORT);
         byte[] buffer = new byte[4096];
 
@@ -30,63 +30,46 @@ public class UDPVoiceServer {
 
     private static void handlePacket(DatagramSocket socket, DatagramPacket packet) {
         try {
-            String message = new String(packet.getData(), 0, packet.getLength());
-            String[] parts = message.split(":", 3);
+            String header = new String(packet.getData(), 0, Math.min(packet.getLength(), 100));
+            
+            if (header.startsWith("REGISTER:")) {
+                String username = header.split(":")[1];
+                InetSocketAddress address = new InetSocketAddress(packet.getAddress(), packet.getPort());
+                activeCallers.put(username, address);
+                System.out.println("[UDP]  " + username + " registrado para llamadas");
+            } else if (header.startsWith("CALL:")) {
+                String[] parts = header.split(":");
+                String caller = parts[1];
+                String receiver = parts[2];
+                callSessions.put(caller, receiver);
 
-            if (parts.length < 2) return;
-
-            String command = parts[0];
-            String username = parts[1];
-
-            switch (command) {
-                case "REGISTER":
-                    // REGISTER:username
-                    InetSocketAddress address = new InetSocketAddress(
-                        packet.getAddress(), packet.getPort()
-                    );
-                    activeCallers.put(username, address);
-                    System.out.println("[UDP] ✅ " + username + " registrado para llamadas");
-                    break;
-
-                case "CALL":
-                    // CALL:caller:receiver
-                    if (parts.length >= 3) {
-                        String receiver = parts[2];
-                        callSessions.put(username, receiver);
-                        
-                        InetSocketAddress receiverAddr = activeCallers.get(receiver);
-                        if (receiverAddr != null) {
-                            String notification = "INCOMING_CALL:" + username;
-                            byte[] data = notification.getBytes();
-                            DatagramPacket response = new DatagramPacket(
-                                data, data.length, receiverAddr
-                            );
-                            socket.send(response);
-                            System.out.println("[UDP] 📞 Llamada de " + username + " a " + receiver);
-                        }
-                    }
-                    break;
-
-                case "AUDIO":
-                    // AUDIO:sender:audioData
-                    String receiver = callSessions.get(username);
-                    if (receiver != null) {
-                        InetSocketAddress receiverAddr = activeCallers.get(receiver);
-                        if (receiverAddr != null) {
-                            // Reenviar audio al receptor
-                            socket.send(new DatagramPacket(
+                InetSocketAddress receiverAddr = activeCallers.get(receiver);
+                if (receiverAddr != null) {
+                    String notification = "INCOMING_CALL:" + caller;
+                    byte[] data = notification.getBytes();
+                    DatagramPacket response = new DatagramPacket(data, data.length, receiverAddr);
+                    socket.send(response);
+                    System.out.println("[UDP]  Llamada de " + caller + " a " + receiver);
+                }
+            } else if (header.startsWith("AUDIO:")) {
+                String[] parts = header.split(":", 3);
+                String sender = parts[1];
+                String receiver = callSessions.get(sender);
+                if (receiver != null) {
+                    InetSocketAddress receiverAddr = activeCallers.get(receiver);
+                    if (receiverAddr != null) {
+                        // Enviar el paquete original (bytes puros) al receptor
+                        DatagramPacket forward = new DatagramPacket(
                                 packet.getData(), packet.getLength(), receiverAddr
-                            ));
-                        }
+                        );
+                        socket.send(forward);
                     }
-                    break;
-
-                case "END_CALL":
-                    callSessions.remove(username);
-                    System.out.println("[UDP] 🔴 " + username + " finalizó llamada");
-                    break;
+                }
+            } else if (header.startsWith("END_CALL:")) {
+                String user = header.split(":")[1];
+                callSessions.remove(user);
+                System.out.println("[UDP] " + user + " finalizó llamada");
             }
-
         } catch (Exception e) {
             System.err.println("Error procesando paquete UDP: " + e.getMessage());
         }

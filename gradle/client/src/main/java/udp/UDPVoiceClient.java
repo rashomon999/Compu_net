@@ -6,6 +6,7 @@ import java.net.*;
 public class UDPVoiceClient {
     private static final String SERVER_HOST = "localhost";
     private static final int UDP_PORT = 9091;
+
     private DatagramSocket socket;
     private String username;
     private boolean inCall = false;
@@ -15,14 +16,11 @@ public class UDPVoiceClient {
     public UDPVoiceClient(String username) throws Exception {
         this.username = username;
         this.socket = new DatagramSocket();
-        
+
         // Registrarse en el servidor UDP
         String registerMsg = "REGISTER:" + username;
         byte[] data = registerMsg.getBytes();
-        DatagramPacket packet = new DatagramPacket(
-            data, data.length,
-            InetAddress.getByName(SERVER_HOST), UDP_PORT
-        );
+        DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName(SERVER_HOST), UDP_PORT);
         socket.send(packet);
         System.out.println(" Registrado en servidor UDP de voz");
     }
@@ -37,22 +35,18 @@ public class UDPVoiceClient {
             // Notificar inicio de llamada
             String callMsg = "CALL:" + username + ":" + targetUser;
             byte[] data = callMsg.getBytes();
-            DatagramPacket packet = new DatagramPacket(
-                data, data.length,
-                InetAddress.getByName(SERVER_HOST), UDP_PORT
-            );
+            DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName(SERVER_HOST), UDP_PORT);
             socket.send(packet);
 
             inCall = true;
             System.out.println(" Llamada iniciada con " + targetUser);
-            System.out.println(" Hablando... (presiona CTRL+C para colgar)");
 
             // Thread para enviar audio
-            sendThread = new Thread(() -> sendAudio());
+            sendThread = new Thread(this::sendAudio);
             sendThread.start();
 
             // Thread para recibir audio
-            receiveThread = new Thread(() -> receiveAudio());
+            receiveThread = new Thread(this::receiveAudio);
             receiveThread.start();
 
         } catch (Exception e) {
@@ -63,50 +57,37 @@ public class UDPVoiceClient {
     private void sendAudio() {
         try {
             AudioFormat format = new AudioFormat(8000, 16, 1, true, true);
-            DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
-            TargetDataLine microphone = (TargetDataLine) AudioSystem.getLine(info);
-            
-            microphone.open(format);
-            microphone.start();
+            TargetDataLine mic = AudioSystem.getTargetDataLine(format);
+            mic.open(format);
+            mic.start();
 
-            byte[] buffer = new byte[512]; // Paquetes pequeños para baja latencia
+            byte[] buffer = new byte[512];
 
             while (inCall) {
-                int bytesRead = microphone.read(buffer, 0, buffer.length);
-                
+                int bytesRead = mic.read(buffer, 0, buffer.length);
                 if (bytesRead > 0) {
-                    // Preparar mensaje: AUDIO:username:audioData
-                    String header = "AUDIO:" + username + ":";
-                    byte[] headerBytes = header.getBytes();
-                    byte[] packet = new byte[headerBytes.length + bytesRead];
-                    
-                    System.arraycopy(headerBytes, 0, packet, 0, headerBytes.length);
-                    System.arraycopy(buffer, 0, packet, headerBytes.length, bytesRead);
+                    byte[] header = ("AUDIO:" + username + ":").getBytes();
+                    byte[] packetData = new byte[header.length + bytesRead];
+                    System.arraycopy(header, 0, packetData, 0, header.length);
+                    System.arraycopy(buffer, 0, packetData, header.length, bytesRead);
 
-                    DatagramPacket udpPacket = new DatagramPacket(
-                        packet, packet.length,
-                        InetAddress.getByName(SERVER_HOST), UDP_PORT
-                    );
-                    socket.send(udpPacket);
+                    DatagramPacket packet = new DatagramPacket(packetData, packetData.length,
+                            InetAddress.getByName(SERVER_HOST), UDP_PORT);
+                    socket.send(packet);
                 }
             }
 
-            microphone.stop();
-            microphone.close();
-
+            mic.stop();
+            mic.close();
         } catch (Exception e) {
-            if (inCall) {
-                System.err.println("Error enviando audio: " + e.getMessage());
-            }
+            if (inCall) System.err.println("Error enviando audio: " + e.getMessage());
         }
     }
 
     private void receiveAudio() {
         try {
             AudioFormat format = new AudioFormat(8000, 16, 1, true, true);
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-            SourceDataLine speaker = (SourceDataLine) AudioSystem.getLine(info);
-            
+            SourceDataLine speaker = AudioSystem.getSourceDataLine(format);
             speaker.open(format);
             speaker.start();
 
@@ -114,55 +95,40 @@ public class UDPVoiceClient {
 
             while (inCall) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.setSoTimeout(5000); // 5 segundos timeout
-                
-                try {
-                    socket.receive(packet);
-                    
-                    String message = new String(packet.getData(), 0, packet.getLength());
-                    
-                    if (message.startsWith("AUDIO:")) {
-                        // Extraer audio del mensaje
-                        String[] parts = message.split(":", 3);
-                        if (parts.length >= 3) {
-                            byte[] audioData = parts[2].getBytes();
-                            speaker.write(audioData, 0, audioData.length);
-                        }
-                    } else if (message.startsWith("INCOMING_CALL:")) {
-                        String caller = message.split(":")[1];
-                        System.out.println("\n LLAMADA ENTRANTE de " + caller);
-                    }
-                } catch (SocketTimeoutException e) {
-                    // Continue esperando
+                socket.receive(packet);
+
+                String header = new String(packet.getData(), 0, Math.min(packet.getLength(), 100));
+                if (header.startsWith("AUDIO:")) {
+                    // Saltar los primeros bytes del header
+                    int headerLen = header.indexOf(":", header.indexOf(":") + 1) + 1;
+                    int audioLen = packet.getLength() - headerLen;
+                    speaker.write(packet.getData(), headerLen, audioLen);
+                } else if (header.startsWith("INCOMING_CALL:")) {
+                    String caller = header.split(":")[1];
+                    System.out.println("\n LLAMADA ENTRANTE de " + caller);
                 }
             }
 
             speaker.drain();
-            speaker.stop();
             speaker.close();
-
         } catch (Exception e) {
-            if (inCall) {
-                System.err.println(" Error recibiendo audio: " + e.getMessage());
-            }
+            if (inCall) System.err.println("Error recibiendo audio: " + e.getMessage());
         }
     }
 
     public void endCall() {
         if (!inCall) return;
-        
+
         inCall = false;
-        
+
         try {
             String endMsg = "END_CALL:" + username;
             byte[] data = endMsg.getBytes();
-            DatagramPacket packet = new DatagramPacket(
-                data, data.length,
-                InetAddress.getByName(SERVER_HOST), UDP_PORT
-            );
+            DatagramPacket packet = new DatagramPacket(data, data.length,
+                    InetAddress.getByName(SERVER_HOST), UDP_PORT);
             socket.send(packet);
         } catch (Exception e) {
-            System.err.println(" Error finalizando llamada: " + e.getMessage());
+            System.err.println("Error finalizando llamada: " + e.getMessage());
         }
 
         System.out.println(" Llamada finalizada");
@@ -171,25 +137,5 @@ public class UDPVoiceClient {
     public void close() {
         endCall();
         socket.close();
-    }
-
-    // Método main para probar llamadas independientemente
-    public static void main(String[] args) throws Exception {
-        System.out.print("Tu nombre de usuario: ");
-        String username = new java.util.Scanner(System.in).nextLine();
-        
-        UDPVoiceClient client = new UDPVoiceClient(username);
-        
-        System.out.print("Llamar a: ");
-        String target = new java.util.Scanner(System.in).nextLine();
-        
-        client.startCall(target);
-        
-        // Mantener vivo
-        System.out.println("Presiona ENTER para colgar...");
-        System.in.read();
-        
-        client.endCall();
-        client.close();
     }
 }

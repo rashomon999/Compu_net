@@ -27,7 +27,7 @@ public class AudioPlayer {
             speaker.open(format);
             speaker.start();
             
-            System.out.println("🔊 Reproduciendo...");
+            System.out.println(" Reproduciendo...");
             
             byte[] buffer = new byte[4096];
             int bytesRead;
@@ -40,13 +40,13 @@ public class AudioPlayer {
             speaker.close();
             audioStream.close();
             
-            System.out.println("✅ Reproducción completada");
+            System.out.println(" Reproducción completada");
             
         } catch (LineUnavailableException e) {
-            System.err.println("❌ Error: Altavoz no disponible");
+            System.err.println(" Error: Altavoz no disponible");
             System.err.println("   Verifica los dispositivos de audio del sistema");
         } catch (Exception e) {
-            System.err.println("❌ Error reproduciendo audio: " + e.getMessage());
+            System.err.println(" Error reproduciendo audio: " + e.getMessage());
             e.printStackTrace();
         }
     }
