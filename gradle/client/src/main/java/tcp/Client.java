@@ -160,7 +160,7 @@ public class Client {
                     break;
 
                 default:
-                    System.out.println("❌ Opción no válida");
+                    System.out.println(" Opción no válida");
             }
         }
     }

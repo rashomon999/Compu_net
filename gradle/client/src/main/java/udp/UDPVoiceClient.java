@@ -24,12 +24,12 @@ public class UDPVoiceClient {
             InetAddress.getByName(SERVER_HOST), UDP_PORT
         );
         socket.send(packet);
-        System.out.println("✅ Registrado en servidor UDP de voz");
+        System.out.println(" Registrado en servidor UDP de voz");
     }
 
     public void startCall(String targetUser) {
         if (inCall) {
-            System.out.println("❌ Ya estás en una llamada");
+            System.out.println(" Ya estás en una llamada");
             return;
         }
 
@@ -44,8 +44,8 @@ public class UDPVoiceClient {
             socket.send(packet);
 
             inCall = true;
-            System.out.println("📞 Llamada iniciada con " + targetUser);
-            System.out.println("🎤 Hablando... (presiona CTRL+C para colgar)");
+            System.out.println(" Llamada iniciada con " + targetUser);
+            System.out.println(" Hablando... (presiona CTRL+C para colgar)");
 
             // Thread para enviar audio
             sendThread = new Thread(() -> sendAudio());
@@ -56,7 +56,7 @@ public class UDPVoiceClient {
             receiveThread.start();
 
         } catch (Exception e) {
-            System.err.println("❌ Error iniciando llamada: " + e.getMessage());
+            System.err.println(" Error iniciando llamada: " + e.getMessage());
         }
     }
 
@@ -96,7 +96,7 @@ public class UDPVoiceClient {
 
         } catch (Exception e) {
             if (inCall) {
-                System.err.println("❌ Error enviando audio: " + e.getMessage());
+                System.err.println("Error enviando audio: " + e.getMessage());
             }
         }
     }
@@ -130,7 +130,7 @@ public class UDPVoiceClient {
                         }
                     } else if (message.startsWith("INCOMING_CALL:")) {
                         String caller = message.split(":")[1];
-                        System.out.println("\n📞 LLAMADA ENTRANTE de " + caller);
+                        System.out.println("\n LLAMADA ENTRANTE de " + caller);
                     }
                 } catch (SocketTimeoutException e) {
                     // Continue esperando
@@ -143,7 +143,7 @@ public class UDPVoiceClient {
 
         } catch (Exception e) {
             if (inCall) {
-                System.err.println("❌ Error recibiendo audio: " + e.getMessage());
+                System.err.println(" Error recibiendo audio: " + e.getMessage());
             }
         }
     }
@@ -162,10 +162,10 @@ public class UDPVoiceClient {
             );
             socket.send(packet);
         } catch (Exception e) {
-            System.err.println("❌ Error finalizando llamada: " + e.getMessage());
+            System.err.println(" Error finalizando llamada: " + e.getMessage());
         }
 
-        System.out.println("🔴 Llamada finalizada");
+        System.out.println(" Llamada finalizada");
     }
 
     public void close() {
