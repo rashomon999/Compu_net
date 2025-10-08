@@ -26,12 +26,12 @@ public class UDPVoiceClient {
         DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName(SERVER_HOST), UDP_PORT);
         socket.send(packet);
 
-        System.out.println("✅ Registrado en el servidor UDP de voz");
+        System.out.println(" Registrado en el servidor UDP de voz");
     }
 
     public void startCall(String targetUser) {
         if (inCall) {
-            System.out.println("⚠️ Ya estás en una llamada");
+            System.out.println(" Ya estás en una llamada");
             return;
         }
 
@@ -43,7 +43,7 @@ public class UDPVoiceClient {
             socket.send(packet);
 
             inCall = true;
-            System.out.println("📞 Llamada iniciada con " + targetUser);
+            System.out.println(" Llamada iniciada con " + targetUser);
 
             sendThread = new Thread(() -> sendAudio());
             receiveThread = new Thread(() -> receiveAudio());
@@ -52,7 +52,7 @@ public class UDPVoiceClient {
             receiveThread.start();
 
         } catch (Exception e) {
-            System.err.println("❌ Error iniciando llamada: " + e.getMessage());
+            System.err.println(" Error iniciando llamada: " + e.getMessage());
         }
     }
 
@@ -79,7 +79,7 @@ public class UDPVoiceClient {
 
         } catch (Exception e) {
             if (inCall)
-                System.err.println("❌ Error enviando audio: " + e.getMessage());
+                System.err.println(" Error enviando audio: " + e.getMessage());
         }
     }
 
@@ -109,7 +109,7 @@ public class UDPVoiceClient {
 
         } catch (Exception e) {
             if (inCall)
-                System.err.println("❌ Error recibiendo audio: " + e.getMessage());
+                System.err.println(" Error recibiendo audio: " + e.getMessage());
         }
     }
 
@@ -126,10 +126,10 @@ public class UDPVoiceClient {
                     InetAddress.getByName(SERVER_HOST), UDP_PORT);
             socket.send(packet);
         } catch (Exception e) {
-            System.err.println("⚠️ Error finalizando llamada: " + e.getMessage());
+            System.err.println(" Error finalizando llamada: " + e.getMessage());
         }
 
-        System.out.println("📴 Llamada finalizada");
+        System.out.println(" Llamada finalizada");
     }
 
     public void close() {

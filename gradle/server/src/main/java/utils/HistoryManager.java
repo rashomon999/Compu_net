@@ -1,7 +1,5 @@
 package utils;
 
- 
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -19,12 +17,14 @@ public class HistoryManager {
     
     private List<ChatMessage> messages;
     private Map<String, Group> groups;
+    private AudioFileManager audioManager;
     private Gson gson;
 
     public HistoryManager() {
         this.gson = new GsonBuilder()
                 .setPrettyPrinting()
                 .create();
+        this.audioManager = new AudioFileManager();
         
         this.messages = loadMessages();
         this.groups = loadGroups();
@@ -33,7 +33,7 @@ public class HistoryManager {
         System.out.println("✓ Grupos cargados: " + groups.size() + " grupos\n");
     }
 
-    // ========== MENSAJES ==========
+    // ========== MENSAJES DE TEXTO ==========
     
     public void saveMessage(String sender, String recipient, String type, String content, boolean isGroup) {
         ChatMessage msg = new ChatMessage(sender, recipient, type, content, isGroup);
@@ -43,6 +43,48 @@ public class HistoryManager {
         System.out.println("[💾] " + msg);
     }
 
+    // ========== MENSAJES DE VOZ ==========
+    
+    /**
+     * Guarda un mensaje de voz con persistencia de archivo de audio
+     */
+    public void saveVoiceMessage(String sender, String recipient, byte[] audioData, boolean isGroup) {
+        try {
+            // Guardar archivo de audio
+            String audioFilename = audioManager.saveAudio(audioData, sender, recipient);
+            
+            if (audioFilename != null) {
+                // Crear mensaje con referencia al archivo
+                String content = "[AUDIO_FILE:" + audioFilename + "]";
+                ChatMessage msg = new ChatMessage(sender, recipient, "VOICE", content, isGroup);
+                messages.add(msg);
+                persistMessages();
+                
+                String icon = isGroup ? "👥" : "💬";
+                String prefix = isGroup ? "[GRUPO: " + recipient + "]" : "[PRIVADO]";
+                System.out.println("[💾] " + icon + " " + prefix + " [VOZ] " + 
+                                 sender + " → " + recipient + 
+                                 " (" + audioData.length + " bytes)");
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error guardando mensaje de voz: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Recupera el audio de un mensaje de voz guardado
+     */
+    public byte[] getAudioFromMessage(ChatMessage msg) {
+        if (msg.type.equals("VOICE") && msg.content.startsWith("[AUDIO_FILE:")) {
+            String filename = msg.content.replaceAll("\\[AUDIO_FILE:|\\]", "");
+            return audioManager.loadAudio(filename);
+        }
+        return null;
+    }
+
+    // ========== HISTORIAL GENERAL ==========
+    
     public List<ChatMessage> getConversationHistory(String user1, String user2) {
         return messages.stream()
                 .filter(msg -> !msg.isGroup && (
@@ -60,6 +102,24 @@ public class HistoryManager {
 
     public List<ChatMessage> getAllMessages() {
         return new ArrayList<>(messages);
+    }
+    
+    /**
+     * Obtiene todos los mensajes de un usuario (enviados y recibidos)
+     */
+    public List<ChatMessage> getUserMessages(String username) {
+        return messages.stream()
+                .filter(msg -> msg.sender.equals(username) || msg.recipient.equals(username))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Obtiene solo mensajes de voz
+     */
+    public List<ChatMessage> getVoiceMessages() {
+        return messages.stream()
+                .filter(msg -> msg.type.equals("VOICE"))
+                .collect(Collectors.toList());
     }
 
     private void persistMessages() {

@@ -61,7 +61,6 @@ public class ClientHandler implements Runnable {
                 if (obj instanceof String cmdLine) {
                     processCommand(cmdLine);
                 } else if (obj instanceof VoiceMessage voiceMsg) {
-                    // ✅ CORRECTO: Recibir y reenviar VoiceMessage directamente
                     processVoiceMessage(voiceMsg);
                 }
             }
@@ -106,7 +105,9 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    // ✅ NUEVO: Procesar VoiceMessage como objeto
+    /**
+     * Procesa y guarda mensajes de voz con persistencia de archivo
+     */
     private void processVoiceMessage(VoiceMessage voiceMsg) {
         try {
             String targetUser = voiceMsg.getTarget();
@@ -116,28 +117,27 @@ public class ClientHandler implements Runnable {
                 System.out.println("[🎤] " + username + " → " + targetUser + 
                                  " (audio: " + voiceMsg.getAudioData().length + " bytes)");
                 
+                // Guardar el mensaje de voz con persistencia
+                history.saveVoiceMessage(username, targetUser, voiceMsg.getAudioData(), false);
+                
                 // Reenviar el VoiceMessage directamente
                 targetOut.writeObject(voiceMsg);
                 targetOut.flush();
 
                 out.writeObject("✅ Nota de voz enviada a " + targetUser);
                 out.flush();
-
-                history.saveMessage(username, targetUser, "VOICE",
-                        "[Audio " + voiceMsg.getAudioData().length + " bytes]", false);
             } else {
                 out.writeObject("ERROR: Usuario " + targetUser + " no conectado");
                 out.flush();
+                
+                // Aun así guardar el intento de envío
+                history.saveVoiceMessage(username, targetUser, voiceMsg.getAudioData(), false);
             }
         } catch (IOException e) {
             System.err.println("Error enviando nota de voz: " + e.getMessage());
             e.printStackTrace();
         }
     }
-
-    // ==========================
-    // Métodos auxiliares
-    // ==========================
 
     private void sendTextToUser(String targetUser, String message) throws IOException {
         ObjectOutputStream targetOut = clients.get(targetUser);

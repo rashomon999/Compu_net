@@ -5,8 +5,12 @@ import java.net.Socket;
 import java.util.Scanner;
 
 import udp.UDPVoiceClient;
+
 import utils.AudioCapturer;
 import utils.AudioPlayer;
+ 
+
+
 import utils.VoiceMessage;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -20,7 +24,7 @@ public class Client {
         int tcpPort = 9090;
 
         try (Socket socket = new Socket(host, tcpPort)) {
-            System.out.println("✅ Conectado al servidor " + host + ":" + tcpPort);
+            System.out.println(" Conectado al servidor " + host + ":" + tcpPort);
 
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
@@ -48,7 +52,7 @@ new Thread(() -> {
         Object obj;
         while ((obj = in.readObject()) != null) {
             if (obj instanceof String text) {
-                incoming.add("📩 " + text);
+                incoming.add(text);
             } else if (obj instanceof VoiceMessage vm) {
                 incoming.add("🎤 Nota de voz de " + vm.getSender() +
                             " (" + vm.getAudioData().length + " bytes)");
@@ -56,7 +60,7 @@ new Thread(() -> {
             }
         }
     } catch (Exception e) {
-        incoming.add("❌ Conexión cerrada por el servidor.");
+        incoming.add(" Conexión cerrada por el servidor.");
     }
 }).start();
 
@@ -98,20 +102,20 @@ new Thread(() -> {
                         System.out.print("Duración (segundos): ");
                         int duration = Integer.parseInt(sc.nextLine());
 
-                        System.out.println("\n🎙️  Grabando nota de voz...");
+                        System.out.println("\n  Grabando nota de voz...");
                         byte[] audioData = AudioCapturer.captureAudio(duration);
                         
                         if (audioData != null && audioData.length > 0) {
-                            System.out.println("✅ Grabación completada (" + audioData.length + " bytes), enviando...");
+                            System.out.println(" Grabación completada (" + audioData.length + " bytes), enviando...");
                             
-                            // ✅ CORRECTO: Enviar objeto VoiceMessage directamente
+                            //  CORRECTO: Enviar objeto VoiceMessage directamente
                             VoiceMessage voiceMsg = new VoiceMessage(username, target, audioData);
                             out.writeObject(voiceMsg);
                             out.flush();
                             
-                            System.out.println("✅ Nota de voz enviada");
+                            System.out.println(" Nota de voz enviada");
                         } else {
-                            System.out.println("❌ Error al grabar audio");
+                            System.out.println(" Error al grabar audio");
                         }
                     }
 
@@ -131,12 +135,12 @@ new Thread(() -> {
                     }
 
                     case "6" -> {
-                        System.out.println("👋 Saliendo del chat...");
+                        System.out.println(" Saliendo del chat...");
                         voiceClient.close();
                         running = false;
                     }
 
-                    default -> System.out.println("❌ Opción inválida.");
+                    default -> System.out.println(" Opción inválida.");
                 }
             }
 
@@ -144,7 +148,7 @@ new Thread(() -> {
             sc.close();
 
         } catch (Exception e) {
-            System.err.println("❌ Error en el cliente: " + e.getMessage());
+            System.err.println(" Error en el cliente: " + e.getMessage());
             e.printStackTrace();
         }
     }
