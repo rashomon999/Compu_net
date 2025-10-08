@@ -1,6 +1,8 @@
 package tcp;
 
 import utils.HistoryManager;
+import utils.VoiceMessage;
+
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
@@ -8,12 +10,12 @@ import java.util.*;
 public class ClientHandler implements Runnable {
     private Socket socket;
     private String username;
-    private PrintWriter out;
-    private BufferedReader in;
-    private Map<String, PrintWriter> clients;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
+    private Map<String, ObjectOutputStream> clients;
     private HistoryManager history;
 
-    public ClientHandler(Socket socket, Map<String, PrintWriter> clients, HistoryManager history) {
+    public ClientHandler(Socket socket, Map<String, ObjectOutputStream> clients, HistoryManager history) {
         this.socket = socket;
         this.clients = clients;
         this.history = history;
@@ -22,24 +24,30 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
+            out = new ObjectOutputStream(socket.getOutputStream());
+            in = new ObjectInputStream(socket.getInputStream());
 
-            // Solicitar y registrar nombre de usuario
-            out.println("Ingresa tu nombre de usuario:");
-            String input = in.readLine();
-            if (input != null && input.startsWith("REGISTER ")) {
+            // Solicitar registro
+            out.writeObject("Ingresa tu nombre de usuario:");
+            out.flush();
+
+            Object inputObj = in.readObject();
+            if (inputObj instanceof String input && input.startsWith("REGISTER ")) {
                 username = input.split(" ", 2)[1].trim();
                 if (username.isEmpty() || clients.containsKey(username)) {
-                    out.println(" ERROR: Nombre de usuario invalido o ya en uso");
+                    out.writeObject("ERROR: Nombre de usuario inválido o ya en uso");
+                    out.flush();
                     socket.close();
                     return;
                 }
+
                 synchronized (clients) {
                     clients.put(username, out);
                 }
-                out.println(" Registrado como " + username);
-                broadcast(username + " se ha unido al chat");
+
+                out.writeObject("Registrado como " + username);
+                out.flush();
+                broadcast("[Servidor]: " + username + " se ha unido al chat");
             } else {
                 socket.close();
                 return;
@@ -47,14 +55,19 @@ public class ClientHandler implements Runnable {
 
             System.out.println("[+] " + username + " conectado desde " + socket.getInetAddress());
 
-            // Procesar comandos del cliente
-            String line;
-            while ((line = in.readLine()) != null) {
-                processCommand(line);
+            // Escucha de comandos y objetos del cliente
+            Object obj;
+            while ((obj = in.readObject()) != null) {
+                if (obj instanceof String cmdLine) {
+                    processCommand(cmdLine);
+                } else if (obj instanceof VoiceMessage voiceMsg) {
+                    // ✅ CORRECTO: Recibir y reenviar VoiceMessage directamente
+                    processVoiceMessage(voiceMsg);
+                }
             }
 
-        } catch (IOException e) {
-            System.err.println("Error con cliente " + username);
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Error con cliente " + username + ": " + e.getMessage());
         } finally {
             disconnect();
         }
@@ -63,196 +76,124 @@ public class ClientHandler implements Runnable {
     private void processCommand(String command) {
         String[] parts = command.split(" ", 3);
         if (parts.length == 0) return;
-
         String cmd = parts[0];
 
         try {
             switch (cmd) {
-                // =======================
-                // Gestión de grupos
-                // =======================
-                case "CREATE_GROUP":
-                    if (parts.length >= 2) {
-                        String groupName = parts[1];
-                        boolean created = history.createGroup(groupName, username);
-                        if (created) out.println(" Grupo '" + groupName + "' creado exitosamente");
-                        else out.println(" ERROR: El grupo '" + groupName + "' ya existe");
-                    }
-                    break;
-
-                case "ADD_TO_GROUP":
-                    if (parts.length >= 3) {
-                        String groupName = parts[1];
-                        String userToAdd = parts[2];
-                        if (history.groupExists(groupName)) {
-                            history.addUserToGroup(groupName, userToAdd);
-                            out.println("Usuario " + userToAdd + " añadido a " + groupName);
-                            PrintWriter targetOut = clients.get(userToAdd);
-                            if (targetOut != null) targetOut.println(" Has sido añadido al grupo: " + groupName);
-                        } else out.println(" ERROR: El grupo no existe");
-                    }
-                    break;
-
-                // =======================
-                // Mensajes de texto
-                // =======================
                 case "MSG_USER":
-                    if (parts.length >= 3) {
-                        sendTextToUser(parts[1], parts[2]);
-                    }
+                    if (parts.length >= 3) sendTextToUser(parts[1], parts[2]);
                     break;
 
                 case "MSG_GROUP":
-                    if (parts.length >= 3) {
-                        sendTextToGroup(parts[1], parts[2]);
-                    }
-                    break;
-
-                // =======================
-                // Notas de voz (TCP)
-                // =======================
-                case "VOICE_USER":
-                    if (parts.length >= 3) {
-                        sendVoiceToUser(parts[1], parts[2]);
-                    }
-                    break;
-
-                case "VOICE_GROUP":
-                    if (parts.length >= 3) {
-                        sendVoiceToGroup(parts[1], parts[2]);
-                    }
-                    break;
-
-                // =======================
-                // Historial
-                // =======================
-                case "GET_HISTORY":
-                    if (parts.length >= 2) {
-                        getHistory(parts[1]);
-                    }
-                    break;
-
-                // =======================
-                // Gestión de usuarios
-                // =======================
-                case "ADD_USER":
-                    if (parts.length >= 2) addUser(parts[1]);
+                    if (parts.length >= 3) sendTextToGroup(parts[1], parts[2]);
                     break;
 
                 case "LIST_USERS":
                     listUsers();
                     break;
 
-                // =======================
-                // Llamadas en vivo (UDP)
-                // =======================
-                case "START_CALL":
-                    if (parts.length >= 2) {
-                        String targetUser = parts[1];
-                        out.println("Para iniciar llamada en vivo, usa UDPVoiceClient hacia: " + targetUser);
-                        // Aquí solo notificamos que se puede usar UDP.
-                    }
-                    break;
-
                 default:
-                    out.println(" ERROR: Comando desconocido '" + cmd + "'");
+                    out.writeObject("ERROR: Comando desconocido '" + cmd + "'");
+                    out.flush();
             }
         } catch (Exception e) {
-            out.println(" ERROR: " + e.getMessage());
+            try {
+                out.writeObject("ERROR: " + e.getMessage());
+                out.flush();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
-    // =======================
+    // ✅ NUEVO: Procesar VoiceMessage como objeto
+    private void processVoiceMessage(VoiceMessage voiceMsg) {
+        try {
+            String targetUser = voiceMsg.getTarget();
+            ObjectOutputStream targetOut = clients.get(targetUser);
+            
+            if (targetOut != null) {
+                System.out.println("[🎤] " + username + " → " + targetUser + 
+                                 " (audio: " + voiceMsg.getAudioData().length + " bytes)");
+                
+                // Reenviar el VoiceMessage directamente
+                targetOut.writeObject(voiceMsg);
+                targetOut.flush();
+
+                out.writeObject("✅ Nota de voz enviada a " + targetUser);
+                out.flush();
+
+                history.saveMessage(username, targetUser, "VOICE",
+                        "[Audio " + voiceMsg.getAudioData().length + " bytes]", false);
+            } else {
+                out.writeObject("ERROR: Usuario " + targetUser + " no conectado");
+                out.flush();
+            }
+        } catch (IOException e) {
+            System.err.println("Error enviando nota de voz: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // ==========================
     // Métodos auxiliares
-    // =======================
+    // ==========================
 
-    private void sendTextToUser(String targetUser, String message) {
-        PrintWriter targetOut = clients.get(targetUser);
+    private void sendTextToUser(String targetUser, String message) throws IOException {
+        ObjectOutputStream targetOut = clients.get(targetUser);
         if (targetOut != null) {
-            targetOut.println(" [" + username + "]: " + message);
-            out.println(" Mensaje enviado a " + targetUser);
+            targetOut.writeObject("[" + username + "]: " + message);
+            targetOut.flush();
+
+            out.writeObject("Mensaje enviado a " + targetUser);
+            out.flush();
+
             history.saveMessage(username, targetUser, "TEXT", message, false);
-        } else out.println(" ERROR: Usuario " + targetUser + " no conectado");
-    }
-
-    private void sendTextToGroup(String groupName, String message) {
-        List<String> members = history.getGroupMembers(groupName);
-        if (!members.isEmpty()) {
-            for (String member : members) {
-                if (!member.equals(username)) {
-                    PrintWriter memberOut = clients.get(member);
-                    if (memberOut != null) memberOut.println("👥 [" + groupName + "] " + username + ": " + message);
-                }
-            }
-            out.println("Mensaje enviado al grupo " + groupName);
-            history.saveMessage(username, groupName, "TEXT", message, true);
-        } else out.println(" ERROR: El grupo no existe o esta vacio");
-    }
-
-    private void sendVoiceToUser(String targetUser, String audioBase64) {
-        PrintWriter targetOut = clients.get(targetUser);
-        if (targetOut != null) {
-            targetOut.println("VOICE_FROM " + username + " " + audioBase64);
-            out.println(" Nota de voz enviada a " + targetUser);
-            history.saveMessage(username, targetUser, "VOICE", "[Audio " + audioBase64.length() + " bytes]", false);
-        } else out.println(" ERROR: Usuario no conectado");
-    }
-
-    private void sendVoiceToGroup(String groupName, String audioBase64) {
-        List<String> members = history.getGroupMembers(groupName);
-        if (!members.isEmpty()) {
-            for (String member : members) {
-                if (!member.equals(username)) {
-                    PrintWriter memberOut = clients.get(member);
-                    if (memberOut != null) memberOut.println("VOICE_FROM " + username + " " + audioBase64);
-                }
-            }
-            out.println(" Nota de voz enviada al grupo " + groupName);
-            history.saveMessage(username, groupName, "VOICE", "[Audio " + audioBase64.length() + " bytes]", true);
-        } else out.println(" ERROR: El grupo no existe");
-    }
-
-    private void getHistory(String target) {
-        List<HistoryManager.ChatMessage> msgs;
-        if (history.groupExists(target)) msgs = history.getGroupHistory(target);
-        else msgs = history.getConversationHistory(username, target);
-
-        out.println("\n╔════════════════════════════════════╗");
-        out.println("║   HISTORIAL CON " + target);
-        out.println("╚════════════════════════════════════╝");
-        if (msgs.isEmpty()) out.println("No hay mensajes registrados");
-        else msgs.forEach(msg -> out.println(msg.toString()));
-        out.println("════════════════════════════════════");
-    }
-
-    private void addUser(String newUser) {
-        if (!clients.containsKey(newUser)) out.println(" ERROR: El usuario " + newUser + " no esta conectado");
-        else {
-            out.println(" Usuario " + newUser + " esta disponible para interaccion");
-            PrintWriter targetOut = clients.get(newUser);
-            if (targetOut != null) targetOut.println(username + " te ha agregado como contacto");
+        } else {
+            out.writeObject("ERROR: Usuario " + targetUser + " no conectado");
+            out.flush();
         }
     }
 
-    private void listUsers() {
-        String userList = String.join(", ", clients.keySet());
-        out.println(" Usuarios conectados: " + (userList.isEmpty() ? "Ninguno" : userList));
+    private void sendTextToGroup(String groupName, String message) throws IOException {
+        List<String> members = history.getGroupMembers(groupName);
+        for (String member : members) {
+            if (!member.equals(username)) {
+                ObjectOutputStream memberOut = clients.get(member);
+                if (memberOut != null) {
+                    memberOut.writeObject("[" + groupName + "] " + username + ": " + message);
+                    memberOut.flush();
+                }
+            }
+        }
+        out.writeObject("Mensaje enviado al grupo " + groupName);
+        out.flush();
+        history.saveMessage(username, groupName, "TEXT", message, true);
     }
 
-    private void broadcast(String message) {
-        for (PrintWriter writer : clients.values()) writer.println(message);
+    private void listUsers() throws IOException {
+        String userList = String.join(", ", clients.keySet());
+        out.writeObject("Usuarios conectados: " + (userList.isEmpty() ? "Ninguno" : userList));
+        out.flush();
+    }
+
+    private void broadcast(String message) throws IOException {
+        for (ObjectOutputStream writer : clients.values()) {
+            writer.writeObject(message);
+            writer.flush();
+        }
     }
 
     private void disconnect() {
         if (username != null) {
             clients.remove(username);
-            broadcast(username + " se ha desconectado");
+            try {
+                broadcast(username + " se ha desconectado");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             System.out.println("[-] " + username + " desconectado");
         }
-        try {
-            socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        try { socket.close(); } catch (IOException e) { e.printStackTrace(); }
     }
 }

@@ -8,7 +8,9 @@ import java.util.concurrent.*;
 
 public class Server {
     private static final int PORT = 9090;
-    private static Map<String, PrintWriter> clients = new ConcurrentHashMap<>();
+
+    // Cambiamos PrintWriter por ObjectOutputStream
+    private static Map<String, ObjectOutputStream> clients = new ConcurrentHashMap<>();
     private static HistoryManager history;
 
     public static void main(String[] args) throws IOException {
@@ -17,13 +19,14 @@ public class Server {
         System.out.println("╚════════════════════════════════╝");
         System.out.println("Puerto TCP: " + PORT);
         System.out.println("Esperando conexiones...\n");
-        
+
         history = new HistoryManager();
-        
+
         ServerSocket serverSocket = new ServerSocket(PORT);
-        
+
         while (true) {
             Socket clientSocket = serverSocket.accept();
+            // Iniciamos un ClientHandler con ObjectOutputStream map
             new Thread(new ClientHandler(clientSocket, clients, history)).start();
         }
     }

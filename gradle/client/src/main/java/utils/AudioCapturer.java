@@ -5,12 +5,18 @@ import java.io.ByteArrayOutputStream;
 
 public class AudioCapturer {
     
+    // Formato de audio consistente (exportado para que AudioPlayer lo use)
+    public static final AudioFormat AUDIO_FORMAT = new AudioFormat(
+        16000.0f,  // sampleRate
+        16,        // sampleSizeInBits
+        1,         // channels (mono)
+        true,      // signed
+        false      // bigEndian (CAMBIADO A FALSE para mejor compatibilidad)
+    );
+    
     public static byte[] captureAudio(int durationSeconds) {
         try {
-            // Formato de audio: 16kHz, 16 bits, mono
-            AudioFormat format = new AudioFormat(16000, 16, 1, true, true);
-            
-            DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
+            DataLine.Info info = new DataLine.Info(TargetDataLine.class, AUDIO_FORMAT);
             
             if (!AudioSystem.isLineSupported(info)) {
                 System.err.println(" Línea de audio no soportada");
@@ -19,7 +25,7 @@ public class AudioCapturer {
             
             TargetDataLine microphone = (TargetDataLine) AudioSystem.getLine(info);
             
-            microphone.open(format);
+            microphone.open(AUDIO_FORMAT);
             microphone.start();
             
             System.out.println("  Grabando...");
@@ -42,16 +48,19 @@ public class AudioCapturer {
                 }
             }
             
-            System.out.println("  Grabación completa!");
+            System.out.println("\n Grabación completa!");
             
             microphone.stop();
             microphone.close();
             
-            return out.toByteArray();
+            byte[] audioData = out.toByteArray();
+            System.out.println(" Audio capturado: " + audioData.length + " bytes");
+            
+            return audioData;
             
         } catch (LineUnavailableException e) {
-            System.err.println("Error: Micrófono no disponible");
-            System.err.println("   Verifica los permisos del sistema");
+            System.err.println(" Error: Micrófono no disponible");
+            System.err.println("  Verifica los permisos del sistema");
             return null;
         } catch (Exception e) {
             System.err.println(" Error capturando audio: " + e.getMessage());
@@ -62,13 +71,28 @@ public class AudioCapturer {
 
     // Método de prueba
     public static void main(String[] args) {
-        System.out.println("Probando captura de audio...");
-        System.out.println("Grabando 3 segundos...");
+        System.out.println(" Probando captura de audio...");
+        System.out.println(" Grabando 3 segundos...");
         
         byte[] audio = captureAudio(3);
         
         if (audio != null) {
-            System.out.println(" Audio capturado: " + audio.length + " bytes");
+            System.out.println("Audio capturado: " + audio.length + " bytes");
+            
+            // Verificar que no sea silencio
+            boolean hasSilence = true;
+            for (int i = 0; i < Math.min(audio.length, 1000); i++) {
+                if (audio[i] != 0) {
+                    hasSilence = false;
+                    break;
+                }
+            }
+            
+            if (hasSilence) {
+                System.out.println("  Advertencia: El audio parece estar en silencio");
+            } else {
+                System.out.println(" Audio contiene datos");
+            }
         } else {
             System.out.println(" Falló la captura");
         }

@@ -1,167 +1,151 @@
 package tcp;
 
+import java.io.*;
+import java.net.Socket;
+import java.util.Scanner;
+
+import udp.UDPVoiceClient;
 import utils.AudioCapturer;
 import utils.AudioPlayer;
-import udp.UDPVoiceClient;
-
-import java.io.*;
-import java.net.*;
-import java.util.Scanner;
-import java.util.Base64;
+import utils.VoiceMessage;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Client {
-    public static void main(String[] args) throws Exception {
-        String host = (args.length > 0) ? args[0] : "localhost";
-        int port = (args.length > 1) ? Integer.parseInt(args[1]) : 9090;
 
-        Socket socket = new Socket(host, port);
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+    public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
 
-        // Login
-        String serverMsg = in.readLine();
-        System.out.println(serverMsg);
-        String username = sc.nextLine();
-        out.println("REGISTER " + username); // Enviar comando de registro
-        String response = in.readLine();
-        if (response != null && response.startsWith("ERROR")) {
-            System.out.println(response);
-            socket.close();
-            return;
+        String host = "localhost";
+        int tcpPort = 9090;
+
+        try (Socket socket = new Socket(host, tcpPort)) {
+            System.out.println("✅ Conectado al servidor " + host + ":" + tcpPort);
+
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+
+            // Leer mensaje inicial del servidor
+            Object serverMsg = in.readObject();
+            System.out.println(serverMsg);
+
+            // Registrar nombre de usuario
+            System.out.print("Tu nombre de usuario: ");
+            String username = sc.nextLine();
+            out.writeObject("REGISTER " + username);
+            out.flush();
+
+            // Inicializar cliente UDP para llamadas
+            UDPVoiceClient voiceClient = new UDPVoiceClient(username);
+            // Cola de mensajes recibidos desde el servidor
+            BlockingQueue<String> incoming = new LinkedBlockingQueue<>();
+
+            // Hilo para escuchar mensajes entrantes
+            // Hilo para escuchar mensajes entrantes
+// Hilo para escuchar mensajes entrantes (no imprime, solo guarda en la cola)
+new Thread(() -> {
+    try {
+        Object obj;
+        while ((obj = in.readObject()) != null) {
+            if (obj instanceof String text) {
+                incoming.add("📩 " + text);
+            } else if (obj instanceof VoiceMessage vm) {
+                incoming.add("🎤 Nota de voz de " + vm.getSender() +
+                            " (" + vm.getAudioData().length + " bytes)");
+                AudioPlayer.playAudio(vm.getAudioData());
+            }
         }
+    } catch (Exception e) {
+        incoming.add("❌ Conexión cerrada por el servidor.");
+    }
+}).start();
 
-        // Inicializar cliente de voz UDP
-        UDPVoiceClient voiceClient = new UDPVoiceClient(username);
 
-        // Thread para recibir mensajes del servidor TCP
-        new Thread(() -> {
-            try {
-                String resp;
-                while ((resp = in.readLine()) != null) {
-                    if (resp.startsWith("VOICE_FROM")) {
-                        String[] parts = resp.split(" ", 3);
-                        if (parts.length >= 3) {
-                            String sender = parts[1];
-                            byte[] audio = Base64.getDecoder().decode(parts[2]);
-                            System.out.println("\n🎤 Nota de voz recibida de " + sender);
-                            AudioPlayer.playAudio(audio);
-                        }
-                    } else {
-                        System.out.println("\n" + resp);
-                    }
+            // Bucle principal para enviar mensajes
+            boolean running = true;
+            while (running) {
+                while (!incoming.isEmpty()) {
+                    System.out.println(incoming.poll());
                 }
-            } catch (IOException e) {
-                System.out.println(" Conexión cerrada.");
-            }
-        }).start();
 
-        // Menú unificado
-        while (true) {
-            System.out.println("\n--------------------------------------");
-            System.out.println("           CHAT - MENÚ PRINCIPAL");
-            System.out.println("--------------------------------------");
-            System.out.println("1. Crear grupo de chat");
-            System.out.println("2. Enviar mensaje de texto a usuario o grupo");
-            System.out.println("3. Enviar nota de voz a usuario o grupo");
-            System.out.println("4. Realizar llamada a usuario o grupo");
-            System.out.println("5. Ver historial de conversación");
-            System.out.println("6. Agregar usuario");
-            System.out.println("7. Listar usuarios conectados");
-            System.out.println("8. Salir");
-            System.out.println("--------------------------------------");
-            System.out.print("Elige opción: ");
+                System.out.println("\n╔════════════════════════════════╗");
+                System.out.println("║         MENÚ PRINCIPAL         ║");
+                System.out.println("╚════════════════════════════════╝");
+                System.out.println("1. Enviar mensaje de texto");
+                System.out.println("2. Enviar nota de voz (grabada)");
+                System.out.println("3. Iniciar llamada en tiempo real");
+                System.out.println("4. Finalizar llamada");
+                System.out.println("5. Listar usuarios conectados");
+                System.out.println("6. Salir");
+                System.out.print("\n> Elige una opción: ");
+                
+                String option = sc.nextLine();
 
-            int op;
-            try {
-                op = Integer.parseInt(sc.nextLine());
-            } catch (NumberFormatException e) {
-                System.out.println(" Opción inválida.");
-                continue;
-            }
+                switch (option) {
+                    case "1" -> {
+                        System.out.print("Destinatario: ");
+                        String target = sc.nextLine();
+                        System.out.print("Mensaje: ");
+                        String message = sc.nextLine();
 
-            if (op == 8) {
-                voiceClient.close();
-                socket.close();
-                System.out.println(" ¡Hasta luego!");
-                break;
-            }
-
-            switch (op) {
-                case 1:
-                    System.out.print("Nombre del grupo: ");
-                    String groupName = sc.nextLine();
-                    out.println("CREATE_GROUP " + groupName);
-                    Thread.sleep(200);
-                    break;
-
-                case 2:
-                    System.out.print("Destino (usuario o group:grupo): ");
-                    String target = sc.nextLine();
-                    System.out.print("Mensaje: ");
-                    String message = sc.nextLine();
-                    if (target.contains("group:")) {
-                        out.println("MSG_GROUP " + target.replace("group:", "") + " " + message);
-                    } else {
-                        out.println("MSG_USER " + target + " " + message);
+                        out.writeObject("MSG_USER " + target + " " + message);
+                        out.flush();
                     }
-                    Thread.sleep(200);
-                    break;
 
-                case 3:
-                    System.out.print("Destino (usuario o group:grupo): ");
-                    String audioTarget = sc.nextLine();
-                    System.out.print("Duración (segundos): ");
-                    int duration = Integer.parseInt(sc.nextLine());
-                    System.out.println("  Grabando en 3... 2... 1...");
+                    case "2" -> {
+                        System.out.print("Destinatario: ");
+                        String target = sc.nextLine();
+                        System.out.print("Duración (segundos): ");
+                        int duration = Integer.parseInt(sc.nextLine());
 
-                    byte[] audioData = AudioCapturer.captureAudio(duration);
-                    if (audioData != null) {
-                        String base64 = Base64.getEncoder().encodeToString(audioData);
-                        if (audioTarget.startsWith("group:")) {
-                            out.println("VOICE_GROUP " + audioTarget.replace("group:", "") + " " + base64);
-                            System.out.println(" Nota de voz enviada al grupo " + audioTarget.replace("group:", ""));
+                        System.out.println("\n🎙️  Grabando nota de voz...");
+                        byte[] audioData = AudioCapturer.captureAudio(duration);
+                        
+                        if (audioData != null && audioData.length > 0) {
+                            System.out.println("✅ Grabación completada (" + audioData.length + " bytes), enviando...");
+                            
+                            // ✅ CORRECTO: Enviar objeto VoiceMessage directamente
+                            VoiceMessage voiceMsg = new VoiceMessage(username, target, audioData);
+                            out.writeObject(voiceMsg);
+                            out.flush();
+                            
+                            System.out.println("✅ Nota de voz enviada");
                         } else {
-                            out.println("VOICE_USER " + audioTarget + " " + base64);
-                            System.out.println(" Nota de voz enviada a " + audioTarget);
+                            System.out.println("❌ Error al grabar audio");
                         }
-                    } else {
-                        System.out.println("Error grabando audio");
                     }
-                    Thread.sleep(200);
-                    break;
 
-                case 4:
-                    System.out.print("Destino (usuario o group:grupo): ");
-                    String callTarget = sc.nextLine();
-                    voiceClient.startCall(callTarget);
-                    System.out.println(" Llamada iniciada. Presiona ENTER para colgar...");
-                    sc.nextLine();
-                    voiceClient.endCall();
-                    break;
+                    case "3" -> {
+                        System.out.print("Usuario a llamar: ");
+                        String targetUser = sc.nextLine();
+                        voiceClient.startCall(targetUser);
+                    }
 
-                case 5:
-                    System.out.print("Ver historial con (usuario o group:grupo): ");
-                    String historyTarget = sc.nextLine();
-                    out.println("GET_HISTORY " + historyTarget);
-                    Thread.sleep(500);
-                    break;
+                    case "4" -> {
+                        voiceClient.endCall();
+                    }
 
-                case 6:
-                    System.out.print("Nombre del usuario a agregar: ");
-                    String newUser = sc.nextLine();
-                    out.println("ADD_USER " + newUser);
-                    Thread.sleep(200);
-                    break;
+                    case "5" -> {
+                        out.writeObject("LIST_USERS");
+                        out.flush();
+                    }
 
-                case 7:
-                    out.println("LIST_USERS");
-                    Thread.sleep(200);
-                    break;
+                    case "6" -> {
+                        System.out.println("👋 Saliendo del chat...");
+                        voiceClient.close();
+                        running = false;
+                    }
 
-                default:
-                    System.out.println(" Opción no válida");
+                    default -> System.out.println("❌ Opción inválida.");
+                }
             }
+
+            socket.close();
+            sc.close();
+
+        } catch (Exception e) {
+            System.err.println("❌ Error en el cliente: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

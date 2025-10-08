@@ -13,21 +13,25 @@ public class UDPVoiceClient {
     private Thread sendThread;
     private Thread receiveThread;
 
+    // 🎧 Formato de audio con buena calidad
+    private static final AudioFormat AUDIO_FORMAT = new AudioFormat(16000.0f, 16, 1, true, false);
+
     public UDPVoiceClient(String username) throws Exception {
         this.username = username;
         this.socket = new DatagramSocket();
 
-        // Registrarse en el servidor UDP
+        // Registro en el servidor UDP
         String registerMsg = "REGISTER:" + username;
         byte[] data = registerMsg.getBytes();
         DatagramPacket packet = new DatagramPacket(data, data.length, InetAddress.getByName(SERVER_HOST), UDP_PORT);
         socket.send(packet);
-        System.out.println(" Registrado en servidor UDP de voz");
+
+        System.out.println("✅ Registrado en el servidor UDP de voz");
     }
 
     public void startCall(String targetUser) {
         if (inCall) {
-            System.out.println(" Ya estás en una llamada");
+            System.out.println("⚠️ Ya estás en una llamada");
             return;
         }
 
@@ -39,85 +43,79 @@ public class UDPVoiceClient {
             socket.send(packet);
 
             inCall = true;
-            System.out.println(" Llamada iniciada con " + targetUser);
+            System.out.println("📞 Llamada iniciada con " + targetUser);
 
-            // Thread para enviar audio
-            sendThread = new Thread(this::sendAudio);
+            sendThread = new Thread(() -> sendAudio());
+            receiveThread = new Thread(() -> receiveAudio());
+
             sendThread.start();
-
-            // Thread para recibir audio
-            receiveThread = new Thread(this::receiveAudio);
             receiveThread.start();
 
         } catch (Exception e) {
-            System.err.println(" Error iniciando llamada: " + e.getMessage());
+            System.err.println("❌ Error iniciando llamada: " + e.getMessage());
         }
     }
 
     private void sendAudio() {
         try {
-            AudioFormat format = new AudioFormat(8000, 16, 1, true, true);
-            TargetDataLine mic = AudioSystem.getTargetDataLine(format);
-            mic.open(format);
+            DataLine.Info micInfo = new DataLine.Info(TargetDataLine.class, AUDIO_FORMAT);
+            TargetDataLine mic = (TargetDataLine) AudioSystem.getLine(micInfo);
+            mic.open(AUDIO_FORMAT);
             mic.start();
 
-            byte[] buffer = new byte[512];
+            byte[] buffer = new byte[1024]; // pequeños bloques (streaming)
+            InetAddress serverAddr = InetAddress.getByName(SERVER_HOST);
 
             while (inCall) {
                 int bytesRead = mic.read(buffer, 0, buffer.length);
                 if (bytesRead > 0) {
-                    byte[] header = ("AUDIO:" + username + ":").getBytes();
-                    byte[] packetData = new byte[header.length + bytesRead];
-                    System.arraycopy(header, 0, packetData, 0, header.length);
-                    System.arraycopy(buffer, 0, packetData, header.length, bytesRead);
-
-                    DatagramPacket packet = new DatagramPacket(packetData, packetData.length,
-                            InetAddress.getByName(SERVER_HOST), UDP_PORT);
+                    DatagramPacket packet = new DatagramPacket(buffer, bytesRead, serverAddr, UDP_PORT);
                     socket.send(packet);
                 }
             }
 
             mic.stop();
             mic.close();
+
         } catch (Exception e) {
-            if (inCall) System.err.println("Error enviando audio: " + e.getMessage());
+            if (inCall)
+                System.err.println("❌ Error enviando audio: " + e.getMessage());
         }
     }
 
     private void receiveAudio() {
         try {
-            AudioFormat format = new AudioFormat(8000, 16, 1, true, true);
-            SourceDataLine speaker = AudioSystem.getSourceDataLine(format);
-            speaker.open(format);
+            DataLine.Info speakerInfo = new DataLine.Info(SourceDataLine.class, AUDIO_FORMAT);
+            SourceDataLine speaker = (SourceDataLine) AudioSystem.getLine(speakerInfo);
+            speaker.open(AUDIO_FORMAT);
             speaker.start();
 
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[2048];
 
             while (inCall) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                String header = new String(packet.getData(), 0, Math.min(packet.getLength(), 100));
-                if (header.startsWith("AUDIO:")) {
-                    // Saltar los primeros bytes del header
-                    int headerLen = header.indexOf(":", header.indexOf(":") + 1) + 1;
-                    int audioLen = packet.getLength() - headerLen;
-                    speaker.write(packet.getData(), headerLen, audioLen);
-                } else if (header.startsWith("INCOMING_CALL:")) {
-                    String caller = header.split(":")[1];
-                    System.out.println("\n LLAMADA ENTRANTE de " + caller);
-                }
+                // Si es un mensaje de control (no audio), lo mostramos
+                String header = new String(packet.getData(), 0, Math.min(packet.getLength(), 20)).trim();
+                if (header.startsWith("CALL") || header.startsWith("END") || header.startsWith("REGISTER"))
+                    continue;
+
+                speaker.write(packet.getData(), 0, packet.getLength());
             }
 
             speaker.drain();
             speaker.close();
+
         } catch (Exception e) {
-            if (inCall) System.err.println("Error recibiendo audio: " + e.getMessage());
+            if (inCall)
+                System.err.println("❌ Error recibiendo audio: " + e.getMessage());
         }
     }
 
     public void endCall() {
-        if (!inCall) return;
+        if (!inCall)
+            return;
 
         inCall = false;
 
@@ -128,10 +126,10 @@ public class UDPVoiceClient {
                     InetAddress.getByName(SERVER_HOST), UDP_PORT);
             socket.send(packet);
         } catch (Exception e) {
-            System.err.println("Error finalizando llamada: " + e.getMessage());
+            System.err.println("⚠️ Error finalizando llamada: " + e.getMessage());
         }
 
-        System.out.println(" Llamada finalizada");
+        System.out.println("📴 Llamada finalizada");
     }
 
     public void close() {

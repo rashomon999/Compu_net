@@ -25,10 +25,11 @@ subprojects {
         implementation 'com.google.code.gson:gson:2.13.2'
     }
  
-    tasks.withType(JavaCompile) {
+ 
+
+    tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
     }
-
     //
     // Create a JAR file with the appropriate Main-Class and Class-Path attributes
     //
