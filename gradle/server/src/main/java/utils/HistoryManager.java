@@ -40,7 +40,7 @@ public class HistoryManager {
         messages.add(msg);
         persistMessages();
         
-        System.out.println("[💾] " + msg);
+        System.out.println(  msg);
     }
 
     // ========== MENSAJES DE VOZ ==========
@@ -60,14 +60,14 @@ public class HistoryManager {
                 messages.add(msg);
                 persistMessages();
                 
-                String icon = isGroup ? "👥" : "💬";
+           
                 String prefix = isGroup ? "[GRUPO: " + recipient + "]" : "[PRIVADO]";
-                System.out.println("[💾] " + icon + " " + prefix + " [VOZ] " + 
+                System.out.println(  prefix + " [VOZ] " + 
                                  sender + " → " + recipient + 
                                  " (" + audioData.length + " bytes)");
             }
         } catch (Exception e) {
-            System.err.println("❌ Error guardando mensaje de voz: " + e.getMessage());
+            System.err.println(" Error guardando mensaje de voz: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -75,14 +75,14 @@ public class HistoryManager {
     /**
      * Recupera el audio de un mensaje de voz guardado
      */
-    public byte[] getAudioFromMessage(ChatMessage msg) {
-        if (msg.type.equals("VOICE") && msg.content.startsWith("[AUDIO_FILE:")) {
-            String filename = msg.content.replaceAll("\\[AUDIO_FILE:|\\]", "");
-            return audioManager.loadAudio(filename);
-        }
-        return null;
+    // El método getAudioFromMessage DEBE quedar exactamente como estaba:
+public byte[] getAudioFromMessage(ChatMessage msg) {
+    if (msg.type.equals("VOICE") && msg.content.startsWith("[AUDIO_FILE:")) {
+        String filename = msg.content.replaceAll("\\[AUDIO_FILE:|\\]", "");
+        return audioManager.loadAudio(filename);
     }
-
+    return null;
+}
     // ========== HISTORIAL GENERAL ==========
     
     public List<ChatMessage> getConversationHistory(String user1, String user2) {
@@ -126,7 +126,7 @@ public class HistoryManager {
         try (Writer writer = new FileWriter(HISTORY_FILE)) {
             gson.toJson(messages, writer);
         } catch (IOException e) {
-            System.err.println("❌ Error guardando mensajes: " + e.getMessage());
+            System.err.println(" Error guardando mensajes: " + e.getMessage());
         }
     }
 
@@ -141,7 +141,7 @@ public class HistoryManager {
             List<ChatMessage> loaded = gson.fromJson(reader, listType);
             return loaded != null ? loaded : new ArrayList<>();
         } catch (IOException e) {
-            System.err.println("⚠️  Error cargando historial: " + e.getMessage());
+            System.err.println("  Error cargando historial: " + e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -156,7 +156,7 @@ public class HistoryManager {
         Group group = new Group(groupName, creator);
         groups.put(groupName, group);
         persistGroups();
-        System.out.println("[📁] Grupo creado: " + groupName + " por " + creator);
+        System.out.println(" Grupo creado: " + groupName + " por " + creator);
         return true;
     }
 
@@ -169,7 +169,7 @@ public class HistoryManager {
         if (!group.members.contains(username)) {
             group.members.add(username);
             persistGroups();
-            System.out.println("[📁] " + username + " añadido a " + groupName);
+            System.out.println( username + " añadido a " + groupName);
         }
         return true;
     }
@@ -191,7 +191,7 @@ public class HistoryManager {
         try (Writer writer = new FileWriter(GROUPS_FILE)) {
             gson.toJson(groups, writer);
         } catch (IOException e) {
-            System.err.println("❌ Error guardando grupos: " + e.getMessage());
+            System.err.println(" Error guardando grupos: " + e.getMessage());
         }
     }
 
@@ -206,10 +206,15 @@ public class HistoryManager {
             Map<String, Group> loaded = gson.fromJson(reader, mapType);
             return loaded != null ? loaded : new HashMap<>();
         } catch (IOException e) {
-            System.err.println("⚠️  Error cargando grupos: " + e.getMessage());
+            System.err.println("  Error cargando grupos: " + e.getMessage());
             return new HashMap<>();
         }
     }
+
+
+    public AudioFileManager getAudioManager() {
+    return audioManager;
+}
 
     // ========== CLASES INTERNAS ==========
     
@@ -231,12 +236,26 @@ public class HistoryManager {
         }
 
         @Override
-        public String toString() {
-            String icon = isGroup ? "👥" : "💬";
-            String prefix = isGroup ? "[GRUPO: " + recipient + "]" : "[PRIVADO]";
-            String msgContent = type.equals("VOICE") ? "🎤 [NOTA DE VOZ]" : content;
-            return String.format("%s %s [%s] %s → %s: %s", icon, prefix, timestamp, sender, recipient, msgContent);
+    public String toString() {
+         String prefix = isGroup ? "[GRUPO: " + recipient + "]" : "[PRIVADO]";
+        String msgContent;
+
+        if (type.equals("VOICE")) {
+            // Mostrar nombre de archivo si existe
+            if (content != null && content.startsWith("[AUDIO_FILE:")) {
+                String filename = content.replace("[AUDIO_FILE:", "").replace("]", "");
+                msgContent = " [NOTA DE VOZ] (" + filename + ")";
+            } else {
+                msgContent = " [NOTA DE VOZ]";
+            }
+        } else {
+            msgContent = content;
         }
+
+        return String.format("%s %s [%s] %s → %s: %s",
+          prefix, timestamp, sender, recipient, msgContent);
+        }
+
     }
 
     public static class Group {
@@ -253,4 +272,45 @@ public class HistoryManager {
             this.createdAt = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         }
     }
+
+
+
+    // ========== 1. HistoryManager.java - Agregar método ==========
+
+/**
+ * Elimina todo el historial de un usuario (mensajes y archivos de audio)
+ * @param username Usuario cuyo historial se eliminará
+ * @return Cantidad de mensajes eliminados
+ */
+public int deleteUserHistory(String username) {
+    int deletedCount = 0;
+    List<ChatMessage> toDelete = new ArrayList<>();
+    
+    // Encontrar mensajes del usuario
+    for (ChatMessage msg : messages) {
+        if (msg.sender.equals(username) || msg.recipient.equals(username)) {
+            toDelete.add(msg);
+            
+            // Si es nota de voz, eliminar archivo de audio
+            if (msg.type.equals("VOICE") && msg.content.startsWith("[AUDIO_FILE:")) {
+                String filename = msg.content.replaceAll("\\[AUDIO_FILE:|\\]", "");
+                boolean deleted = audioManager.deleteAudio(filename);
+                if (deleted) {
+                    System.out.println(" Archivo eliminado: " + filename);
+                }
+            }
+            deletedCount++;
+        }
+    }
+    
+    // Eliminar mensajes de la lista
+    messages.removeAll(toDelete);
+    
+    // Persistir cambios
+    persistMessages();
+    
+    System.out.println(" Historial de " + username + " eliminado: " + deletedCount + " mensajes");
+    return deletedCount;
+}
+
 }

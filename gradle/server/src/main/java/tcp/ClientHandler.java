@@ -1,5 +1,6 @@
 package tcp;
 
+import utils.AudioFileManager;
 import utils.HistoryManager;
 import utils.VoiceMessage;
 
@@ -14,11 +15,15 @@ public class ClientHandler implements Runnable {
     private ObjectInputStream in;
     private Map<String, ObjectOutputStream> clients;
     private HistoryManager history;
+    private AudioFileManager audioManager; // ← AGREGAR ESTO
 
-    public ClientHandler(Socket socket, Map<String, ObjectOutputStream> clients, HistoryManager history) {
+// PASO 2: Modificar el constructor para recibir AudioFileManager
+
+  public ClientHandler(Socket socket, Map<String, ObjectOutputStream> clients, HistoryManager history) {
         this.socket = socket;
         this.clients = clients;
         this.history = history;
+        this.audioManager = new AudioFileManager(); // ← Crear instancia aquí
     }
 
     @Override
@@ -91,6 +96,38 @@ public class ClientHandler implements Runnable {
                     listUsers();
                     break;
 
+                case "GET_HISTORY":
+                    listUserHistory();
+                    break;
+
+                case "GET_AUDIO":
+                if (parts.length >= 2) {
+                    String filename = parts[1].trim();
+                    System.out.println(username + " solicita audio: " + filename);
+        
+                    // Buscar el archivo directamente usando AudioFileManager
+                    byte[] audioData = audioManager.loadAudio(filename);
+        
+                    if (audioData != null && audioData.length > 0) {
+                        System.out.println(" Enviando audio a " + username + ": " + audioData.length + " bytes");
+            
+                        // Enviar como VoiceMessage
+                        VoiceMessage vm = new VoiceMessage("Servidor", username, audioData);
+                        out.writeObject(vm);
+                        out.flush();
+                    } else {
+                        out.writeObject(" ERROR: Archivo de audio no encontrado: " + filename);
+                        out.flush();
+                }
+                }
+                break;
+                
+                case "DELETE_HISTORY":
+                    int deleted = history.deleteUserHistory(username);
+                    out.writeObject(" Historial eliminado: " + deleted + " mensaje(s)");
+                    out.flush();
+                    break;
+
                 default:
                     out.writeObject("ERROR: Comando desconocido '" + cmd + "'");
                     out.flush();
@@ -104,6 +141,22 @@ public class ClientHandler implements Runnable {
             }
         }
     }
+
+
+
+    private void listUserHistory() throws IOException {
+    var userMessages = history.getUserMessages(username);
+    if (userMessages.isEmpty()) {
+        out.writeObject("No hay mensajes en el historial.");
+    } else {
+        for (var msg : userMessages) {
+            out.writeObject(msg.toString());
+        }
+    }
+    out.flush();
+    }
+
+
 
     /**
      * Procesa y guarda mensajes de voz con persistencia de archivo
@@ -124,7 +177,7 @@ public class ClientHandler implements Runnable {
                 targetOut.writeObject(voiceMsg);
                 targetOut.flush();
 
-                out.writeObject("✅ Nota de voz enviada a " + targetUser);
+                out.writeObject(" Nota de voz enviada a " + targetUser);
                 out.flush();
             } else {
                 out.writeObject("ERROR: Usuario " + targetUser + " no conectado");

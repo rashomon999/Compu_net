@@ -54,7 +54,7 @@ new Thread(() -> {
             if (obj instanceof String text) {
                 incoming.add(text);
             } else if (obj instanceof VoiceMessage vm) {
-                incoming.add("🎤 Nota de voz de " + vm.getSender() +
+                incoming.add(" Nota de voz de " + vm.getSender() +
                             " (" + vm.getAudioData().length + " bytes)");
                 AudioPlayer.playAudio(vm.getAudioData());
             }
@@ -80,7 +80,10 @@ new Thread(() -> {
                 System.out.println("3. Iniciar llamada en tiempo real");
                 System.out.println("4. Finalizar llamada");
                 System.out.println("5. Listar usuarios conectados");
-                System.out.println("6. Salir");
+                System.out.println("6. Historial");
+                System.out.println("7. Reproducir audio");
+                System.out.println("8. Eliminar mi historial");   
+                System.out.println("9. Salir");                    
                 System.out.print("\n> Elige una opción: ");
                 
                 String option = sc.nextLine();
@@ -135,11 +138,56 @@ new Thread(() -> {
                     }
 
                     case "6" -> {
+                    out.writeObject("GET_HISTORY");
+                    out.flush();
+                    }
+
+                    case "7" -> {
+                    // Primero solicitar el historial para ver los archivos disponibles
+                    System.out.println("\n Obteniendo lista de audios guardados...");
+                    out.writeObject("GET_HISTORY");
+                    out.flush();
+    
+                    // Esperar un momento para que lleguen los mensajes
+                    Thread.sleep(500);
+    
+                    // Mostrar mensajes pendientes (que incluirán el historial)
+                    while (!incoming.isEmpty()) {
+                    System.out.println(incoming.poll());
+                    }
+    
+                    System.out.println("\n Reproducir audio");
+                    System.out.println("Formato del nombre: remitente_to_destinatario_fecha.wav");
+                    System.out.print("Nombre del archivo: ");
+                    String filename = sc.nextLine().trim();
+    
+                    if (!filename.isEmpty()) {
+                        out.writeObject("GET_AUDIO " + filename);
+                        out.flush();
+                        System.out.println(" Esperando audio del servidor...");
+                    }
+                    
+                    }
+
+                    case "8" -> {
+                    System.out.println("\n  ADVERTENCIA: Esta acción eliminará TODOS tus mensajes y audios");
+                    System.out.print("¿Estás seguro? (SI/NO): ");
+                    String confirmacion = sc.nextLine().trim().toUpperCase();
+    
+                    if (confirmacion.equals("SI")) {
+                    out.writeObject("DELETE_HISTORY");
+                    out.flush();
+                    System.out.println(" Eliminando historial...");
+                    } else {
+                        System.out.println(" Operación cancelada");
+                    }
+                    }
+
+                    case "9" -> {  // ← Cambiar de "8" a "9"
                         System.out.println(" Saliendo del chat...");
                         voiceClient.close();
                         running = false;
                     }
-
                     default -> System.out.println(" Opción inválida.");
                 }
             }
