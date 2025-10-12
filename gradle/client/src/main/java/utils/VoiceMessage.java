@@ -8,11 +8,17 @@ public class VoiceMessage implements Serializable {
     private String sender;
     private String target; // usuario o grupo
     private byte[] audioData;
+    private boolean isGroup;
 
     public VoiceMessage(String sender, String target, byte[] audioData) {
+        this(sender, target, audioData, false);
+    }
+
+    public VoiceMessage(String sender, String target, byte[] audioData, boolean isGroup) {
         this.sender = sender;
         this.target = target;
         this.audioData = audioData;
+        this.isGroup = isGroup;
     }
 
     public String getSender() {
@@ -27,11 +33,16 @@ public class VoiceMessage implements Serializable {
         return audioData;
     }
 
+    public boolean isGroup() {
+        return isGroup;
+    }
+
     @Override
     public String toString() {
         return "VoiceMessage{" +
                 "sender='" + sender + '\'' +
                 ", target='" + target + '\'' +
+                ", isGroup=" + isGroup +
                 ", audioBytes=" + audioData.length +
                 '}';
     }

@@ -174,6 +174,20 @@ public class HistoryManager {
         return true;
     }
 
+    public boolean removeUserFromGroup(String groupName, String username) {
+        Group group = groups.get(groupName);
+        if (group == null) {
+            return false;
+        }
+        
+        boolean removed = group.members.remove(username);
+        if (removed) {
+            persistGroups();
+            System.out.println("[📁] " + username + " removido de " + groupName);
+        }
+        return removed;
+    }
+
     public List<String> getGroupMembers(String groupName) {
         Group group = groups.get(groupName);
         return group != null ? new ArrayList<>(group.members) : new ArrayList<>();

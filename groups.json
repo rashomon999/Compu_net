@@ -7,6 +7,15 @@
     ],
     "createdAt": "2025-10-06 19:07:53"
   },
+  "grupo1": {
+    "name": "grupo1",
+    "creator": "wilder",
+    "members": [
+      "juan",
+      "wilder"
+    ],
+    "createdAt": "2025-10-12 12:50:11"
+  },
   "Hola": {
     "name": "Hola",
     "creator": "Luis",
