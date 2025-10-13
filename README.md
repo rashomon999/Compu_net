@@ -1,150 +1,193 @@
-Proyecto: Chat TCP con Mensajes de Voz y Texto
+# Proyecto: Chat TCP con Mensajes de Voz y Texto
 
-**Autores:** Luis, Wilder y Valentina  
-**Lenguaje:** Java  
-**Tecnologías:** TCP Sockets, GSON, Java Sound API  
+### Autores:
+**Luis**, **Wilder**, **Valentina**
 
-Descripción General
-Este proyecto implementa un sistema de chat en red con soporte para:
+---
 
-✅ Comunicación entre múltiples clientes
+### Lenguaje y Tecnologías
+- **Lenguaje:** Java 
+- **Tecnologías:** TCP Sockets, GSON, Java Sound API 
 
-✅ Envío y recepción de mensajes de texto
+---
 
-✅ Envío y reproducción de notas de voz
+## Descripción General
 
-✅ Historial de chat persistente en JSON
+Este proyecto implementa un **sistema de chat en red** con soporte para:
 
-✅ Grupos de chat con gestión de miembros
+✅ Comunicación entre múltiples clientes 
+
+✅ Envío y recepción de mensajes de texto  
+
+✅ Envío y reproducción de notas de voz  
+
+✅ Historial de chat persistente en JSON  
+
+✅ Grupos de chat con gestión de miembros  
 
 ✅ Gestión de archivos de audio (guardar, listar, eliminar)
 
-El sistema utiliza Sockets TCP para la comunicación y Object Streams (ObjectInputStream / ObjectOutputStream) para transmitir objetos serializados como String o VoiceMessage.
+El sistema utiliza **Sockets TCP** para la comunicación y **Object Streams** (`ObjectInputStream` / `ObjectOutputStream`) para transmitir objetos serializados como `String` o `VoiceMessage`.
 
-Arquitectura del Proyecto
-La aplicación se divide en dos componentes principales:
+---
 
-Servidor (Server.java)
-Escucha conexiones entrantes por el puerto 9090.
+## Arquitectura del Proyecto
 
-Mantiene un registro de clientes conectados.
+### Servidor (`Server.java`)
+- Escucha conexiones entrantes por el **puerto 9090**  
+- Mantiene un registro de clientes conectados  
+- Redirige los mensajes (de texto o voz) al destinatario o grupo  
+- Guarda el historial de mensajes y audios mediante `HistoryManager` y `AudioFileManager`
 
-Redirige los mensajes (de texto o voz) al destinatario o grupo correspondiente.
+### Cliente (`Client.java`)
+- Se conecta al servidor con un nombre de usuario  
+- Envía y recibe mensajes  
+- Graba notas de voz con `AudioCapturer`  
+- Reproduce notas de voz con `AudioPlayer`  
+- Soporta mensajes individuales o grupales  
 
-Guarda el historial de mensajes y los audios asociados mediante HistoryManager y AudioFileManager.
+---
 
-Cliente (Client.java)
-Permite conectarse al servidor con un nombre de usuario.
+## Estructura del Código
 
-Envía y recibe mensajes.
-
-Puede grabar notas de voz con AudioCapturer y reproducirlas con AudioPlayer.
-
-Soporta mensajes individuales o grupales.
-
-Estructura del Código
-src/main/java ├── tcp/ │ ├── ClientHandler.java
+src/main/java
+├── tcp/
+│ ├── ClientHandler.java
 │ ├── Server.java
-│ ├── udp/ │ └── UDPVoiceServer.java
-│ ├── utils/ │ ├── AudioCapturer.java
+│
+├── udp/
+│ └── UDPVoiceServer.java
+│
+├── utils/
+│ ├── AudioCapturer.java
 │ ├── AudioFileManager.java
 │ ├── AudioPlayer.java
 │ ├── HistoryManager.java
 │ ├── MessageProtocol.java
 │ ├── VoiceMessage.java
 │ └── Config.java
-│ └── audio_files/ # Carpeta donde se guardan los audios
+│
+└── audio_files/ # Carpeta donde se guardan los audios (.wav)
 
-Funcionamiento del Sistema
-Inicio del Servidor $ java tcp.Server
-El servidor crea el ServerSocket en el puerto 9090 y muestra:
+---
 
-SERVIDOR DE CHAT INICIADO Puerto TCP: 9090 Esperando conexiones...
+##  Funcionamiento del Sistema
 
-Conexión del Cliente
-Cada cliente se conecta ingresando su nombre de usuario y la IP del servidor. El servidor guarda su conexión y empieza a escuchar los mensajes que envía.
+### Inicio del Servidor
 
-Envío de Mensajes de Texto
-Los mensajes normales se envían como cadenas (String) y se registran en el historial (chat_history.json).
+$ java tcp.Server
 
-Ejemplo en consola:
+### Salida esperada:
 
+SERVIDOR DE CHAT INICIADO
+Puerto TCP: 9090
+Esperando conexiones...
+
+### Conexión del Cliente
+
+Cada cliente se conecta ingresando su nombre de usuario y la IP del servidor.
+
+El servidor registra la conexión y empieza a escuchar los mensajes enviados.
+
+### Envío de Mensajes de Texto
+
+Los mensajes se envían como cadenas (String) y se registran en chat_history.json.
+
+Ejemplo:
 [PRIVADO] [2025-10-13 11:24:01] Luis → Valentina: ¡Hola! ¿Cómo estás?
 
-Envío de Mensajes de Voz
+### Envío de Mensajes de Voz
+
 Los mensajes de voz se capturan con el micrófono usando AudioCapturer y se envían como objetos VoiceMessage.
 
-El servidor:
+### El servidor:
 
 Guarda el archivo .wav en audio_files/
 
-Crea una entrada en el historial con referencia [AUDIO_FILE:nombre.wav]
+Registra una entrada en el historial con [AUDIO_FILE:nombre.wav]
 
 Reenvía el audio al destinatario o grupo
 
+Ejemplo:
+[GRUPO: Amigos] [2025-10-13 11:27:45] Luis → Todos: [NOTA DE VOZ] (Luis_to_Amigos_20251013_112745.wav)
 Reproducción de Audio
-El cliente que recibe una nota de voz usa AudioPlayer para reproducirla:
+
+El cliente usa AudioPlayer para reproducir los mensajes de voz:
 
 Reproduciendo nota de voz de Luis (4.5 segundos)
 
-Grupos
-Los grupos se crean y administran desde HistoryManager.
+### Grupos de Chat
 
-Los miembros se guardan en groups.json.
+- Los grupos se gestionan desde HistoryManager.
 
-Los mensajes de grupo se etiquetan así:
+- Los miembros se almacenan en groups.json.
 
-[GRUPO: Amigos] [2025-10-13 11:27:45] Luis → Todos: [NOTA DE VOZ] (Luis_to_Amigos_20251013_112745.wav)
+- Cada mensaje grupal incluye el nombre del grupo y la marca [GRUPO].
 
-Archivos JSON generados
-Archivo y Descripción chat_history.json - Contiene todos los mensajes enviados y recibidos groups.json - Lista de grupos creados con sus miembros audio_files/ - Carpeta donde se almacenan las notas de voz (.wav)
+### Archivos JSON Generados
 
-Clases más importantes
-Clase y Rol principal
+- Archivo	Descripción
 
-Server - Acepta conexiones y redirige mensajes
+- chat_history.json	Contiene todos los mensajes enviados y recibidos
 
-ClientHandler - Controla la comunicación con un cliente
+- groups.json	Lista de grupos creados con sus miembros
+
+- audio_files/	Carpeta donde se almacenan las notas de voz (.wav)
+
+### Clases Principales
+
+Clase y su	Rol Principal
+
+Server - 	Acepta conexiones y redirige mensajes
+
+ClientHandler	- Controla la comunicación con un cliente
 
 VoiceMessage - Representa un mensaje de voz serializable
 
-AudioCapturer - Graba audio desde el micrófono
+AudioCapturer -	Graba audio desde el micrófono
 
-AudioPlayer - Reproduce archivos de audio
+AudioPlayer -	Reproduce archivos de audio
 
-HistoryManager - Registra, guarda y elimina mensajes
+HistoryManager -	Registra, guarda y elimina mensajes
 
-AudioFileManager - Administra los archivos de audio (.wav)
+AudioFileManager -	Administra los archivos de audio (.wav)
 
-Config - Guarda la configuración de red (host y puerto)
+Config -	Configura los parámetros de red (host, puerto)
 
-Ejecución Rápida
-Compilar todo el proyecto:
+### Ejecución Rápida
 
-javac -d bin src/**/*.java
+Compilar el proyecto:
+
+- javac -d bin src/**/*.java
+
 Iniciar el servidor:
 
-java -cp bin tcp.Server
-Iniciar varios clientes:
+- java -cp bin tcp.Server
 
-java -cp bin tcp.Client
-Enviar mensajes o grabar notas de voz.
+Iniciar un cliente:
 
-Eliminar Historial
-Para borrar todo el historial de un usuario (mensajes + audios):
+- java -cp bin tcp.Client
 
-history.deleteUserHistory("Luis");
-Esto eliminará tanto los mensajes del JSON como los archivos de audio asociados.
+Enviar mensajes o grabar notas de voz desde la consola.
 
-Conclusión
+### Eliminar Historial
+
+Para eliminar el historial de un usuario (mensajes y audios):
+
+- history.deleteUserHistory("Luis");
+  
+Esto borra los mensajes del JSON y los archivos de audio asociados.
+
+## Conclusión 
+
 Este proyecto demuestra el uso combinado de:
 
-Sockets TCP para comunicación entre procesos
+- Comunicación entre procesos con Sockets TCP
 
-Serialización de objetos Java
+- Serialización de objetos Java
 
-Persistencia en JSON (GSON)
+- Persistencia con JSON (GSON)
 
-Procesamiento de audio con Java Sound API
+- Procesamiento de audio con Java Sound API
 
-Es una implementación sólida de un chat multimedia distribuido, aplicando conceptos de concurrencia, persistencia y comunicación en red.
+- Es una implementación sólida de un chat multimedia distribuido, aplicando concurrencia, persistencia y comunicación en red.
