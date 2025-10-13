@@ -6,8 +6,8 @@
 ---
 
 ### Lenguaje y Tecnologías
-- **Lenguaje:** Java ☕  
-- **Tecnologías:** TCP Sockets, GSON, Java Sound API 🎧  
+- **Lenguaje:** Java 
+- **Tecnologías:** TCP Sockets, GSON, Java Sound API 
 
 ---
 
