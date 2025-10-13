@@ -2,9 +2,27 @@ package utils;
 
 import javax.sound.sampled.*;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
 
 public class AudioPlayer {
     
+    public static void playFile(String filename) {
+        try {
+            File file = new File(filename);
+            if (!file.exists()) {
+                System.err.println(" Archivo no encontrado: " + file.getAbsolutePath());
+                return;
+            }
+
+            byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
+            playAudio(data);
+
+        } catch (IOException e) {
+            System.err.println(" Error leyendo el archivo: " + e.getMessage());
+        }
+    }
+
     public static void playAudio(byte[] audioData) {
         if (audioData == null || audioData.length == 0) {
             System.err.println(" No hay datos de audio para reproducir");
@@ -14,7 +32,7 @@ public class AudioPlayer {
         System.out.println(" Reproduciendo audio: " + audioData.length + " bytes");
         
         try {
-            // Usar el mismo formato que AudioCapturer
+            // Mismo formato que AudioCapturer usa
             AudioFormat format = AudioCapturer.AUDIO_FORMAT;
             
             ByteArrayInputStream bais = new ByteArrayInputStream(audioData);
@@ -23,18 +41,14 @@ public class AudioPlayer {
             );
             
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-            
             if (!AudioSystem.isLineSupported(info)) {
-                System.err.println(" Línea de audio no soportada para reproducción");
+                System.err.println(" Línea de audio no soportada");
                 return;
             }
             
             SourceDataLine speaker = (SourceDataLine) AudioSystem.getLine(info);
-            
             speaker.open(format);
             speaker.start();
-            
-            System.out.println(" Reproduciendo...");
             
             byte[] buffer = new byte[4096];
             int bytesRead;
@@ -52,9 +66,7 @@ public class AudioPlayer {
             System.out.println(" Reproducción completada (" + totalBytesRead + " bytes)");
             
         } catch (LineUnavailableException e) {
-            System.err.println(" Error: Altavoz no disponible");
-            System.err.println("  Verifica los dispositivos de audio del sistema");
-            e.printStackTrace();
+            System.err.println(" Altavoz no disponible. Revisa los dispositivos de audio del sistema.");
         } catch (Exception e) {
             System.err.println(" Error reproduciendo audio: " + e.getMessage());
             e.printStackTrace();

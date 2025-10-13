@@ -28,11 +28,11 @@ public class AudioFileManager {
             Path filePath = Paths.get(AUDIO_DIR, filename);
             
             Files.write(filePath, audioData);
-            System.out.println("[💾] Audio guardado: " + filename + " (" + audioData.length + " bytes)");
+            System.out.println("Audio guardado: " + filename + " (" + audioData.length + " bytes)");
             
             return filename;
         } catch (IOException e) {
-            System.err.println("❌ Error guardando audio: " + e.getMessage());
+            System.err.println(" Error guardando audio: " + e.getMessage());
             return null;
         }
     }
@@ -45,13 +45,13 @@ public class AudioFileManager {
             Path filePath = Paths.get(AUDIO_DIR, filename);
             
             if (!Files.exists(filePath)) {
-                System.err.println("⚠️  Archivo de audio no encontrado: " + filename);
+                System.err.println(" Archivo de audio no encontrado: " + filename);
                 return null;
             }
             
             return Files.readAllBytes(filePath);
         } catch (IOException e) {
-            System.err.println("❌ Error cargando audio: " + e.getMessage());
+            System.err.println(" Error cargando audio: " + e.getMessage());
             return null;
         }
     }
@@ -64,7 +64,7 @@ public class AudioFileManager {
             Path filePath = Paths.get(AUDIO_DIR, filename);
             return Files.deleteIfExists(filePath);
         } catch (IOException e) {
-            System.err.println("❌ Error eliminando audio: " + e.getMessage());
+            System.err.println(" Error eliminando audio: " + e.getMessage());
             return false;
         }
     }
