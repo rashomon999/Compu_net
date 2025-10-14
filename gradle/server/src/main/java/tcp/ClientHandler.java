@@ -1,6 +1,5 @@
 package tcp;
 
-import utils.AudioFileManager;
 import utils.HistoryManager;
 import utils.VoiceMessage;
 import utils.MessageProtocol;
@@ -9,22 +8,6 @@ import java.io.*;
 import java.net.Socket;
 import java.util.*;
 
-/**
- * Atiende a un cliente TCP conectado al servidor de chat.
- * Gestiona el flujo completo: registro, recepción y envío de mensajes
- * (de texto o voz), manejo de grupos, historial, y desconexión.
- *
- * Cada cliente activo tiene su propio hilo ejecutando una instancia de esta clase.
- *
- * Funciones principales:
- * - Registrar usuarios únicos.
- * - Enviar y recibir mensajes entre usuarios.
- * - Enviar mensajes de voz (objetos {@link VoiceMessage}).
- * - Crear, unirse y salir de grupos.
- * - Consultar y eliminar historiales.
- * - Notificar eventos al resto de usuarios conectados.
- */
-
 public class ClientHandler implements Runnable {
     private Socket socket;
     private String username;
@@ -32,34 +15,20 @@ public class ClientHandler implements Runnable {
     private ObjectInputStream in;
     private Map<String, ObjectOutputStream> clients;
     private HistoryManager history;
-    private AudioFileManager audioManager; 
 
-    /**
-     * Constructor del manejador de cliente.
-     *
-     * @param socket  Socket del cliente conectado.
-     * @param clients Mapa global de usuarios conectados (username → ObjectOutputStream).
-     * @param history Instancia del manejador de historial.
-     */
     public ClientHandler(Socket socket, Map<String, ObjectOutputStream> clients, HistoryManager history) {
         this.socket = socket;
         this.clients = clients;
         this.history = history;
-        // gestiona archivos de audio persistentes
-        this.audioManager = new AudioFileManager(); 
     }
 
-    /**
-     * Método principal de ejecución del hilo del cliente.
-     * Atiende registro, escucha comandos y maneja desconexiones.
-     */
     @Override
     public void run() {
         try {
             out = new ObjectOutputStream(socket.getOutputStream());
             in = new ObjectInputStream(socket.getInputStream());
 
-            // Registro inicial
+            // Solicitar registro
             out.writeObject("Bienvenido al servidor de chat");
             out.flush();
 
@@ -87,7 +56,7 @@ public class ClientHandler implements Runnable {
 
             System.out.println("[+] " + username + " conectado desde " + socket.getInetAddress());
 
-            // Ciclo principal de escucha
+            // Escucha de comandos y objetos del cliente
             Object obj;
             while ((obj = in.readObject()) != null) {
                 if (obj instanceof String cmdLine) {
@@ -103,15 +72,6 @@ public class ClientHandler implements Runnable {
             disconnect();
         }
     }
-
-    // -------------------------------------------------------
-    // Procesamiento de comandos de texto
-    // -------------------------------------------------------
-
-    /**
-     * Procesa comandos enviados por el cliente.
-     * @param command línea de comando recibida.
-     */
 
     private void processCommand(String command) {
         String[] parts = command.split(" ", 3);
@@ -152,36 +112,12 @@ public class ClientHandler implements Runnable {
                     listUsers();
                     break;
 
-                case "GET_HISTORY":
-                    listUserHistory();
+                case MessageProtocol.VIEW_HISTORY:
+                    if (parts.length >= 2) viewHistory(parts[1]);
                     break;
 
-                case "GET_AUDIO":
-                if (parts.length >= 2) {
-                    String filename = parts[1].trim();
-                    System.out.println(username + " solicita audio: " + filename);
-        
-                    // Buscar el archivo directamente usando AudioFileManager
-                    byte[] audioData = audioManager.loadAudio(filename);
-        
-                    if (audioData != null && audioData.length > 0) {
-                        System.out.println(" Enviando audio a " + username + ": " + audioData.length + " bytes");
-            
-                        // Enviar como VoiceMessage
-                        VoiceMessage vm = new VoiceMessage("Servidor", username, audioData);
-                        out.writeObject(vm);
-                        out.flush();
-                    } else {
-                        out.writeObject(" ERROR: Archivo de audio no encontrado: " + filename);
-                        out.flush();
-                }
-                }
-                break;
-                
-                case "DELETE_HISTORY":
-                    int deleted = history.deleteUserHistory(username);
-                    out.writeObject(" Historial eliminado: " + deleted + " mensaje(s)");
-                    out.flush();
+                case MessageProtocol.VIEW_GROUP_HISTORY:
+                    if (parts.length >= 2) viewGroupHistory(parts[1]);
                     break;
 
                 default:
@@ -198,28 +134,8 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    // -------------------------------------------------------
-    // Utilidades y operaciones
-    // -------------------------------------------------------
-
-    private void listUserHistory() throws IOException {
-    var userMessages = history.getUserMessages(username);
-    if (userMessages.isEmpty()) {
-        out.writeObject("No hay mensajes en el historial.");
-    } else {
-        for (var msg : userMessages) {
-            out.writeObject(msg.toString());
-        }
-    }
-    out.flush();
-    }
-
-    // -------------------------------------------------------
-    // Mensajes de voz
-    // -------------------------------------------------------
-
     /**
-     * Procesa y guarda mensajes de voz, tanto individuales como grupales.
+     * Procesa y guarda mensajes de voz con persistencia de archivo
      */
     private void processVoiceMessage(VoiceMessage voiceMsg) {
         try {
@@ -241,11 +157,20 @@ public class ClientHandler implements Runnable {
                     return;
                 }
                 
-                // Reenviar el VoiceMessage directamente
-                targetOut.writeObject(voiceMsg);
-                targetOut.flush();
-
-                out.writeObject(" Nota de voz enviada a " + targetUser);
+                int sentCount = 0;
+                for (String member : members) {
+                    if (!member.equals(username)) {
+                        ObjectOutputStream memberOut = clients.get(member);
+                        if (memberOut != null) {
+                            memberOut.writeObject(voiceMsg);
+                            memberOut.flush();
+                            sentCount++;
+                        }
+                    }
+                }
+                
+                history.saveVoiceMessage(username, target, voiceMsg.getAudioData(), true);
+                out.writeObject(MessageProtocol.buildSuccess("Nota de voz enviada al grupo " + target + " (" + sentCount + " miembros)"));
                 out.flush();
                 
                 System.out.println("[🎤] " + username + " → [GRUPO: " + target + "] (audio: " + voiceMsg.getAudioData().length + " bytes)");

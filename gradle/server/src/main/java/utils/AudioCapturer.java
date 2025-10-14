@@ -3,66 +3,28 @@ package utils;
 import javax.sound.sampled.*;
 import java.io.ByteArrayOutputStream;
 
-/**
- * Permite capturar audio desde el micrófono del sistema utilizando el API
- * {@link javax.sound.sampled} de Java. 
- * 
- * Características principales:
- *
- *   Captura audio en formato PCM lineal, mono, 16 bits, a 16 kHz.
- *   Devuelve los datos grabados como un arreglo de bytes.
- *   Incluye un método de prueba autónomo con barra de progreso.
- *
- * Formato de audio:
- * 
- * sampleRate      = 16000.0 Hz
- * sampleSizeInBits = 16 bits
- * channels         = 1 (mono)
- * signed           = true
- * bigEndian        = false
- * 
- * Uso típico:
- *
- *     byte[] audioData = AudioCapturer.captureAudio(5); // Captura 5 segundos
- *
- *
- * Este componente es utilizado por otros módulos (como {@code AudioPlayer}
- * o clientes UDP) para grabar y enviar datos de voz.
- */
-
 public class AudioCapturer {
     
-    /**
-     * Formato de audio estándar utilizado para capturar y reproducir voz.
-     * Se declara {@code public static} para que otros módulos (por ejemplo,
-     * {@code AudioPlayer}) puedan reutilizarlo.
-     */
+    // Formato de audio consistente (exportado para que AudioPlayer lo use)
     public static final AudioFormat AUDIO_FORMAT = new AudioFormat(
-        16000.0f,        // Frecuencia de muestreo
-        16,        // Tamaño de muestra (bits)
-        1,                 // channels (mono)
-        true,                // Muestras con signo
-        false             // Orden de bytes little-endian (mejor compatibilidad)
+        16000.0f,  // sampleRate
+        16,        // sampleSizeInBits
+        1,         // channels (mono)
+        true,      // signed
+        false      // bigEndian (CAMBIADO A FALSE para mejor compatibilidad)
     );
-
-    /**
-     * Captura audio desde el micrófono durante una cantidad específica de segundos.
-     *
-     * @param durationSeconds duración de la grabación en segundos
-     * @return arreglo de bytes con los datos de audio capturados, o {@code null} si ocurre un error
-     */
+    
     public static byte[] captureAudio(int durationSeconds) {
         try {
             DataLine.Info info = new DataLine.Info(TargetDataLine.class, AUDIO_FORMAT);
             
-            // Verificar compatibilidad del sistema
             if (!AudioSystem.isLineSupported(info)) {
                 System.err.println(" Línea de audio no soportada");
                 return null;
             }
             
-            // Inicializar micrófono
             TargetDataLine microphone = (TargetDataLine) AudioSystem.getLine(info);
+            
             microphone.open(AUDIO_FORMAT);
             microphone.start();
             
@@ -74,12 +36,11 @@ public class AudioCapturer {
             long startTime = System.currentTimeMillis();
             long duration = durationSeconds * 1000L;
             
-            // Captura en tiempo real
             while (System.currentTimeMillis() - startTime < duration) {
                 int bytesRead = microphone.read(buffer, 0, buffer.length);
                 out.write(buffer, 0, bytesRead);
                 
-                // Mostrar progreso cada segundo aprox.
+                // Mostrar progreso
                 long elapsed = System.currentTimeMillis() - startTime;
                 int secondsElapsed = (int) (elapsed / 1000);
                 if (secondsElapsed < durationSeconds && elapsed % 1000 < 100) {
@@ -89,11 +50,9 @@ public class AudioCapturer {
             
             System.out.println("\n Grabación completa!");
             
-            // Detener y cerrar micrófono
             microphone.stop();
             microphone.close();
             
-            // Obtener los bytes grabados
             byte[] audioData = out.toByteArray();
             System.out.println(" Audio capturado: " + audioData.length + " bytes");
             
@@ -110,12 +69,7 @@ public class AudioCapturer {
         }
     }
 
-    /**
-     * Método de prueba autónomo.
-     * Permite verificar si la captura de audio funciona correctamente.
-     *
-     * Graba 3 segundos de audio y analiza si contiene silencio.
-     */
+    // Método de prueba
     public static void main(String[] args) {
         System.out.println(" Probando captura de audio...");
         System.out.println(" Grabando 3 segundos...");
