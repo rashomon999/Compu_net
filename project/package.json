@@ -1,0 +1,13 @@
+{
+  "name": "compu-net",
+  "version": "1.0.0",
+  "description": "Sistema de chat COMPU_NET con Java backend y cliente web",
+  "scripts": {
+    "start": "node start-all.js",
+    "proxy": "cd proxy-http && npm start",
+    "web": "npx http-server cliente-web -p 3000 -c-1"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

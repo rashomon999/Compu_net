@@ -1,0 +1,34 @@
+[
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:32:04"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Donde va a estar el muñeco?",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:32:36"
+  },
+  {
+    "sender": "Pepitp",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:53:54"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Hola bobo",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:54:47"
+  }
+]
