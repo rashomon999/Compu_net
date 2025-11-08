@@ -5,6 +5,44 @@ class CommandService {
     this.socketManager = socketManager;
   }
 
+  /**
+   * Registra un usuario (el socket ya lo hace automáticamente)
+   */
+  async register(username) {
+    try {
+      // getOrCreateSocket ya maneja el registro automáticamente
+      const connection = await this.socketManager.getOrCreateSocket(username);
+      
+      if (connection.registered) {
+        return { 
+          success: true, 
+          message: `Usuario ${username} registrado correctamente` 
+        };
+      } else {
+        throw new Error('No se pudo completar el registro');
+      }
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err.message 
+      };
+    }
+  }
+
+  /**
+   * Ejecuta un comando en el servidor TCP
+   */
+  async execute(username, commandObj, timeoutMs = COMMAND_TIMEOUT) {
+    try {
+      return await this.sendCommand(username, commandObj, timeoutMs);
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err.message 
+      };
+    }
+  }
+
   async sendCommand(username, commandObj, timeoutMs = COMMAND_TIMEOUT) {
     try {
       const connection = await this.socketManager.getOrCreateSocket(username);

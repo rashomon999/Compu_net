@@ -5,7 +5,7 @@
 import { API_URL } from './config.js';
 import { state } from './state.js';
 import { showError, showChatInterface } from './ui.js';
-import { loadRecentChats } from './chats.js';
+import { loadRecentChatsFromServer } from './chats.js'; // 🆕 CAMBIO
 import { loadGroups } from './groups.js';
 
 export async function login() {
@@ -33,7 +33,10 @@ export async function login() {
     if (data.success) {
       state.currentUsername = username;
       showChatInterface();
-      loadRecentChats();
+      
+      // 🆕 CARGAR conversaciones desde el servidor
+      await loadRecentChatsFromServer();
+      
       loadGroups();
       console.log('✓ Login exitoso:', username);
     } else {
@@ -47,4 +50,4 @@ export async function login() {
     btn.disabled = false;
   }
 }
-
+ 

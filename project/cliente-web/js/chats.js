@@ -2,10 +2,28 @@
 // js/chats.js - Gestión de chats privados
 // ============================================
 
+import { API_URL } from './config.js';
 import { state } from './state.js';
 import { showError, updateChatHeader, showMessageInput } from './ui.js';
 import { loadHistory } from './messages.js';
 import { startPolling } from './polling.js';
+
+// 🆕 NUEVA FUNCIÓN: Cargar conversaciones desde el servidor
+export async function loadRecentChatsFromServer() {
+  try {
+    const res = await fetch(`${API_URL}/conversaciones/${state.currentUsername}`);
+    const data = await res.json();
+    
+    if (data.success && data.conversations) {
+      state.recentChats = data.conversations;
+      loadRecentChats(); // Actualizar UI
+      console.log('✓ Conversaciones cargadas:', state.recentChats);
+    }
+  } catch (err) {
+    console.error('Error cargando conversaciones:', err);
+    // No mostrar error al usuario, solo fallar silenciosamente
+  }
+}
 
 export function loadRecentChats() {
   const list = document.getElementById('chatsList');

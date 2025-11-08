@@ -1,5 +1,5 @@
 package utils;
-
+//project\backend-java\server\src\main\java\ utils\MessageProtocol.java
 /**
  * Define los tipos de mensajes y comandos del protocolo de comunicación
  */

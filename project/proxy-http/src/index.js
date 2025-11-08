@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { PORT, CLEANUP_INTERVAL } = require('./config/constants');
-const SocketManager = require('./services/socketManager');
+const socketManager = require('./services/socketManager'); 
 const CommandService = require('./services/commandService');
 const setupRoutes = require('./routes');
 
@@ -17,7 +17,6 @@ console.log('╚═════════════════════�
 console.log(`Puerto HTTP: ${PORT}\n`);
 
 // Servicios
-const socketManager = new SocketManager();
 const commandService = new CommandService(socketManager);
 
 // Configurar rutas

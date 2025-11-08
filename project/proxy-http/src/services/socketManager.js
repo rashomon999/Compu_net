@@ -126,6 +126,16 @@ class SocketManager {
   getActiveConnectionsCount() {
     return this.userSockets.size;
   }
+
+  // Métodos alias para compatibilidad
+  async getOrCreateConnection(username) {
+    return this.getOrCreateSocket(username);
+  }
+  
+  getActiveConnections() {
+    return this.getActiveConnectionsCount();
+  }
 }
 
-module.exports = SocketManager;
+//  EXPORTAR INSTANCIA, NO CLASE
+module.exports = new SocketManager();

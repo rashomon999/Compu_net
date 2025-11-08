@@ -2,6 +2,7 @@ package tcp;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.List;
 import java.util.Map;
 import utils.HistoryManager;
 import com.google.gson.Gson;
@@ -133,6 +134,7 @@ public class TextClientHandler implements Runnable {
                 case "LIST_USERS" -> handleListUsers();
                 case "VIEW_HISTORY" -> handleViewHistory(request);
                 case "VIEW_GROUP_HISTORY" -> handleViewGroupHistory(request);
+                case "GET_RECENT_CONVERSATIONS" -> handleGetRecentConversations();
                 default -> sendJsonResponse(false, "Comando desconocido: " + command, null);
             }
             
@@ -144,6 +146,15 @@ public class TextClientHandler implements Runnable {
 
     // ========== HANDLERS DE COMANDOS ==========
     
+    // Agregar este nuevo método:
+private void handleGetRecentConversations() {
+    List<String> conversations = historyService.getRecentConversations(username);
+    
+    sendJsonResponse(true, "Conversaciones recientes", Map.of(
+        "conversations", conversations
+   
+    ));
+}
     private void handlePrivateMessage(JsonObject request) {
         String recipient = request.get("recipient").getAsString();
         String message = request.get("message").getAsString();

@@ -1,6 +1,14 @@
 package tcp;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+
+//project\backend-java\server\src\main\java\tcp\HistoryService.java
+
 import java.util.List;
+import java.util.Set;
+
 import utils.HistoryManager;
 import utils.HistoryManager.ChatMessage;
 
@@ -59,4 +67,33 @@ public class HistoryService {
         
         return sb.toString().trim();
     }
+
+
+
+    /**
+ * Obtiene la lista de usuarios con los que el usuario ha conversado
+ */
+public List<String> getRecentConversations(String username) {
+    Set<String> contacts = new HashSet<>();
+    
+    List<ChatMessage> userMessages = history.getUserMessages(username);
+    
+    for (ChatMessage msg : userMessages) {
+        // Solo conversaciones privadas
+        if (!msg.isGroup) {
+            if (msg.sender.equals(username)) {
+                contacts.add(msg.recipient);
+            } else {
+                contacts.add(msg.sender);
+            }
+        }
+    }
+    
+    // Convertir a lista y ordenar alfabéticamente
+    List<String> result = new ArrayList<>(contacts);
+    Collections.sort(result);
+    
+    return result;
+    }
+
 }
