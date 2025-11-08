@@ -1,3 +1,7 @@
+// ============================================
+// js/chats.js - Gestión de chats privados
+// ============================================
+
 import { state } from './state.js';
 import { showError, updateChatHeader, showMessageInput } from './ui.js';
 import { loadHistory } from './messages.js';

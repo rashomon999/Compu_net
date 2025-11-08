@@ -1,3 +1,7 @@
+// ============================================
+// js/auth.js - Autenticación
+// ============================================
+
 import { API_URL } from './config.js';
 import { state } from './state.js';
 import { showError, showChatInterface } from './ui.js';

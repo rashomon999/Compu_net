@@ -1,3 +1,7 @@
+// ============================================
+// js/polling.js - Auto-actualización
+// ============================================
+// 
 import { state } from './state.js';
 import { POLLING_INTERVAL } from './config.js';
 import { loadHistory } from './messages.js';

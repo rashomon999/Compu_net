@@ -1,3 +1,7 @@
+// ============================================
+// js/messages.js - Envío y carga de mensajes
+// ============================================
+
 import { API_URL } from './config.js';
 import { state } from './state.js';
 import { showError } from './ui.js';

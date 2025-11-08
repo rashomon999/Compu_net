@@ -1,3 +1,7 @@
+// ============================================
+// js/main.js - Punto de entrada principal
+// ============================================
+
 import { login } from './auth.js';
 import { openChat } from './chats.js';
 import { createGroup, joinGroup } from './groups.js';

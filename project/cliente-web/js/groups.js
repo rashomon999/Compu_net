@@ -1,3 +1,7 @@
+// ============================================
+// js/groups.js - Gestión de grupos
+// ============================================
+
 import { API_URL } from './config.js';
 import { state } from './state.js';
 import { showError, updateChatHeader, showMessageInput } from './ui.js';
