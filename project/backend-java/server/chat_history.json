@@ -54,5 +54,53 @@
     "content": "hola",
     "isGroup": false,
     "timestamp": "2025-11-08 13:45:11"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "HOLA",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:09:13"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "BIEN",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:09:37"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "DIAZ",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:11:57"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "dd",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:12:51"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Hola nuevo mensaje",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:24:10"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "bem",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:41:37"
   }
 ]
