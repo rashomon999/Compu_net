@@ -4,17 +4,20 @@ import java.io.*;
 import java.net.Socket;
 import java.util.Map;
 import utils.HistoryManager;
- 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 /**
- * Handler REFACTORIZADO - Solo maneja I/O y delega a servicios
- * ANTES: 280 líneas | DESPUÉS: ~120 líneas
+ * Handler REFACTORIZADO - Comunicación mediante JSON
  */
 public class TextClientHandler implements Runnable {
     private final Socket socket;
     private final Map<String, PrintWriter> clients;
     private final HistoryManager history;
+    private final Gson gson;
     
-    // ========== SERVICIOS (Inyección de Dependencias) ==========
+    // ========== SERVICIOS ==========
     private final MessageService messageService;
     private final GroupService groupService;
     private final HistoryService historyService;
@@ -28,6 +31,7 @@ public class TextClientHandler implements Runnable {
         this.socket = socket;
         this.clients = clients;
         this.history = history;
+        this.gson = new Gson();
         
         // Inicializar servicios
         this.messageService = new MessageService(history, clients);
@@ -57,94 +61,203 @@ public class TextClientHandler implements Runnable {
     private void initializeStreams() throws IOException {
         out = new PrintWriter(socket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        out.println("Bienvenido al servidor de chat");
+        
+        // Enviar mensaje de bienvenida en JSON
+        sendJsonResponse(true, "Bienvenido al servidor de chat", null);
     }
 
     private boolean registerUser() throws IOException {
-        String registerCmd = in.readLine();
+        String jsonLine = in.readLine();
         
-        if (registerCmd == null || !registerCmd.startsWith("REGISTER ")) {
+        if (jsonLine == null) {
             return false;
         }
         
-        username = registerCmd.substring(9).trim();
-        
-        if (username.isEmpty() || clients.containsKey(username)) {
-            out.println("ERROR: Usuario ya existe o inválido");
-            socket.close();
+        try {
+            JsonObject request = JsonParser.parseString(jsonLine).getAsJsonObject();
+            String command = request.get("command").getAsString();
+            
+            if (!"REGISTER".equals(command)) {
+                sendJsonResponse(false, "Comando REGISTER esperado", null);
+                return false;
+            }
+            
+            username = request.get("username").getAsString().trim();
+            
+            if (username.isEmpty() || clients.containsKey(username)) {
+                sendJsonResponse(false, "Usuario ya existe o inválido", null);
+                socket.close();
+                return false;
+            }
+
+            synchronized (clients) {
+                clients.put(username, out);
+            }
+
+            sendJsonResponse(true, "Registrado como " + username, 
+                           Map.of("username", username));
+            System.out.println("[+] Usuario registrado: " + username);
+            return true;
+            
+        } catch (Exception e) {
+            sendJsonResponse(false, "JSON inválido: " + e.getMessage(), null);
             return false;
         }
-
-        synchronized (clients) {
-            clients.put(username, out);
-        }
-
-        out.println("Registrado como " + username);
-        System.out.println("[+] Usuario registrado: " + username);
-        return true;
     }
 
     // ========== PROCESAMIENTO DE COMANDOS ==========
     
     private void processCommands() throws IOException {
-        String command;
-        while ((command = in.readLine()) != null) {
-            System.out.println("[" + username + "] Comando: " + command);
-            processCommand(command);
+        String jsonLine;
+        while ((jsonLine = in.readLine()) != null) {
+            System.out.println("[" + username + "] Recibido: " + jsonLine);
+            processJsonCommand(jsonLine);
         }
     }
 
-    private void processCommand(String command) {
+    private void processJsonCommand(String jsonLine) {
         try {
-            String[] parts = command.split(" ", 3);
-            if (parts.length == 0) return;
-
-            String response = switch (parts[0]) {
-                case "MSG_USER" -> 
-                    parts.length >= 3 
-                        ? messageService.sendPrivateMessage(username, parts[1], parts[2])
-                        : "ERROR: Formato incorrecto";
-                        
-                case "MSG_GROUP" -> 
-                    parts.length >= 3 
-                        ? messageService.sendGroupMessage(username, parts[1], parts[2])
-                        : "ERROR: Formato incorrecto";
-                        
-                case "CREATE_GROUP" -> 
-                    parts.length >= 2 
-                        ? groupService.createGroup(parts[1], username)
-                        : "ERROR: Formato incorrecto";
-                        
-                case "JOIN_GROUP" -> 
-                    parts.length >= 2 
-                        ? groupService.joinGroup(parts[1], username)
-                        : "ERROR: Formato incorrecto";
-                        
-                case "LIST_GROUPS" -> 
-                    groupService.listAllGroups();
-                    
-                case "LIST_USERS" -> 
-                    userService.listConnectedUsers(username);
-                    
-                case "VIEW_HISTORY" -> 
-                    parts.length >= 2 
-                        ? historyService.getConversationHistory(username, parts[1])
-                        : "ERROR: Formato incorrecto";
-                        
-                case "VIEW_GROUP_HISTORY" -> 
-                    parts.length >= 2 
-                        ? historyService.getGroupHistory(parts[1])
-                        : "ERROR: Formato incorrecto";
-                        
-                default -> "ERROR: Comando desconocido";
-            };
+            JsonObject request = JsonParser.parseString(jsonLine).getAsJsonObject();
+            String command = request.get("command").getAsString();
             
-            out.println(response);
+            System.out.println("[" + username + "] Comando: " + command);
+
+            switch (command) {
+                case "MSG_USER" -> handlePrivateMessage(request);
+                case "MSG_GROUP" -> handleGroupMessage(request);
+                case "CREATE_GROUP" -> handleCreateGroup(request);
+                case "JOIN_GROUP" -> handleJoinGroup(request);
+                case "LEAVE_GROUP" -> handleLeaveGroup(request);
+                case "LIST_GROUPS" -> handleListGroups();
+                case "LIST_GROUP_MEMBERS" -> handleListGroupMembers(request);
+                case "LIST_USERS" -> handleListUsers();
+                case "VIEW_HISTORY" -> handleViewHistory(request);
+                case "VIEW_GROUP_HISTORY" -> handleViewGroupHistory(request);
+                default -> sendJsonResponse(false, "Comando desconocido: " + command, null);
+            }
             
         } catch (Exception e) {
-            out.println("ERROR: " + e.getMessage());
+            sendJsonResponse(false, "Error procesando comando: " + e.getMessage(), null);
             e.printStackTrace();
         }
+    }
+
+    // ========== HANDLERS DE COMANDOS ==========
+    
+    private void handlePrivateMessage(JsonObject request) {
+        String recipient = request.get("recipient").getAsString();
+        String message = request.get("message").getAsString();
+        
+        String result = messageService.sendPrivateMessage(username, recipient, message);
+        boolean success = result.startsWith("SUCCESS");
+        
+        sendJsonResponse(success, result, Map.of(
+            "from", username,
+            "to", recipient,
+            "message", message,
+            "timestamp", System.currentTimeMillis()
+        ));
+    }
+    
+    private void handleGroupMessage(JsonObject request) {
+        String groupName = request.get("groupName").getAsString();
+        String message = request.get("message").getAsString();
+        
+        String result = messageService.sendGroupMessage(username, groupName, message);
+        boolean success = result.startsWith("SUCCESS");
+        
+        sendJsonResponse(success, result, Map.of(
+            "from", username,
+            "group", groupName,
+            "message", message,
+            "timestamp", System.currentTimeMillis()
+        ));
+    }
+    
+    private void handleCreateGroup(JsonObject request) {
+        String groupName = request.get("groupName").getAsString();
+        
+        String result = groupService.createGroup(groupName, username);
+        boolean success = result.startsWith("SUCCESS");
+        
+        sendJsonResponse(success, result, Map.of(
+            "groupName", groupName,
+            "creator", username
+        ));
+    }
+    
+    private void handleJoinGroup(JsonObject request) {
+        String groupName = request.get("groupName").getAsString();
+        
+        String result = groupService.joinGroup(groupName, username);
+        boolean success = result.startsWith("SUCCESS");
+        
+        sendJsonResponse(success, result, Map.of(
+            "groupName", groupName,
+            "username", username
+        ));
+    }
+    
+    private void handleLeaveGroup(JsonObject request) {
+        String groupName = request.get("groupName").getAsString();
+        
+        // Implementar en GroupService si no existe
+        sendJsonResponse(true, "Funcionalidad pendiente", null);
+    }
+    
+    private void handleListGroups() {
+        String result = groupService.listAllGroups();
+        sendJsonResponse(true, result, null);
+    }
+    
+    private void handleListGroupMembers(JsonObject request) {
+        String groupName = request.get("groupName").getAsString();
+        
+        if (!groupService.groupExists(groupName)) {
+            sendJsonResponse(false, "El grupo no existe", null);
+            return;
+        }
+        
+        // Implementar en GroupService
+        sendJsonResponse(true, "Funcionalidad pendiente", null);
+    }
+    
+    private void handleListUsers() {
+        String result = userService.listConnectedUsers(username);
+        sendJsonResponse(true, result, null);
+    }
+    
+    private void handleViewHistory(JsonObject request) {
+        String otherUser = request.get("otherUser").getAsString();
+        
+        String result = historyService.getConversationHistory(username, otherUser);
+        sendJsonResponse(true, result, null);
+    }
+    
+    private void handleViewGroupHistory(JsonObject request) {
+        String groupName = request.get("groupName").getAsString();
+        
+        String result = historyService.getGroupHistory(groupName);
+        boolean success = !result.startsWith("ERROR");
+        
+        sendJsonResponse(success, result, null);
+    }
+
+    // ========== UTILIDADES ==========
+    
+    private void sendJsonResponse(boolean success, String message, Map<String, Object> data) {
+        JsonObject response = new JsonObject();
+        response.addProperty("success", success);
+        response.addProperty("message", message);
+        
+        if (data != null) {
+            JsonObject dataObj = gson.toJsonTree(data).getAsJsonObject();
+            response.add("data", dataObj);
+        }
+        
+        String jsonResponse = gson.toJson(response);
+        out.println(jsonResponse);
+        System.out.println("[→] " + username + ": " + jsonResponse);
     }
 
     // ========== DESCONEXIÓN ==========

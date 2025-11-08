@@ -1,4 +1,4 @@
-//scripts.js (C:\Users\luisg\Desktop\compunet\Compu_net\project\cliente-web\script.js)
+// script.js OPTIMIZADO - Polling inteligente
 
 const API_URL = "http://localhost:5000";
 
@@ -8,6 +8,8 @@ let currentChat = null;
 let isGroup = false;
 let recentChats = [];
 let myGroups = [];
+let historyInterval = null;
+let lastHistoryContent = ''; // Para detectar cambios
 
 // ==================== LOGIN ====================
 
@@ -19,7 +21,6 @@ async function login() {
     return;
   }
 
-  // Mostrar loading
   const btn = event.target;
   const originalText = btn.textContent;
   btn.textContent = 'Conectando...';
@@ -55,23 +56,24 @@ function showChatInterface() {
   document.getElementById('loginContainer').classList.add('hidden');
   document.getElementById('chatContainer').classList.remove('hidden');
   
-  // Cargar datos iniciales
   loadRecentChats();
   loadGroups();
 }
 
 function logout() {
+  stopHistoryPolling(); // IMPORTANTE: Detener polling
+  
   currentUsername = null;
   currentChat = null;
   isGroup = false;
   recentChats = [];
   myGroups = [];
+  lastHistoryContent = '';
   
   document.getElementById('loginContainer').classList.remove('hidden');
   document.getElementById('chatContainer').classList.add('hidden');
   document.getElementById('usernameInput').value = '';
   
-  // Restaurar estado inicial
   resetMainContent();
 }
 
@@ -83,7 +85,6 @@ function showError(message) {
   const container = document.querySelector('.login-container .section') || 
                    document.querySelector('.chat-container');
   
-  // Remover errores anteriores
   const oldError = container.querySelector('.error-message');
   if (oldError) oldError.remove();
   
@@ -95,7 +96,6 @@ function showError(message) {
 // ==================== TABS ====================
 
 function switchTab(tab) {
-  // Cambiar tabs activos
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   
@@ -148,30 +148,9 @@ function openChat() {
   
   document.getElementById('newChatUser').value = '';
   openChatFromList(user);
-
-  // Iniciar polling cada 3 segundos
-    startPolling(username, isGroup);
-
 }
-
-function startPolling(target, isGroup) {
-    stopPolling(); // Limpiar anterior
-    
-    pollingInterval = setInterval(async () => {
-        await loadHistory(target, isGroup, true); // true = silencioso
-    }, 3000);
-}
-
-function stopPolling() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-    }
-}
-
 
 function openChatFromList(user) {
-  // Agregar a chats recientes si no existe
   if (!recentChats.includes(user)) {
     recentChats.unshift(user);
     loadRecentChats();
@@ -182,7 +161,10 @@ function openChatFromList(user) {
   
   updateChatHeader(`💬 Chat con ${user}`, 'Conversación privada');
   showMessageInput();
-  loadHistory(user, false);
+  loadHistory(user, false, true); // true = carga inicial
+  
+  // INICIAR polling SOLO si hay un chat abierto
+  startHistoryPolling();
 }
 
 // ==================== GRUPOS ====================
@@ -211,7 +193,6 @@ async function createGroup() {
       alert('✓ Grupo creado: ' + groupName);
       document.getElementById('newGroupName').value = '';
       
-      // Agregar a mis grupos
       if (!myGroups.includes(groupName)) {
         myGroups.push(groupName);
       }
@@ -251,7 +232,6 @@ async function joinGroup() {
       alert('✓ Te uniste al grupo: ' + groupName);
       document.getElementById('joinGroupName').value = '';
       
-      // Agregar a mis grupos
       if (!myGroups.includes(groupName)) {
         myGroups.push(groupName);
       }
@@ -279,7 +259,6 @@ async function loadGroups() {
       return;
     }
     
-    // Parsear respuesta
     myGroups = [];
     list.innerHTML = '';
     
@@ -317,17 +296,22 @@ function openGroupChat(groupName) {
   
   updateChatHeader(`👥 Grupo: ${groupName}`, 'Chat grupal');
   showMessageInput();
-  loadHistory(groupName, true);
+  loadHistory(groupName, true, true); // true = carga inicial
   
-  // Actualizar UI de grupos
   loadGroups();
+  
+  // INICIAR polling
+  startHistoryPolling();
 }
 
 // ==================== MENSAJES ====================
 
-async function loadHistory(target, isGrupo) {
+async function loadHistory(target, isGrupo, showLoading = true) {
   const container = document.getElementById('messagesContainer');
-  container.innerHTML = '<p style="text-align: center; color: #999;">Cargando historial...</p>';
+  
+  if (showLoading) {
+    container.innerHTML = '<p style="text-align: center; color: #999;">Cargando historial...</p>';
+  }
 
   try {
     const url = isGrupo 
@@ -338,6 +322,13 @@ async function loadHistory(target, isGrupo) {
     const data = await res.json();
     
     if (data.success && data.historial) {
+      // COMPARAR con último contenido para evitar re-renderizado innecesario
+      if (data.historial === lastHistoryContent && !showLoading) {
+        return; // Sin cambios, no hacer nada
+      }
+      
+      lastHistoryContent = data.historial;
+      
       if (data.historial.includes('No hay historial')) {
         container.innerHTML = `
           <div class="welcome-message">
@@ -346,26 +337,29 @@ async function loadHistory(target, isGrupo) {
           </div>
         `;
       } else {
+        const wasAtBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
+        
         container.innerHTML = `
           <div class="message-history">
             <pre>${data.historial}</pre>
           </div>
         `;
         
-        // Scroll al final
-        container.scrollTop = container.scrollHeight;
+        if (wasAtBottom || showLoading) {
+          container.scrollTop = container.scrollHeight;
+        }
       }
     } else {
       container.innerHTML = '<p style="text-align: center; color: #999;">No hay mensajes aún</p>';
     }
   } catch (err) {
     console.error('Error cargando historial:', err);
-    container.innerHTML = '<p style="text-align: center; color: red;">Error cargando historial</p>';
-  }
-  if (!silent) {
-        mostrarEstado('Cargando historial...');
+    if (showLoading) {
+      container.innerHTML = '<p style="text-align: center; color: red;">Error cargando historial</p>';
     }
+  }
 }
+
 async function sendMessage() {
   const message = document.getElementById('messageText').value.trim();
   
@@ -400,8 +394,9 @@ async function sendMessage() {
     if (data.success) {
       document.getElementById('messageText').value = '';
       
-      // Recargar historial INMEDIATAMENTE
-      await loadHistory(currentChat, isGroup, false); // ← CAMBIO: false para no mostrar "Cargando"
+      // Actualizar inmediatamente + resetear cache
+      lastHistoryContent = '';
+      await loadHistory(currentChat, isGroup, false);
     } else {
       showError(data.error || 'Error al enviar mensaje');
     }
@@ -415,130 +410,36 @@ async function sendMessage() {
   }
 }
 
-// Variable global para el intervalo
-let historyInterval = null;
+// ==================== POLLING OPTIMIZADO ====================
 
-// Modificar loadHistory para permitir actualización silenciosa
-async function loadHistory(target, isGrupo, showLoading = true) {
-  const container = document.getElementById('messagesContainer');
-  
-  if (showLoading) {
-    container.innerHTML = '<p style="text-align: center; color: #999;">Cargando historial...</p>';
-  }
-
-  try {
-    const url = isGrupo 
-      ? `${API_URL}/historial-grupo/${target}?username=${currentUsername}`
-      : `${API_URL}/historial/${target}?from=${currentUsername}`;
-    
-    const res = await fetch(url);
-    const data = await res.json();
-    
-    if (data.success && data.historial) {
-      if (data.historial.includes('No hay historial')) {
-        container.innerHTML = `
-          <div class="welcome-message">
-            <h3>📭 Sin mensajes</h3>
-            <p>Sé el primero en enviar un mensaje</p>
-          </div>
-        `;
-      } else {
-        // Guardar posición del scroll antes de actualizar
-        const wasAtBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
-        
-        container.innerHTML = `
-          <div class="message-history">
-            <pre>${data.historial}</pre>
-          </div>
-        `;
-        
-        // Si estaba al final, mantenerlo al final
-        if (wasAtBottom || showLoading) {
-          container.scrollTop = container.scrollHeight;
-        }
-      }
-    } else {
-      container.innerHTML = '<p style="text-align: center; color: #999;">No hay mensajes aún</p>';
-    }
-  } catch (err) {
-    console.error('Error cargando historial:', err);
-    if (showLoading) {
-      container.innerHTML = '<p style="text-align: center; color: red;">Error cargando historial</p>';
-    }
-  }
-}
-
-// Nueva función para iniciar auto-actualización
 function startHistoryPolling() {
-  // Limpiar intervalo anterior si existe
-  if (historyInterval) {
-    clearInterval(historyInterval);
-  }
+  stopHistoryPolling(); // Limpiar anterior
   
-  // Actualizar cada 3 segundos
+  // Polling cada 5 segundos (era 3, ahora es menos frecuente)
   historyInterval = setInterval(() => {
-    if (currentChat) {
-      loadHistory(currentChat, isGroup, false); // false = no mostrar "Cargando..."
+    if (currentChat && document.visibilityState === 'visible') {
+      loadHistory(currentChat, isGroup, false);
     }
-  }, 3000);
+  }, 5000); // CAMBIO: 5 segundos en vez de 3
 }
 
-// Detener auto-actualización
 function stopHistoryPolling() {
   if (historyInterval) {
     clearInterval(historyInterval);
     historyInterval = null;
+    console.log('[INFO] Polling detenido');
   }
 }
 
-// Modificar openChatFromList y openGroupChat
-function openChatFromList(user) {
-  if (!recentChats.includes(user)) {
-    recentChats.unshift(user);
-    loadRecentChats();
+// Pausar polling cuando el tab no está visible
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    stopHistoryPolling();
+  } else if (currentChat) {
+    startHistoryPolling();
   }
-  
-  currentChat = user;
-  isGroup = false;
-  
-  updateChatHeader(`💬 Chat con ${user}`, 'Conversación privada');
-  showMessageInput();
-  loadHistory(user, false);
-  
-  // INICIAR auto-actualización
-  startHistoryPolling();
-}
+});
 
-function openGroupChat(groupName) {
-  currentChat = groupName;
-  isGroup = true;
-  
-  updateChatHeader(`👥 Grupo: ${groupName}`, 'Chat grupal');
-  showMessageInput();
-  loadHistory(groupName, true);
-  
-  // INICIAR auto-actualización
-  startHistoryPolling();
-  
-  loadGroups();
-}
-
-// Modificar logout para detener polling
-function logout() {
-  stopHistoryPolling(); // AGREGAR ESTO
-  
-  currentUsername = null;
-  currentChat = null;
-  isGroup = false;
-  recentChats = [];
-  myGroups = [];
-  
-  document.getElementById('loginContainer').classList.remove('hidden');
-  document.getElementById('chatContainer').classList.add('hidden');
-  document.getElementById('usernameInput').value = '';
-  
-  resetMainContent();
-}
 // ==================== UI HELPERS ====================
 
 function updateChatHeader(title, subtitle) {
@@ -557,6 +458,8 @@ function showMessageInput() {
 }
 
 function resetMainContent() {
+  stopHistoryPolling(); // IMPORTANTE
+  
   updateChatHeader('Bienvenido 👋', 'Selecciona un chat o crea uno nuevo');
   document.getElementById('messageInputContainer').classList.add('hidden');
   document.getElementById('messagesContainer').innerHTML = `
@@ -575,7 +478,6 @@ function resetMainContent() {
 // ==================== EVENT LISTENERS ====================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Enter para login
   const usernameInput = document.getElementById('usernameInput');
   if (usernameInput) {
     usernameInput.addEventListener('keypress', (e) => {
@@ -584,7 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
     usernameInput.focus();
   }
 
-  // Enter para enviar mensaje
   const messageInput = document.getElementById('messageText');
   if (messageInput) {
     messageInput.addEventListener('keypress', (e) => {

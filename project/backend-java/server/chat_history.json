@@ -30,5 +30,29 @@
     "content": "Hola bobo",
     "isGroup": false,
     "timestamp": "2025-11-08 11:54:47"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola aaaa",
+    "isGroup": false,
+    "timestamp": "2025-11-08 13:38:25"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "mas info",
+    "isGroup": false,
+    "timestamp": "2025-11-08 13:38:38"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 13:45:11"
   }
 ]
