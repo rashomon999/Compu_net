@@ -135,6 +135,8 @@ public class TextClientHandler implements Runnable {
                 case "VIEW_HISTORY" -> handleViewHistory(request);
                 case "VIEW_GROUP_HISTORY" -> handleViewGroupHistory(request);
                 case "GET_RECENT_CONVERSATIONS" -> handleGetRecentConversations();
+                case "GET_NEW_MESSAGES" -> handleGetNewMessages(); // 🆕 NUEVO
+                case "MARK_AS_READ" -> handleMarkAsRead(); // 🆕 NUEVO
                 default -> sendJsonResponse(false, "Comando desconocido: " + command, null);
             }
             
@@ -146,15 +148,28 @@ public class TextClientHandler implements Runnable {
 
     // ========== HANDLERS DE COMANDOS ==========
     
-    // Agregar este nuevo método:
-private void handleGetRecentConversations() {
-    List<String> conversations = historyService.getRecentConversations(username);
+    private void handleGetNewMessages() {
+    List<Map<String, String>> newMessages = historyService.getNewMessages(username);
     
-    sendJsonResponse(true, "Conversaciones recientes", Map.of(
-        "conversations", conversations
-   
+    sendJsonResponse(true, "Mensajes nuevos", Map.of(
+        "messages", newMessages,
+        "count", newMessages.size()
     ));
 }
+
+private void handleMarkAsRead() {
+    historyService.markAsRead(username);
+    sendJsonResponse(true, "Mensajes marcados como leídos", null);
+}
+
+    private void handleGetRecentConversations() {
+        List<String> conversations = historyService.getRecentConversations(username);
+    
+        sendJsonResponse(true, "Conversaciones recientes", Map.of(
+            "conversations", conversations
+   
+        ));
+    }
     private void handlePrivateMessage(JsonObject request) {
         String recipient = request.get("recipient").getAsString();
         String message = request.get("message").getAsString();

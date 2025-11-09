@@ -276,5 +276,64 @@ module.exports = (app, socketManager, commandService) => {
     });
   });
 
+  // ==================== 🆕 NOTIFICACIONES ====================
+
+app.get('/notificaciones/:username', async (req, res) => {
+  const { username } = req.params;
+  
+  if (!username) {
+    return res.json({ success: false, error: 'Username requerido' });
+  }
+
+  try {
+    console.log(`[API] Notificaciones de: ${username}`);
+    
+    const result = await commandService.execute(username, {
+      command: 'GET_NEW_MESSAGES'
+    });
+    
+    if (result.success && result.data) {
+      res.json({ 
+        success: true, 
+        messages: result.data.messages || [],
+        count: result.data.count || 0
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        messages: [],
+        count: 0
+      });
+    }
+  } catch (err) {
+    console.error('[ERROR] Notificaciones:', err.message);
+    res.json({ 
+      success: false, 
+      error: 'Error obteniendo notificaciones',
+      messages: [],
+      count: 0
+    });
+  }
+});
+
+app.post('/marcar-leido', async (req, res) => {
+  const { username } = req.body;
+  
+  if (!username) {
+    return res.json({ success: false, error: 'Username requerido' });
+  }
+
+  try {
+    const result = await commandService.execute(username, {
+      command: 'MARK_AS_READ'
+    });
+    
+    res.json(result);
+  } catch (err) {
+    console.error('[ERROR] Marcar leído:', err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
   console.log('✓ Rutas configuradas correctamente\n');
 };

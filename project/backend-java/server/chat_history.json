@@ -142,5 +142,29 @@
     "content": "Hola grupo",
     "isGroup": true,
     "timestamp": "2025-11-08 18:30:03"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 18:40:40"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "Cadela",
+    "isGroup": false,
+    "timestamp": "2025-11-08 18:41:02"
+  },
+  {
+    "sender": "Mishkin",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola, como estaa?",
+    "isGroup": false,
+    "timestamp": "2025-11-08 19:03:51"
   }
 ]

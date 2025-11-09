@@ -456,3 +456,37 @@ button:disabled {
 ::-webkit-scrollbar-thumb:hover {
   background: #667eea;
 }
+
+/* ==================== NOTIFICACIONES ==================== */
+
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  right: -400px;
+  width: 320px;
+  background: white;
+  border-left: 4px solid #667eea;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transition: right 0.3s ease;
+  z-index: 10000;
+}
+
+.notification-toast.show {
+  right: 20px;
+}
+
+.notification-toast strong {
+  display: block;
+  color: #1a202c;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.notification-toast p {
+  color: #4a5568;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.4;
+}

@@ -1,13 +1,11 @@
-// ============================================
-// js/state.js - Manejo del estado global
-// ============================================
 export const state = {
   currentUsername: null,
   currentChat: null,
   isGroup: false,
   recentChats: [],
   myGroups: [],
-  pollingInterval: null
+  pollingInterval: null,
+  notificationInterval: null // 
 };
 
 export function resetState() {
@@ -17,4 +15,5 @@ export function resetState() {
   state.recentChats = [];
   state.myGroups = [];
   state.pollingInterval = null;
+  state.notificationInterval = null; // 
 }
