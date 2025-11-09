@@ -166,5 +166,93 @@
     "content": "Hola, como estaa?",
     "isGroup": false,
     "timestamp": "2025-11-08 19:03:51"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:26:19"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "holaap",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:28:53"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "mmm",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:29:08"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "cccccc",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:29:22"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ssss",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:29:34"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ffff",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:33:59"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "fffffff",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:45:16"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "d",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:45:39"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "sssss",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:48:33"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Limpieza",
+    "type": "TEXT",
+    "content": "ddd",
+    "isGroup": true,
+    "timestamp": "2025-11-08 22:51:37"
+  },
+  {
+    "sender": "Mishkin",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "fffff",
+    "isGroup": false,
+    "timestamp": "2025-11-08 22:55:57"
   }
 ]

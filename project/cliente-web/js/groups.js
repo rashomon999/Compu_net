@@ -1,5 +1,5 @@
 // ============================================
-// js/groups.js - Gestión de grupos
+// js/groups.js - Gestión de grupos MEJORADO
 // ============================================
 
 import { API_URL } from './config.js';
@@ -91,45 +91,104 @@ export async function loadGroups() {
     const res = await fetch(`${API_URL}/grupos?username=${state.currentUsername}`);
     const data = await res.json();
     
+    // 🔍 DEBUG: Ver qué está devolviendo el servidor
+    console.log('📦 Respuesta de grupos:', data);
+    
     const list = document.getElementById('groupsList');
     
-    if (!data.success || !data.grupos) {
+    // Verificar si hay error en la respuesta
+    if (!data.success) {
+      console.warn('⚠️ Error en respuesta:', data.error);
       list.innerHTML = '<p class="empty-state">No estás en ningún grupo</p>';
       return;
     }
     
-    state.myGroups = [];
-    list.innerHTML = '';
+    // 🆕 Manejar diferentes formatos de respuesta
+    let groups = [];
     
-    if (data.grupos.includes('Grupos disponibles:')) {
-      const lines = data.grupos.split('\n').slice(1);
-      lines.forEach(line => {
-        const match = line.match(/- (.+?) \(/);
-        if (match) {
-          const groupName = match[1].trim();
-          state.myGroups.push(groupName);
-          
-          const div = document.createElement('div');
-          div.className = 'conversation-item';
-          if (state.currentChat === groupName && state.isGroup) {
-            div.classList.add('active');
-          }
-          div.innerHTML = `<span>👥</span><strong>${groupName}</strong>`;
-          div.onclick = () => openGroupChat(groupName);
-          list.appendChild(div);
-        }
-      });
+    // Formato 1: Array de grupos
+    if (Array.isArray(data.grupos)) {
+      groups = data.grupos;
+      console.log('✓ Formato array detectado:', groups);
     }
-    
-    if (state.myGroups.length === 0) {
+    // Formato 2: String con lista
+    else if (typeof data.grupos === 'string') {
+      groups = parseGroupsFromString(data.grupos);
+      console.log('✓ Formato string parseado:', groups);
+    }
+    // Formato 3: No hay grupos
+    else {
+      console.log('ℹ️ Sin grupos disponibles');
       list.innerHTML = '<p class="empty-state">No estás en ningún grupo</p>';
+      return;
     }
+    
+    // Actualizar estado y UI
+    state.myGroups = groups;
+    
+    if (groups.length === 0) {
+      list.innerHTML = '<p class="empty-state">No estás en ningún grupo</p>';
+      return;
+    }
+    
+    // Renderizar grupos
+    list.innerHTML = '';
+    groups.forEach(groupName => {
+      const div = document.createElement('div');
+      div.className = 'conversation-item';
+      
+      if (state.currentChat === groupName && state.isGroup) {
+        div.classList.add('active');
+      }
+      
+      div.innerHTML = `<span>👥</span><strong>${groupName}</strong>`;
+      div.onclick = () => openGroupChat(groupName);
+      list.appendChild(div);
+    });
+    
+    console.log('✓ Grupos cargados:', groups);
+    
   } catch (err) {
-    console.error('Error cargando grupos:', err);
+    console.error('❌ Error cargando grupos:', err);
+    const list = document.getElementById('groupsList');
+    list.innerHTML = '<p class="empty-state">Error al cargar grupos</p>';
   }
 }
 
+/**
+ * 🆕 Parsea el formato de string que devuelve el backend
+ */
+function parseGroupsFromString(groupsString) {
+  const groups = [];
+  
+  // Formato esperado:
+  // "Grupos disponibles:\n- Grupo1 (2 miembros)\n- Grupo2 (3 miembros)"
+  
+  if (!groupsString || groupsString === 'No hay grupos creados') {
+    return [];
+  }
+  
+  const lines = groupsString.split('\n');
+  
+  for (const line of lines) {
+    // Buscar líneas que empiecen con "- "
+    const match = line.match(/^-\s*(.+?)\s*\(/);
+    if (match) {
+      groups.push(match[1].trim());
+    }
+  }
+  
+  return groups;
+}
+
 export function openGroupChat(groupName) {
+  // 🔒 Verificar que el usuario sea miembro ANTES de abrir
+  if (!state.myGroups.includes(groupName)) {
+    showError('No eres miembro de este grupo');
+    console.warn('⚠️ Intento de acceder a grupo sin membresía:', groupName);
+    return;
+  }
+
   state.currentChat = groupName;
   state.isGroup = true;
   
@@ -137,5 +196,24 @@ export function openGroupChat(groupName) {
   showMessageInput();
   loadHistory(groupName, true, true);
   startPolling();
-  loadGroups();
+  
+  // 🆕 Actualizar SOLO el estilo activo sin recargar todo
+  updateActiveGroupInUI(groupName);
+}
+
+/**
+ * 🆕 Actualiza visualmente el grupo activo sin recargar la lista completa
+ */
+function updateActiveGroupInUI(groupName) {
+  const list = document.getElementById('groupsList');
+  const items = list.querySelectorAll('.conversation-item');
+  
+  items.forEach(item => {
+    const itemName = item.querySelector('strong').textContent;
+    if (itemName === groupName) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
 }
