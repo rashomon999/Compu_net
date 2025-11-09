@@ -256,19 +256,27 @@
     "timestamp": "2025-11-08 22:55:57"
   },
   {
-    "sender": "Luis",
-    "recipient": "Maria",
-    "type": "TEXT",
-    "content": "hola",
-    "isGroup": false,
-    "timestamp": "2025-11-08 23:09:36"
-  },
-  {
     "sender": "Pepitp",
     "recipient": "Luis",
     "type": "TEXT",
     "content": "holaaasddsadsadsadsa",
     "isGroup": false,
     "timestamp": "2025-11-08 23:14:01"
+  },
+  {
+    "sender": "Ligotti",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 23:40:31"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ddddd",
+    "isGroup": false,
+    "timestamp": "2025-11-08 23:46:13"
   }
 ]

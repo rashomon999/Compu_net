@@ -152,7 +152,7 @@ public class TextClientHandler implements Runnable {
     private void handleGetNewMessages() {
     List<Map<String, String>> newMessages = historyService.getNewMessages(username);
     
-    sendJsonResponse(true, "Mensajes nuevos", Map.of(
+    sendJsonResponse(true, " ", Map.of(
         "messages", newMessages,
         "count", newMessages.size()
     ));
