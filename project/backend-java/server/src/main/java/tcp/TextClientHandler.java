@@ -130,6 +130,7 @@ public class TextClientHandler implements Runnable {
                 case "JOIN_GROUP" -> handleJoinGroup(request);
                 case "LEAVE_GROUP" -> handleLeaveGroup(request);
                 case "LIST_GROUPS" -> handleListGroups();
+                case "LIST_USER_GROUPS" -> handleListUserGroups(); // 🆕 AGREGAR ESTA LÍNEA
                 case "LIST_GROUP_MEMBERS" -> handleListGroupMembers(request);
                 case "LIST_USERS" -> handleListUsers();
                 case "VIEW_HISTORY" -> handleViewHistory(request);
@@ -260,14 +261,35 @@ private void handleMarkAsRead() {
         sendJsonResponse(true, result, null);
     }
     
-    private void handleViewGroupHistory(JsonObject request) {
-        String groupName = request.get("groupName").getAsString();
-        
-        String result = historyService.getGroupHistory(groupName);
-        boolean success = !result.startsWith("ERROR");
-        
-        sendJsonResponse(success, result, null);
+    // En TextClientHandler.java - Reemplazar el método handleViewGroupHistory existente
+
+private void handleViewGroupHistory(JsonObject request) {
+    String groupName = request.get("groupName").getAsString();
+    
+    // 🔒 Verificar que el grupo existe
+    if (!groupService.groupExists(groupName)) {
+        sendJsonResponse(false, "ERROR: El grupo no existe", null);
+        return;
     }
+    
+    // 🔒 Verificar membresía ANTES de mostrar historial
+    List<String> members = history.getGroupMembers(groupName);
+    if (!members.contains(username)) {
+        sendJsonResponse(false, "ERROR: No eres miembro de este grupo", null);
+        System.out.println("[⚠️] " + username + " intentó ver historial de " + 
+                         groupName + " sin ser miembro");
+        return;
+    }
+    
+    // Solo si es miembro, devolver historial
+    String result = historyService.getGroupHistory(groupName);
+    sendJsonResponse(true, result, null);
+}
+ private void handleListUserGroups() {
+    // 🆕 Listar solo grupos donde el usuario ES miembro
+    String result = groupService.listUserGroups(username);
+    sendJsonResponse(true, result, null);
+}
 
     // ========== UTILIDADES ==========
     
@@ -286,6 +308,8 @@ private void handleMarkAsRead() {
         System.out.println("[→] " + username + ": " + jsonResponse);
     }
 
+
+    
     // ========== DESCONEXIÓN ==========
     
     private void disconnect() {

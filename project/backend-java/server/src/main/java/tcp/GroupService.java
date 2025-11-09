@@ -3,6 +3,7 @@ package tcp;
 
 
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import utils.HistoryManager;
@@ -71,4 +72,33 @@ public class GroupService {
     public boolean groupExists(String groupName) {
         return history.groupExists(groupName);
     }
+
+    /**
+ *  Lista SOLO los grupos donde el usuario ES miembro
+ */
+public String listUserGroups(String username) {
+    Set<String> allGroups = history.getAllGroups();
+    
+    // Filtrar solo grupos donde el usuario es miembro
+    List<String> userGroups = new ArrayList<>();
+    for (String group : allGroups) {
+        List<String> members = history.getGroupMembers(group);
+        if (members.contains(username)) {
+            userGroups.add(group);
+        }
+    }
+    
+    if (userGroups.isEmpty()) {
+        return "No estás en ningún grupo";
+    }
+    
+    StringBuilder sb = new StringBuilder("Grupos disponibles:\n");
+    for (String group : userGroups) {
+        List<String> members = history.getGroupMembers(group);
+        sb.append("- ").append(group)
+          .append(" (").append(members.size()).append(" miembros)\n");
+    }
+    
+    return sb.toString().trim();
+}
 }

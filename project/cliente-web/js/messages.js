@@ -1,5 +1,5 @@
 // ============================================
-// js/messages.js - Envío y carga de mensajes
+// js/messages.js - Envío y carga de mensajes MEJORADO
 // ============================================
 
 import { API_URL } from './config.js';
@@ -21,6 +21,32 @@ export async function loadHistory(target, isGrupo, showLoading = false) {
     const res = await fetch(url);
     const data = await res.json();
     
+    // 🔒 CASO 1: Error de permisos (no eres miembro)
+    if (!data.success) {
+      const errorMsg = data.error || data.message || 'Error al cargar';
+      
+      // Detectar error de membresía
+      if (errorMsg.toLowerCase().includes('no eres miembro') || 
+          errorMsg.toLowerCase().includes('no estás en')) {
+        container.innerHTML = `
+          <div class="welcome-message">
+            <h3>🚫 Acceso Denegado</h3>
+            <p>No eres miembro de este grupo</p>
+          </div>
+        `;
+        showError('No eres miembro de este grupo');
+      } else {
+        container.innerHTML = `
+          <div class="welcome-message">
+            <h3>⚠️ Error</h3>
+            <p>${errorMsg}</p>
+          </div>
+        `;
+      }
+      return;
+    }
+    
+    // ✅ CASO 2: Sin mensajes (pero con acceso válido)
     if (data.success && data.historial) {
       if (data.historial.includes('No hay historial')) {
         container.innerHTML = `
@@ -29,7 +55,9 @@ export async function loadHistory(target, isGrupo, showLoading = false) {
             <p>Sé el primero en enviar un mensaje</p>
           </div>
         `;
-      } else {
+      } 
+      // ✅ CASO 3: Hay mensajes
+      else {
         const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
         
         container.innerHTML = `
@@ -42,13 +70,21 @@ export async function loadHistory(target, isGrupo, showLoading = false) {
           setTimeout(() => container.scrollTop = container.scrollHeight, 10);
         }
       }
-    } else {
+    } 
+    // ⚠️ CASO 4: Respuesta inesperada
+    else {
       container.innerHTML = '<p style="text-align: center; color: #999;">No hay mensajes</p>';
     }
+    
   } catch (err) {
     console.error('Error cargando historial:', err);
     if (showLoading) {
-      container.innerHTML = '<p style="text-align: center; color: red;">Error</p>';
+      container.innerHTML = `
+        <div class="welcome-message">
+          <h3>⚠️ Error de Conexión</h3>
+          <p>No se pudo cargar el historial</p>
+        </div>
+      `;
     }
   }
 }
@@ -63,7 +99,8 @@ export async function sendMessage() {
     return;
   }
 
-  const btn = event.target;
+  // 🔧 Buscar el botón directamente en el DOM
+  const btn = document.querySelector('#messageInputContainer button');
   const originalText = btn.textContent;
   btn.textContent = 'Enviando...';
   btn.disabled = true;
@@ -86,7 +123,17 @@ export async function sendMessage() {
       document.getElementById('messageText').value = '';
       await loadHistory(state.currentChat, state.isGroup, false);
     } else {
-      showError(data.error || 'Error al enviar');
+      // 🆕 Mostrar mensaje de error específico
+      const errorMsg = data.error || data.message || 'Error al enviar';
+      showError(errorMsg);
+      
+      // Si el error es de membresía, cerrar el chat
+      if (errorMsg.toLowerCase().includes('no eres miembro')) {
+        console.warn('⚠️ Usuario no es miembro, cerrando chat');
+        // Opcional: cerrar el chat automáticamente
+        // state.currentChat = null;
+        // state.isGroup = false;
+      }
     }
   } catch (err) {
     console.error('Error enviando:', err);

@@ -254,5 +254,21 @@
     "content": "fffff",
     "isGroup": false,
     "timestamp": "2025-11-08 22:55:57"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 23:09:36"
+  },
+  {
+    "sender": "Pepitp",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "holaaasddsadsadsadsa",
+    "isGroup": false,
+    "timestamp": "2025-11-08 23:14:01"
   }
 ]
