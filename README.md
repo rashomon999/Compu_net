@@ -39,43 +39,84 @@ Sistema de chat distribuido que evoluciona desde una arquitectura **Cliente-Serv
 
 ---
 
-## 📂 Estructura del Proyecto
-```
 COMPU_NET/
 │
-├── backend-java/              # Servidor TCP (Java)
-│   ├── server/
+├── backend-java/                          # Servidor TCP (Java)
+│   ├── client/                            # Cliente Java (legacy - Tarea 1)
 │   │   └── src/main/java/
 │   │       ├── tcp/
-│   │       │   ├── Server.java           ⭐ Servidor principal
-│   │       │   └── TextClientHandler.java ⭐ Manejo de conexiones
+│   │       │   └── Client.java            ⭐ Cliente TCP (modo texto)
 │   │       └── utils/
-│   │           ├── HistoryManager.java   ⭐ Persistencia JSON
-│   │           └── MessageProtocol.java   Protocol definitions
-│   ├── client/                # Cliente Java (Tarea 1 - legacy)
-│   │   └── src/main/java/tcp/
-│   │       └── Client.java
-│   ├── build.gradle
-│   ├── settings.gradle
-│   └── gradlew / gradlew.bat
+│   │           ├── AudioCapturer.class    # Captura de audio (voz)
+│   │           ├── AudioPlayer.class      # Reproducción de audio
+│   │           └── VoiceMessage.java      # Mensajes de voz (definición)
+│   │
+│   ├── server/                            # Servidor principal TCP y UDP
+│   │   ├── audio_files/                   # Carpeta para archivos de voz
+│   │   ├── src/main/java/
+│   │   │   ├── tcp/                       # Módulo TCP principal
+│   │   │   │   ├── GroupService.java      # Servicio para manejo de grupos
+│   │   │   │   ├── HistoryService.java    # Manejo de historial de mensajes
+│   │   │   │   ├── MessageService.java    # Lógica de envío/recepción de mensajes
+│   │   │   │   ├── Server.java            ⭐ Servidor TCP principal
+│   │   │   │   ├── TextClientHandler.java # Gestión de clientes conectados
+│   │   │   │   └── UserService.java       # Manejo de usuarios
+│   │   │   ├── udp/
+│   │   │   │   └── UDPVoiceServer.java    # Servidor de voz (UDP)
+│   │   │   └── utils/
+│   │   │       └── Config.java            # Configuración del servidor
+│   │   ├── chat_history.json              # Historial de mensajes global
+│   │   ├── groups.json                    # Datos de grupos globales
+│   │   ├── build.gradle
+│   │   ├── config.json                    # Configuración general (puertos, rutas, etc.)
+│   │   ├── gradlew / gradlew.bat
+│   │   └── settings.gradle
+│   │
+│   ├── build/
+│   ├── bin/
+│   ├── .gradle/
+│   └── build.gradle
 │
-├── proxy-http/                # Proxy HTTP (Node.js + Express)
+├── proxy-http/                            # Proxy HTTP (Node.js + Express)
 │   ├── src/
-│   │   └── index.js          ⭐ Traducción HTTP ↔ TCP
+│   │   ├── config/
+│   │   │   └── constants.js               # Constantes y configuración general
+│   │   ├── middleware/
+│   │   │   └── validation.js              # Middleware de validación
+│   │   ├── routes/
+│   │   │   └── index.js                   # Definición de rutas HTTP
+│   │   ├── services/
+│   │   │   ├── commandService.js          # Comunicación con el servidor TCP
+│   │   │   └── socketManager.js           # Gestión de sockets TCP
+│   │   └── index.js                       ⭐ Entrada principal del proxy
 │   ├── package.json
-│   └── node_modules/
+│   ├── package-lock.json
+│   └── start-all.js
 │
-├── cliente-web/               # Cliente Web (HTML/JS/CSS)
-│   ├── index.html            ⭐ Interfaz de usuario
-│   ├── script.js             ⭐ Lógica del cliente
-│   ├── style.css              Estilos visuales
-│   ├── chat_history.json      Historial (auto-generado)
-│   └── groups.json            Grupos (auto-generado)
+├── cliente-web/                           # Cliente Web (HTML/JS/CSS)
+│   ├── js/
+│   │   ├── auth.js                        # Manejo de autenticación
+│   │   ├── chats.js                       # Manejo de chats
+│   │   ├── config.js                      # Configuración del cliente
+│   │   ├── groups.js                      # Gestión de grupos
+│   │   ├── main.js                        ⭐ Punto de entrada
+│   │   ├── messages.js                    # Envío/recepción de mensajes
+│   │   ├── notifications.js               # Notificaciones visuales
+│   │   ├── polling.js                     # Sincronización periódica
+│   │   ├── state.js                       # Estado global del cliente
+│   │   └── ui.js                          # Manipulación de la interfaz
+│   ├── groups.json
+│   ├── index.html
+│   └── style.css
 │
-├── start-all.js              ⭐ Script de inicio automático
-├── package.json               Configuración raíz
-└── README.md                  Este archivo
+├── start-all.js                           ⭐ Script global de inicio
+├── package.json                           # Configuración raíz
+└── README.md                              # Documentación general
+
+
 ```
+
+<img width="1825" height="962" alt="image" src="https://github.com/user-attachments/assets/313fec48-dd0b-47f6-9685-0b92bca38529" />
 
 ---
 
@@ -252,74 +293,6 @@ cd backend-java
 
 ---
 
-## 📊 Ejemplo de Flujo Completo
-
-### Envío de Mensaje: Luis → Ana
-```javascript
-// 1️⃣ Cliente Web (script.js)
-fetch('http://localhost:5000/enviar', {
-  method: 'POST',
-  headers: {'Content-Type': 'application/json'},
-  body: JSON.stringify({
-    from: "Luis",
-    to: "Ana",
-    message: "Hola!"
-  })
-})
-
-// 2️⃣ Proxy HTTP (index.js) traduce a:
-socket.write("REGISTER Luis\n")
-socket.write("MSG_USER Ana Hola!\n")
-
-// 3️⃣ Servidor Java (TextClientHandler.java) ejecuta:
-processCommand("MSG_USER Ana Hola!")
-  → sendMessageToUser("Ana", "Hola!")
-    → history.saveMessage("Luis", "Ana", "TEXT", "Hola!", false)
-    → out.println("SUCCESS: Mensaje enviado a Ana")
-
-// 4️⃣ Proxy devuelve a Cliente Web:
-{
-  "success": true,
-  "message": "SUCCESS: Mensaje enviado a Ana",
-  "timestamp": "2025-11-08T10:30:00.000Z"
-}
-```
-
----
-
-## 🗂️ Archivos Generados
-
-| Archivo | Ubicación | Descripción |
-|---------|-----------|-------------|
-| `chat_history.json` | `backend-java/` | Historial de mensajes |
-| `groups.json` | `backend-java/` | Grupos y miembros |
-| `audio_files/*.wav` | `backend-java/` | Notas de voz (Tarea 1) |
-
-### Ejemplo de `chat_history.json`
-```json
-[
-  {
-    "sender": "Luis",
-    "recipient": "Ana",
-    "type": "TEXT",
-    "content": "Hola!",
-    "isGroup": false,
-    "timestamp": "2025-11-08 10:30:00"
-  }
-]
-```
-
-### Ejemplo de `groups.json`
-```json
-{
-  "Proyecto": {
-    "name": "Proyecto",
-    "creator": "Luis",
-    "members": ["Luis", "Wilder", "Valentina"],
-    "createdAt": "2025-11-08 09:00:00"
-  }
-}
-```
 
 ---
 
@@ -380,11 +353,7 @@ taskkill /PID <PID> /F
 lsof -ti:9090 | xargs kill -9
 ```
 
-### Los mensajes no se actualizan automáticamente
-- **Comportamiento normal**: HTTP no tiene comunicación en tiempo real
-- **Solución actual**: Polling cada 3 segundos en `script.js`
-- **Mejora futura**: Implementar WebSockets (Proyecto Final)
-
+ 
 ---
 
 ## 📈 Diferencias entre Tarea 1 y Tarea 2
@@ -430,17 +399,7 @@ lsof -ti:9090 | xargs kill -9
 - [Fetch API MDN](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API)
 - [GSON User Guide](https://github.com/google/gson/blob/master/UserGuide.md)
 
----
-
-## 📞 Contacto y Soporte
-
-Si tienes preguntas o problemas:
-
-1. Revisa la sección **Solución de Problemas**
-2. Verifica los logs en cada terminal
-3. Contacta al equipo de desarrollo
-
----
+-----
 
 ## 📄 Licencia
 
@@ -462,6 +421,4 @@ Este proyecto demuestra la transición exitosa de una arquitectura **Cliente-Ser
 ✅ Desarrollo full-stack (Java + Node.js + JavaScript)  
 
 ---
-
-**Última actualización:** Noviembre 2025  
-**Versión:** 2.0 (Tarea 2)
+ 
