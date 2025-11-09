@@ -1,0 +1,40 @@
+// build.gradle (C:\Users\luisg\Desktop\compunet\Compu_net\project\backend-java\build.gradle)
+
+subprojects {
+    apply plugin: 'java'
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        implementation 'com.google.code.gson:gson:2.13.2'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+}
+
+// 👇 El cliente depende del servidor
+project(':client') {
+    apply plugin: 'application'
+
+    dependencies {
+        implementation project(':server')
+    }
+
+    application {
+        mainClass = 'tcp.Client'
+    }
+}
+
+project(':server') {
+    apply plugin: 'application'
+
+    application {
+        mainClass = 'tcp.Server'  // ← Usa Server.java
+    }
+}
+
+ 

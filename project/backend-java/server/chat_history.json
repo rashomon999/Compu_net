@@ -1,0 +1,170 @@
+[
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:32:04"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Donde va a estar el muñeco?",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:32:36"
+  },
+  {
+    "sender": "Pepitp",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:53:54"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Hola bobo",
+    "isGroup": false,
+    "timestamp": "2025-11-08 11:54:47"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola aaaa",
+    "isGroup": false,
+    "timestamp": "2025-11-08 13:38:25"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "mas info",
+    "isGroup": false,
+    "timestamp": "2025-11-08 13:38:38"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 13:45:11"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "HOLA",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:09:13"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "BIEN",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:09:37"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "DIAZ",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:11:57"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "dd",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:12:51"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Hola nuevo mensaje",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:24:10"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "bem",
+    "isGroup": false,
+    "timestamp": "2025-11-08 15:41:37"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Limpieza",
+    "type": "TEXT",
+    "content": "Aonde?",
+    "isGroup": true,
+    "timestamp": "2025-11-08 18:28:39"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Limpieza",
+    "type": "TEXT",
+    "content": "depois?",
+    "isGroup": true,
+    "timestamp": "2025-11-08 18:28:49"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Pepito",
+    "type": "TEXT",
+    "content": "Entao?",
+    "isGroup": false,
+    "timestamp": "2025-11-08 18:29:38"
+  },
+  {
+    "sender": "Pepito",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-08 18:29:51"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Limpieza",
+    "type": "TEXT",
+    "content": "Hola grupo",
+    "isGroup": true,
+    "timestamp": "2025-11-08 18:30:03"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-08 18:40:40"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "Cadela",
+    "isGroup": false,
+    "timestamp": "2025-11-08 18:41:02"
+  },
+  {
+    "sender": "Mishkin",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola, como estaa?",
+    "isGroup": false,
+    "timestamp": "2025-11-08 19:03:51"
+  }
+]

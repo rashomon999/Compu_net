@@ -1,0 +1,116 @@
+<!-- index.html  C:\Users\luisg\Desktop\compunet\Compu_net\project\cliente-web\index.html-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat COMPU_NET</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Pantalla de Login -->
+  <div class="login-container" id="loginContainer">
+    <h1>💬 Chat COMPU_NET</h1>
+    <p class="subtitle">Sistema de mensajería HTTP</p>
+    
+    <div class="section">
+      <div class="input-group">
+        <label for="usernameInput">Nombre de usuario</label>
+        <input id="usernameInput" type="text" placeholder="Ej: Luis" />
+      </div>
+      <button onclick="login()">Conectar</button>
+      <p class="help-text">Ingresa tu nombre para comenzar a chatear</p>
+    </div>
+    
+    <div class="status">
+      🌐 Servidor: http://localhost:5000
+    </div>
+  </div>
+
+  <!-- Pantalla Principal del Chat -->
+  <div class="chat-container hidden" id="chatContainer">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <strong id="currentUsername"></strong>
+        <button class="btn-secondary btn-small" onclick="logout()">Salir</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('chats')">💬 Chats</button>
+        <button class="tab" onclick="switchTab('grupos')">👥 Grupos</button>
+      </div>
+
+      <!-- Tab Chats -->
+      <div class="tab-content active" id="chatsTab">
+        <div class="section">
+          <h3>Abrir Chat</h3>
+          <div class="input-group">
+            <input id="newChatUser" type="text" placeholder="Nombre de usuario" />
+          </div>
+          <button onclick="openChat()">Abrir</button>
+        </div>
+
+        <div class="section-title">Conversaciones Recientes</div>
+        <div class="conversations" id="chatsList">
+          <p class="empty-state">No hay conversaciones aún</p>
+        </div>
+      </div>
+
+      <!-- Tab Grupos -->
+      <div class="tab-content" id="gruposTab">
+        <div class="section">
+          <h3>Crear Grupo</h3>
+          <div class="input-group">
+            <input id="newGroupName" type="text" placeholder="Nombre del grupo" />
+          </div>
+          <button onclick="createGroup()">Crear</button>
+        </div>
+
+        <div class="section">
+          <h3>Unirse a Grupo</h3>
+          <div class="input-group">
+            <input id="joinGroupName" type="text" placeholder="Nombre del grupo" />
+          </div>
+          <button onclick="joinGroup()">Unirse</button>
+        </div>
+
+        <div class="section-title">Mis Grupos</div>
+        <div class="conversations" id="groupsList">
+          <p class="empty-state">No estás en ningún grupo</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Área Principal -->
+    <div class="main-content">
+      <div class="chat-header" id="chatHeader">
+        <div class="chat-info">
+          <h2>Bienvenido 👋</h2>
+          <p>Selecciona un chat o crea uno nuevo</p>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messagesContainer">
+        <div class="welcome-message">
+          <h3>🎉 Comienza a chatear</h3>
+          <p>Selecciona una conversación del sidebar o inicia una nueva</p>
+          <ul>
+            <li>Abre un chat con otro usuario</li>
+            <li>Crea o únete a grupos</li>
+            <li>Envía mensajes y consulta el historial</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="message-input hidden" id="messageInputContainer">
+        <input id="messageText" type="text" placeholder="Escribe un mensaje..." />
+        <button onclick="sendMessage()">📤 Enviar</button>
+      </div>
+    </div>
+  </div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
