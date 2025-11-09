@@ -38,6 +38,7 @@ Sistema de chat distribuido que evoluciona desde una arquitectura **Cliente-Serv
 4. La respuesta viaja de vuelta: Java → Proxy → Cliente Web
 
 ---
+```
 
 COMPU_NET/
 │
@@ -114,6 +115,7 @@ COMPU_NET/
 └── README.md                              # Documentación general
 
 
+```
 ---
 <p align="center">
   <img src="https://github.com/user-attachments/assets/313fec48-dd0b-47f6-9685-0b92bca38529" alt="Estructura del proyecto COMPU_NET" width="800"/>
