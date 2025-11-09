@@ -1,27 +1,30 @@
 package tcp;
-//project\backend-java\server\src\main\java\tcp\Server.java
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 import utils.HistoryManager;
+import websocket.CompunetWebSocketServer;
 
 /**
- * Servidor TCP con Pool de Hilos (Escalable)
+ * Servidor TCP con Pool de Hilos + WebSocket
  */
 public class Server {
     private static final int PORT = 9090;
-    private static final int MAX_THREADS = 50; // Pool limitado
+    private static final int MAX_THREADS = 50;
     
     private static Map<String, PrintWriter> clients = new ConcurrentHashMap<>();
     private static HistoryManager history;
     private static ExecutorService threadPool;
+    private static CompunetWebSocketServer wsServer;
 
     public static void main(String[] args) {
         System.out.println("╔════════════════════════════════════════╗");
-        System.out.println("║   SERVIDOR TCP CON POOL DE HILOS     ║");
+        System.out.println("║   SERVIDOR TCP + WEBSOCKET (DUAL)    ║");
         System.out.println("╚════════════════════════════════════════╝");
         System.out.println("Puerto TCP: " + PORT);
+        System.out.println("Puerto WebSocket: 8080");
         System.out.println("Threads máximos: " + MAX_THREADS);
         System.out.println("Esperando conexiones...\n");
 
@@ -29,31 +32,42 @@ public class Server {
         history = new HistoryManager();
         threadPool = Executors.newFixedThreadPool(MAX_THREADS);
         
-        // Agregar shutdown hook para cerrar recursos al salir
+        wsServer = new CompunetWebSocketServer(history);
+        
+        // Agregar shutdown hook
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\n[!] Cerrando servidor...");
+            System.out.println("\n[!] Cerrando servidores...");
             threadPool.shutdown();
             try {
+                wsServer.stop();
                 if (!threadPool.awaitTermination(5, TimeUnit.SECONDS)) {
                     threadPool.shutdownNow();
                 }
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
                 threadPool.shutdownNow();
             }
-            System.out.println("[✓] Servidor cerrado correctamente");
+            System.out.println("[✓] Servidores cerrados correctamente");
         }));
 
-        // Bucle principal de aceptación de conexiones
+        // Iniciar WebSocket en hilo separado
+        new Thread(() -> {
+            try {
+                wsServer.start();
+            } catch (Exception e) {
+                System.err.println("[ERROR] Error iniciando WebSocket: " + e.getMessage());
+            }
+        }).start();
+
+        // Bucle principal TCP (existente)
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("[✓] Servidor iniciado correctamente\n");
+            System.out.println("[✓] Servidor TCP iniciado correctamente\n");
             
             while (!threadPool.isShutdown()) {
                 try {
                     Socket clientSocket = serverSocket.accept();
-                    System.out.println("[+] Nueva conexión desde " + 
+                    System.out.println("[+] Nueva conexión TCP desde " + 
                                      clientSocket.getInetAddress());
                     
-                    // Delegar al pool de hilos (NO crear hilo nuevo)
                     threadPool.execute(
                         new TextClientHandler(clientSocket, clients, history)
                     );
@@ -71,7 +85,7 @@ public class Server {
             }
             
         } catch (IOException e) {
-            System.err.println("[FATAL] Error iniciando servidor: " + e.getMessage());
+            System.err.println("[FATAL] Error iniciando servidor TCP: " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
