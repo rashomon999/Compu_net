@@ -403,15 +403,11 @@ lsof -ti:9090 | xargs kill -9
 
 -----
 
-## 📄 Licencia
 
-Este proyecto es parte de un trabajo académico para la materia de Redes de Computadoras.
-
----
 
 ## 🎓 Conclusión
 
-Este proyecto demuestra la transición exitosa de una arquitectura **Cliente-Servidor TCP pura** hacia un **sistema web moderno con proxy HTTP**, manteniendo la compatibilidad con el backend original y preparando el terreno para futuras mejoras con WebSockets y tecnologías web avanzadas.
+Este proyecto demuestra la transición exitosa de una arquitectura **Cliente-Servidor TCP pura** hacia un **sistema web moderno con proxy HTTP**.
 
 ### Conceptos Aprendidos
 
