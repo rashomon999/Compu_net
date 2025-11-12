@@ -1,7 +1,7 @@
 # 💬 COMPU_NET - Sistema de Chat TCP/HTTP
 
 ### 👥 Autores
-**Luis García**, **Wilder**, **Valentina**
+**Luis **, **Wilder**, **Valentina**
 
  
 
