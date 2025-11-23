@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat COMPU_NET</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Add Ice JS library -->
+  <script src="https://cdn.jsdelivr.net/npm/ice@3.7.9/lib/Ice.min.js"></script>
 </head>
 <body>
   <!-- Pantalla de Login -->
@@ -106,6 +108,8 @@
 
       <div class="message-input hidden" id="messageInputContainer">
         <input id="messageText" type="text" placeholder="Escribe un mensaje..." />
+        <!-- Add voice recording button -->
+        <button id="voiceRecordBtn" onclick="toggleVoiceRecording()" class="btn-voice">🎤</button>
         <button onclick="sendMessage()">📤 Enviar</button>
       </div>
     </div>

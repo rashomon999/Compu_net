@@ -31,7 +31,7 @@ Busca la IP en tu interfaz de red (ejemplo: `192.168.1.100`)
 Debes permitir conexiones entrantes en los puertos 9090 (TCP) y 9091 (UDP).
 
 **Windows Firewall:**
-```powershell
+\`\`\`powershell
 # Permitir TCP puerto 9090
 netsh advfirewall firewall add rule name="Compunet TCP" dir=in action=allow protocol=TCP localport=9090
 

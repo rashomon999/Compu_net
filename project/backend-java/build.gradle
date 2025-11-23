@@ -9,7 +9,7 @@ subprojects {
 
     dependencies {
         implementation 'com.google.code.gson:gson:2.13.2'
-        implementation 'org.java-websocket:Java-WebSocket:1.5.4'
+        implementation 'com.zeroc:ice:3.7.10'
     }
 
     tasks.withType(JavaCompile).configureEach {
@@ -32,8 +32,19 @@ project(':client') {
 
 project(':server') {
     apply plugin: 'application'
+    
+    task compileSlice(type: Exec) {
+        commandLine 'slice2java', '--output-dir', 'src/main/java', '../slice/Chat.ice'
+    }
+    
+    compileJava.dependsOn compileSlice
 
     application {
-        mainClass = 'tcp.Launcher'  // ← Usa Launcher.java
+        mainClass = 'tcp.Server'  // ← Usa Server.java
+    }
+    
+    task runIceServer(type: JavaExec) {
+        mainClass = 'ice.IceServer'
+        classpath = sourceSets.main.runtimeClasspath
     }
 }
