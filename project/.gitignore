@@ -1,0 +1,145 @@
+# ============================================
+# .gitignore para Proyecto Chat COMPU_NET
+# Colocar en la raíz del proyecto
+# ============================================
+
+# ==================== NODE ====================
+# Dependencias de Node.js (CRÍTICO)
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ==================== JAVA ====================
+# Archivos compilados de Java
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+/target/
+**/target/
+/build/
+**/build/
+/bin/
+**/bin/
+.gradle/
+**/.gradle/
+
+# ==================== ICE ====================
+# Archivos generados por Ice (solo si se regeneran automáticamente)
+# **/generated/
+# Si necesitas los archivos generados en el repo, comenta la línea anterior
+
+# ==================== DATOS ====================
+# Archivos de audio (pesados, se generan dinámicamente)
+audio_files/
+**/audio_files/
+
+# Archivos de datos opcionales
+# Descomentar la siguiente línea si NO quieres subir el historial:
+# chat_history.json
+# groups.json
+
+# Nota: Por defecto SÍ se suben chat_history.json y groups.json
+# porque pueden servir como datos de ejemplo o para testing
+
+# ==================== IDE ====================
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+*.launch
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+
+# ==================== SISTEMA OPERATIVO ====================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# ==================== LOGS ====================
+# Archivos de log
+*.log
+logs/
+*.log.*
+
+# ==================== WEBPACK ====================
+# Archivos empaquetados (si se generan automáticamente)
+dist/
+**/dist/
+# Si necesitas dist/ en el repo, comenta la línea anterior
+
+# ==================== TEMPORALES ====================
+# Archivos temporales
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+
+# ==================== GRADLE ====================
+# Gradle wrapper (mantener los archivos wrapper)
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# ==================== OPCIONAL ====================
+# Descomentar si no quieres subir estos archivos
+
+# Archivos de configuración local
+# config.local.js
+# .env
+# .env.local
+
+# Certificados y claves
+# *.pem
+# *.key
+# *.crt
+
+# ==================== IMPORTANTE ====================
+# NO ignorar estos archivos (usar ! para forzar inclusión)
+!.gitignore
+!README.md
+!package.json
+!webpack.config.js
+!*.ice
+!gradle/wrapper/
+
+# ==================== NOTAS ====================
+# Este archivo debe estar en la RAÍZ del proyecto
+# Para aplicarlo a un proyecto existente:
+# 1. Crear este archivo como .gitignore
+# 2. git rm -r --cached .
+# 3. git add .
+# 4. git commit -m "Aplicar .gitignore"

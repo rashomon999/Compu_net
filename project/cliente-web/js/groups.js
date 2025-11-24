@@ -1,12 +1,11 @@
 // ============================================
-// js/groups.js - Gestión de grupos MEJORADO
+// js/groups.js - Gestión de grupos con ICE
 // ============================================
 
-import { API_URL } from './config.js';
+import { iceClient } from './iceClient.js';
 import { state } from './state.js';
 import { showError, updateChatHeader, showMessageInput } from './ui.js';
 import { loadHistory } from './messages.js';
-import { startPolling } from './polling.js';
 
 export async function createGroup() {
   const groupName = document.getElementById('newGroupName').value.trim();
@@ -17,18 +16,9 @@ export async function createGroup() {
   }
 
   try {
-    const res = await fetch(`${API_URL}/grupos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        nombre: groupName,
-        creator: state.currentUsername 
-      })
-    });
-
-    const data = await res.json();
+    const result = await iceClient.createGroup(groupName, state.currentUsername);
     
-    if (data.success) {
+    if (result.startsWith('SUCCESS')) {
       alert('✓ Grupo creado: ' + groupName);
       document.getElementById('newGroupName').value = '';
       
@@ -36,10 +26,10 @@ export async function createGroup() {
         state.myGroups.push(groupName);
       }
       
-      loadGroups();
+      await loadGroupsFromICE();
       openGroupChat(groupName);
     } else {
-      showError(data.error || 'Error al crear grupo');
+      showError(result.replace('ERROR:', '').trim());
     }
   } catch (err) {
     console.error('Error creando grupo:', err);
@@ -56,18 +46,9 @@ export async function joinGroup() {
   }
 
   try {
-    const res = await fetch(`${API_URL}/grupos/unirse`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        grupo: groupName,
-        username: state.currentUsername 
-      })
-    });
-
-    const data = await res.json();
+    const result = await iceClient.joinGroup(groupName, state.currentUsername);
     
-    if (data.success) {
+    if (result.startsWith('SUCCESS')) {
       alert('✓ Te uniste al grupo: ' + groupName);
       document.getElementById('joinGroupName').value = '';
       
@@ -75,10 +56,10 @@ export async function joinGroup() {
         state.myGroups.push(groupName);
       }
       
-      loadGroups();
+      await loadGroupsFromICE();
       openGroupChat(groupName);
     } else {
-      showError(data.error || 'Error al unirse');
+      showError(result.replace('ERROR:', '').trim());
     }
   } catch (err) {
     console.error('Error uniéndose:', err);
@@ -86,52 +67,20 @@ export async function joinGroup() {
   }
 }
 
-export async function loadGroups() {
+export async function loadGroupsFromICE() {
   try {
-    const res = await fetch(`${API_URL}/grupos?username=${state.currentUsername}`);
-    const data = await res.json();
+    // Obtener grupos via ICE
+    const groups = await iceClient.listUserGroups(state.currentUsername);
     
-    // 🔍 DEBUG: Ver qué está devolviendo el servidor
-    console.log('📦 Respuesta de grupos:', data);
+    state.myGroups = groups;
     
     const list = document.getElementById('groupsList');
-    
-    // Verificar si hay error en la respuesta
-    if (!data.success) {
-      console.warn('⚠️ Error en respuesta:', data.error);
-      list.innerHTML = '<p class="empty-state">No estás en ningún grupo</p>';
-      return;
-    }
-    
-    // 🆕 Manejar diferentes formatos de respuesta
-    let groups = [];
-    
-    // Formato 1: Array de grupos
-    if (Array.isArray(data.grupos)) {
-      groups = data.grupos;
-      console.log('✓ Formato array detectado:', groups);
-    }
-    // Formato 2: String con lista
-    else if (typeof data.grupos === 'string') {
-      groups = parseGroupsFromString(data.grupos);
-      console.log('✓ Formato string parseado:', groups);
-    }
-    // Formato 3: No hay grupos
-    else {
-      console.log('ℹ️ Sin grupos disponibles');
-      list.innerHTML = '<p class="empty-state">No estás en ningún grupo</p>';
-      return;
-    }
-    
-    // Actualizar estado y UI
-    state.myGroups = groups;
     
     if (groups.length === 0) {
       list.innerHTML = '<p class="empty-state">No estás en ningún grupo</p>';
       return;
     }
     
-    // Renderizar grupos
     list.innerHTML = '';
     groups.forEach(groupName => {
       const div = document.createElement('div');
@@ -155,34 +104,7 @@ export async function loadGroups() {
   }
 }
 
-/**
- * 🆕 Parsea el formato de string que devuelve el backend
- */
-function parseGroupsFromString(groupsString) {
-  const groups = [];
-  
-  // Formato esperado:
-  // "Grupos disponibles:\n- Grupo1 (2 miembros)\n- Grupo2 (3 miembros)"
-  
-  if (!groupsString || groupsString === 'No hay grupos creados') {
-    return [];
-  }
-  
-  const lines = groupsString.split('\n');
-  
-  for (const line of lines) {
-    // Buscar líneas que empiecen con "- "
-    const match = line.match(/^-\s*(.+?)\s*\(/);
-    if (match) {
-      groups.push(match[1].trim());
-    }
-  }
-  
-  return groups;
-}
-
 export function openGroupChat(groupName) {
-  // 🔒 Verificar que el usuario sea miembro ANTES de abrir
   if (!state.myGroups.includes(groupName)) {
     showError('No eres miembro de este grupo');
     console.warn('⚠️ Intento de acceder a grupo sin membresía:', groupName);
@@ -195,15 +117,10 @@ export function openGroupChat(groupName) {
   updateChatHeader(`👥 Grupo: ${groupName}`, 'Chat grupal');
   showMessageInput();
   loadHistory(groupName, true, true);
-  startPolling();
   
-  // 🆕 Actualizar SOLO el estilo activo sin recargar todo
   updateActiveGroupInUI(groupName);
 }
 
-/**
- * 🆕 Actualiza visualmente el grupo activo sin recargar la lista completa
- */
 function updateActiveGroupInUI(groupName) {
   const list = document.getElementById('groupsList');
   const items = list.querySelectorAll('.conversation-item');

@@ -50,7 +50,7 @@ h1 {
 }
 
 /* ========== CHAT CONTAINER ========== */
-
+/* Chat container - asegurar altura fija */
 .chat-container {
   width: 100%;
   max-width: 1200px;
@@ -60,10 +60,9 @@ h1 {
   overflow: hidden;
   display: grid;
   grid-template-columns: 320px 1fr;
-  height: 650px;
+  height: 650px; /* ✅ Altura fija para forzar scroll interno */
   animation: fadeIn 0.3s;
 }
-
 /* ========== SIDEBAR ========== */
 
 .sidebar {
@@ -208,17 +207,25 @@ h3 {
 
 /* ========== MAIN CONTENT ========== */
 
+/* Contenedor principal del chat */
 .main-content {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: white;
+  position: relative;
+  overflow: hidden; /* ✅ CRÍTICO: evitar scroll doble */
+  height: 100%;
 }
 
+ 
+/* Header del chat fijo */
 .chat-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 2px solid #e9ecef;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .chat-info h2 {
@@ -231,13 +238,18 @@ h3 {
   opacity: 0.9;
 }
 
+/* Contenedor de mensajes con scroll */
 .messages-container {
   flex: 1;
+  overflow-y: auto; /* ✅ CRÍTICO: permitir scroll vertical */
+  overflow-x: hidden;
   background: #f8f9fa;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  padding: 0;
+  position: relative;
+  scroll-behavior: smooth;
+  /* ✅ CRÍTICO: altura mínima para forzar scroll */
+  min-height: 0;
+  height: 100%;
 }
 
 .welcome-message {
@@ -245,6 +257,26 @@ h3 {
   text-align: center;
   color: #666;
   max-width: 400px;
+}
+
+/* Estilos del textarea */
+#messageText {
+  width: 100%;
+  min-height: 60px;
+  max-height: 150px;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+#messageText:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .welcome-message h3 {
@@ -418,11 +450,13 @@ button:disabled {
 
 /* ========== RESPONSIVE ========== */
 
+/* Responsive - ajustar alturas */
 @media (max-width: 968px) {
   .chat-container {
     grid-template-columns: 1fr;
     height: auto;
     min-height: 600px;
+    max-height: 90vh; /* ✅ Limitar altura en móviles */
   }
 
   .sidebar {
@@ -432,7 +466,13 @@ button:disabled {
   }
 
   .main-content {
-    min-height: 300px;
+    min-height: 400px;
+  }
+  
+  .scroll-to-bottom-btn {
+    bottom: 80px;
+    right: 20px;
+    padding: 10px 16px;
   }
 }
 
@@ -489,4 +529,843 @@ button:disabled {
   font-size: 13px;
   margin: 0;
   line-height: 1.4;
+}
+
+
+/* ============================================
+   AGREGAR AL FINAL DE style.css
+   Estilos para notificaciones toast
+   ============================================ */
+
+/* Notificación toast */
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  right: -350px;
+  width: 320px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: right 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  z-index: 10000;
+  cursor: pointer;
+}
+
+.notification-toast.show {
+  right: 20px;
+}
+
+.notification-toast:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.notification-toast strong {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.notification-toast p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.95;
+  line-height: 1.4;
+}
+
+/* Notificación del sistema (diferente color) */
+.notification-toast.system {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* Animación de entrada */
+@keyframes slideIn {
+  from {
+    right: -350px;
+    opacity: 0;
+  }
+  to {
+    right: 20px;
+    opacity: 1;
+  }
+}
+
+/* Indicador de chat activo */
+.conversation-item.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-left: 4px solid #fff;
+}
+
+.conversation-item.active:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Badge para mensajes no leídos (opcional) */
+.conversation-item .unread-badge {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f5576c;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Indicador de escribiendo */
+.typing-indicator {
+  display: inline-block;
+  padding: 8px 12px;
+  background: #f0f0f0;
+  border-radius: 18px;
+  margin: 8px 0;
+}
+
+.typing-indicator span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #999;
+  border-radius: 50%;
+  margin: 0 2px;
+  animation: typingDot 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* Estado conectado */
+.connection-status {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connection-status.connected::before {
+  content: '🟢';
+}
+
+.connection-status.disconnected::before {
+  content: '🔴';
+}
+
+/* Mensaje del sistema en el chat */
+.system-message {
+  text-align: center;
+  padding: 8px;
+  margin: 12px 0;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+  color: #667eea;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* ============================================
+   AGREGAR AL FINAL DE style.css
+   Estilos para controles de audio
+   ============================================ */
+
+/* ==================== CONTROLES DE AUDIO ==================== */
+
+.audio-controls {
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voice-controls,
+.call-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.btn-audio {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+.btn-audio:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(240, 147, 251, 0.4);
+}
+
+.btn-audio.recording {
+  background: linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+.btn-call {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #51cf66 0%, #2f9e44 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(81, 207, 102, 0.3);
+}
+
+.btn-call:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(81, 207, 102, 0.4);
+}
+
+.btn-end-call {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.btn-end-call:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+}
+
+.timer {
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  font-weight: bold;
+  color: #667eea;
+  padding: 8px 16px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-audio-menu {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+.btn-audio-menu:hover {
+  transform: translateY(-2px) rotate(10deg);
+  box-shadow: 0 6px 16px rgba(240, 147, 251, 0.4);
+}
+
+/* ==================== MODAL LLAMADA ENTRANTE ==================== */
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s;
+}
+
+.modal-content {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  min-width: 350px;
+  animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-content h3 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.modal-content p {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.btn-accept {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #51cf66 0%, #2f9e44 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(81, 207, 102, 0.3);
+}
+
+.btn-accept:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(81, 207, 102, 0.4);
+}
+
+.btn-reject {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.btn-reject:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+}
+
+/* ==================== MEJORAS INPUT ==================== */
+
+/* Asegurar que el textarea no interfiera con el scroll */
+.message-input {
+  display: flex;
+  gap: 10px;
+  padding: 20px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  /* ✅ No debe crecer */
+  flex-shrink: 0;
+}
+
+
+.input-wrapper {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  align-items: flex-end;
+}
+
+.input-wrapper textarea {
+  flex: 1;
+  margin: 0;
+}
+
+ 
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-send {
+  flex: 1;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+
+.btn-send:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-audio-menu {
+  padding: 12px 20px;
+  background: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-audio-menu:hover {
+  background: #e0e0e0;
+  transform: scale(1.05);
+}
+
+/* Controles de audio tampoco deben interferir */
+.audio-controls {
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.voice-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-audio {
+  flex: 1;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-audio:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(252, 74, 26, 0.4);
+}
+
+.btn-audio.recording {
+  animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-recording {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(252, 74, 26, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(252, 74, 26, 0.7);
+  }
+}
+
+.timer {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fc4a1a;
+  min-width: 60px;
+  text-align: center;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: #e9ecef;
+  color: #495057;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #dee2e6;
+}
+
+.btn-small {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ============================================
+   Estilos para Notas de Voz en el Historial
+   Agregar esto a style.css
+   ============================================ */
+
+/* Contenedor de mensajes con scroll */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #f8f9fa;
+  padding: 0;
+  /* Scroll suave */
+  scroll-behavior: smooth;
+  /* Ocultar scrollbar en Webkit (Chrome, Safari) */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f8f9fa;
+}
+/* Scrollbar personalizada */
+.messages-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 5px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 5px;
+  border: 2px solid #f8f9fa;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Firefox */
+.messages-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f8f9fa;
+}
+/* Historial de mensajes */
+.message-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  /* ✅ CAMBIO IMPORTANTE: NO usar justify-content: flex-end */
+  /* Esto permite que el contenido crezca naturalmente hacia abajo */
+  min-height: min-content;
+}
+
+/* Cada mensaje individual */
+.message {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+  margin-bottom: 8px;
+  animation: fadeIn 0.2s ease-in;
+  /* ✅ Asegurar que los mensajes no colapsen */
+  flex-shrink: 0;
+}
+
+/* Encabezado del historial */
+.history-header {
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 8px 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 8px;
+}
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+ 
+/* Mensaje enviado (derecha) */
+.message.sent {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+/* Mensaje recibido (izquierda) */
+.message.received {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+/* Información del mensaje (timestamp + sender) */
+.message-info {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #999;
+  margin-bottom: 4px;
+  align-items: center;
+}
+
+.message-info .timestamp {
+  color: #999;
+}
+
+.message-info .sender {
+  color: #666;
+  font-weight: 500;
+}
+
+/* Contenido del mensaje de texto */
+.message-content {
+  background: #f0f0f0;
+  padding: 10px 14px;
+  border-radius: 18px;
+  word-wrap: break-word;
+  max-width: 100%;
+  line-height: 1.4;
+}
+
+.message.sent .message-content {
+  background: #007bff;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.message.received .message-content {
+  background: #e9ecef;
+  color: #333;
+  border-bottom-left-radius: 4px;
+}
+
+/* ============================================
+   BOTÓN DE NOTA DE VOZ
+   ============================================ */
+
+.voice-note-container {
+  margin-top: 4px;
+}
+
+.voice-note-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  min-width: 200px;
+}
+
+.voice-note-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.voice-note-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.voice-note-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.voice-note-button .play-icon {
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.voice-note-button .voice-label {
+  flex: 1;
+  text-align: left;
+}
+
+.voice-note-button .duration {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Variante para mensaje enviado */
+.message.sent .voice-note-button {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  box-shadow: 0 2px 8px rgba(17, 153, 142, 0.3);
+}
+
+.message.sent .voice-note-button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+}
+
+/* Variante para mensaje recibido */
+.message.received .voice-note-button {
+  background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+  box-shadow: 0 2px 8px rgba(252, 74, 26, 0.3);
+}
+
+.message.received .voice-note-button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(252, 74, 26, 0.4);
+}
+
+/* ============================================
+   INDICADOR DE REPRODUCCIÓN
+   ============================================ */
+
+.voice-note-button.playing {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.6);
+  }
+}
+
+/* ============================================
+   BOTÓN DE "NUEVOS MENSAJES"
+   ============================================ */
+
+/* Botón de scroll al fondo */
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 100px; /* ✅ Ajustado para no tapar controles */
+  right: 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  z-index: 100;
+  animation: slideUp 0.3s ease-out;
+  /* ✅ Asegurar visibilidad */
+  pointer-events: auto;
+}
+
+.scroll-to-bottom-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.scroll-to-bottom-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(20px);
+}
+.scroll-to-bottom-btn:active {
+  transform: translateY(0);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .message {
+    max-width: 85%;
+  }
+  
+  .voice-note-button {
+    min-width: 180px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+  
+  .voice-note-button .play-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 1rem;
+  }
+  
+  .scroll-to-bottom-btn {
+    bottom: 70px;
+    right: 20px;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
 }

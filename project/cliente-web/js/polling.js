@@ -1,38 +1,44 @@
 // ============================================
-// js/polling.js - Auto-actualización CON notificaciones
+// js/polling.js - Polling SOLO para historial (fallback)
+// Las notificaciones ahora son en tiempo real via ICE
 // ============================================
 
 import { state } from './state.js';
 import { POLLING_INTERVAL } from './config.js';
 import { loadHistory } from './messages.js';
-import { checkNotifications } from './notifications.js'; // 🆕
 
+/**
+ * Inicia polling para actualizar el historial del chat actual
+ * NOTA: Las notificaciones push ya no usan polling, son en tiempo real
+ */
 export function startPolling() {
   stopPolling();
   
-  console.log('🔄 Iniciando polling global');
+  console.log('🔄 Iniciando polling de historial (fallback)');
   
-  // Polling para el chat actual
+  // Polling SOLO para el chat actual (por si falla WebSocket)
   state.pollingInterval = setInterval(async () => {
     if (state.currentChat) {
+      // Recargar historial sin loading para actualización suave
       await loadHistory(state.currentChat, state.isGroup, false);
     }
   }, POLLING_INTERVAL);
-  
-  //  Polling para notificaciones (cada 5 segundos)
-  state.notificationInterval = setInterval(async () => {
-    await checkNotifications();
-  }, 5000);
 }
 
+/**
+ * Detiene el polling
+ */
 export function stopPolling() {
   if (state.pollingInterval) {
     clearInterval(state.pollingInterval);
     state.pollingInterval = null;
+    console.log('⏸️ Polling detenido');
   }
-  
-  if (state.notificationInterval) {
-    clearInterval(state.notificationInterval);
-    state.notificationInterval = null;
-  }
+}
+
+/**
+ * Obtiene el estado del polling
+ */
+export function isPollingActive() {
+  return state.pollingInterval !== null;
 }

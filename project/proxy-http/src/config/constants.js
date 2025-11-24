@@ -1,8 +1,0 @@
-module.exports = {
-  PORT: 5000,
-  JAVA_SERVER_HOST: 'localhost',
-  JAVA_SERVER_PORT: 9090,
-  COMMAND_TIMEOUT: 5000,
-  MAX_BUFFER_SIZE: 10000,
-  CLEANUP_INTERVAL: 5 * 60 * 1000
-};

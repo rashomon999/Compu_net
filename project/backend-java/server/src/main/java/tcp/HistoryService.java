@@ -66,7 +66,7 @@ public class HistoryService {
         // Solo actualizar último visto si realmente hay mensajes nuevos
         if (!newMessages.isEmpty()) {
             lastSeenTimestamp.put(username, maxTimestamp);
-            System.out.println("[📬] " + username + " tiene " + newMessages.size() + " mensajes nuevos");
+            System.out.println( username + " tiene " + newMessages.size() + " mensajes nuevos");
         }
         
         return newMessages;
@@ -86,7 +86,7 @@ public class HistoryService {
     public void initializeUser(String username) {
         if (!lastSeenTimestamp.containsKey(username)) {
             lastSeenTimestamp.put(username, System.currentTimeMillis());
-            System.out.println("[🔔] Notificaciones inicializadas para " + username);
+            System.out.println("  Notificaciones inicializadas para " + username);
         }
     }
     
@@ -99,7 +99,7 @@ public class HistoryService {
             );
             return dt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
         } catch (Exception e) {
-            System.err.println("[⚠️] Error parseando timestamp: " + timestamp);
+            System.err.println("Error parseando timestamp: " + timestamp);
             return 0;
         }
     }
@@ -175,4 +175,10 @@ public class HistoryService {
         
         return result;
     }
+
+    // Agregar al final de la clase HistoryService
+public HistoryManager getHistoryManager() {
+    return this.history;
+}
+
 }

@@ -1,0 +1,30 @@
+<state>
+  <timestamp value='1763963244219' />
+  <sourceSet name='default'>
+    <source name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\ChatSystem.ice'>
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\Message.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\GroupInfo.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\VoiceNote.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\ChatService.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\GroupService.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\NotificationCallback.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\NotificationService.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\VoiceService.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\MessageSeqHelper.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\GroupSeqHelper.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\VoiceNoteSeqHelper.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\ChatServicePrx.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\_ChatServicePrxI.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\GroupServicePrx.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\_GroupServicePrxI.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\NotificationCallbackPrx.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\_NotificationCallbackPrxI.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\NotificationServicePrx.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\_NotificationServicePrxI.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\VoiceServicePrx.java' />
+      <file name='C:\Users\luisg\Desktop\compunet\alerta\Compu_net\project\backend-java\server\build\generated-src\ChatSystem\_VoiceServicePrxI.java' />
+    </source>
+    <arg value='C:\Program Files\ZeroC\Ice-3.7.10\\bin\slice2java.exe' />
+    <arg value='-IC:\Program Files\ZeroC\Ice-3.7.10\\slice' />
+  </sourceSet>
+</state>

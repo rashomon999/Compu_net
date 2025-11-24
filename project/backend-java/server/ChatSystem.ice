@@ -1,0 +1,239 @@
+// ============================================================================
+// ChatSystem.ice - Definición de interfaces para sistema de chat
+// Ubicación: backend-java/server/ChatSystem.ice
+// ============================================================================
+
+module ChatSystem {
+    
+    // ========================================================================
+    // ESTRUCTURAS DE DATOS
+    // ========================================================================
+    
+    /**
+     * Mensaje de chat (texto o voz)
+     */
+    struct Message {
+        string sender;
+        string recipient;
+        string content;
+        string type;        // "TEXT" o "VOICE"
+        string timestamp;
+        bool isGroup;
+    };
+    
+    sequence<Message> MessageSeq;
+    sequence<string> StringSeq;
+    
+    /**
+     * Información detallada de un grupo
+     */
+    struct GroupInfo {
+        string name;
+        string creator;
+        StringSeq members;
+        int memberCount;
+        string createdAt;
+    };
+    
+    sequence<GroupInfo> GroupSeq;
+    
+    /**
+     * Nota de voz con metadata
+     */
+    struct VoiceNote {
+        string id;
+        string sender;
+        string target;
+        string audioFileRef;    // Referencia al archivo en servidor
+        bool isGroup;
+        string timestamp;
+        int durationSeconds;
+    };
+    
+    sequence<VoiceNote> VoiceNoteSeq;
+    
+    // ========================================================================
+    // SERVICIO PRINCIPAL DE CHAT
+    // ========================================================================
+    
+    interface ChatService {
+        /**
+         * Envía un mensaje privado a otro usuario
+         * @param sender Usuario que envía
+         * @param recipient Usuario que recibe
+         * @param message Contenido del mensaje
+         * @return Resultado de la operación
+         */
+        string sendPrivateMessage(string sender, string recipient, string message);
+        
+        /**
+         * Envía un mensaje a un grupo
+         * @param sender Usuario que envía
+         * @param groupName Nombre del grupo
+         * @param message Contenido del mensaje
+         * @return Resultado de la operación
+         */
+        string sendGroupMessage(string sender, string groupName, string message);
+        
+        /**
+         * Obtiene el historial de conversación entre dos usuarios
+         * @param user1 Primer usuario
+         * @param user2 Segundo usuario
+         * @return Historial formateado
+         */
+        string getConversationHistory(string user1, string user2);
+        
+        /**
+         * Obtiene el historial de un grupo
+         * @param groupName Nombre del grupo
+         * @param username Usuario que solicita (debe ser miembro)
+         * @return Historial formateado
+         */
+        string getGroupHistory(string groupName, string username);
+        
+        /**
+         * Obtiene la lista de conversaciones recientes de un usuario
+         * @param username Usuario
+         * @return Lista de usuarios con los que ha conversado
+         */
+        StringSeq getRecentConversations(string username);
+    };
+    
+    // ========================================================================
+    // SERVICIO DE GESTIÓN DE GRUPOS
+    // ========================================================================
+    
+    interface GroupService {
+        /**
+         * Crea un nuevo grupo de chat
+         * @param groupName Nombre del grupo
+         * @param creator Usuario creador
+         * @return Resultado de la operación
+         */
+        string createGroup(string groupName, string creator);
+        
+        /**
+         * Une un usuario a un grupo existente
+         * @param groupName Nombre del grupo
+         * @param username Usuario a unir
+         * @return Resultado de la operación
+         */
+        string joinGroup(string groupName, string username);
+        
+        /**
+         * Remueve un usuario de un grupo
+         * @param groupName Nombre del grupo
+         * @param username Usuario a remover
+         * @return Resultado de la operación
+         */
+        string leaveGroup(string groupName, string username);
+        
+        /**
+         * Lista todos los grupos donde el usuario es miembro
+         * @param username Usuario
+         * @return Array de información de grupos
+         */
+        GroupSeq listUserGroups(string username);
+        
+        /**
+         * Obtiene los miembros de un grupo
+         * @param groupName Nombre del grupo
+         * @return Lista de usernames
+         */
+        StringSeq getGroupMembers(string groupName);
+    };
+    
+    // ========================================================================
+    // SERVICIO DE NOTIFICACIONES (PATRÓN OBSERVER)
+    // ========================================================================
+    
+    /**
+     * Callback para recibir notificaciones en tiempo real
+     * Implementado por el cliente
+     */
+    interface NotificationCallback {
+        /**
+         * Notifica cuando llega un mensaje nuevo
+         */
+        void onNewMessage(Message msg);
+        
+        /**
+         * Notifica cuando se crea un grupo nuevo
+         */
+        void onGroupCreated(string groupName, string creator);
+        
+        /**
+         * Notifica cuando alguien se une a un grupo
+         */
+        void onUserJoinedGroup(string groupName, string username);
+    };
+    
+    /**
+     * Servicio de notificaciones push (Subject del patrón Observer)
+     */
+    interface NotificationService {
+        /**
+         * Suscribe un cliente para recibir notificaciones
+         * @param username Usuario que se suscribe
+         * @param callback Objeto callback del cliente
+         */
+        void subscribe(string username, NotificationCallback* callback);
+        
+        /**
+         * Desuscribe un cliente
+         * @param username Usuario que se desuscribe
+         */
+        void unsubscribe(string username);
+        
+        /**
+         * Obtiene mensajes nuevos desde la última consulta
+         * @param username Usuario
+         * @return Array de mensajes nuevos
+         */
+        MessageSeq getNewMessages(string username);
+        
+        /**
+         * Marca mensajes como leídos
+         * @param username Usuario
+         */
+        void markAsRead(string username);
+    };
+    
+    // ========================================================================
+    // SERVICIO DE NOTAS DE VOZ
+    // ========================================================================
+    
+    interface VoiceService {
+        /**
+         * Guarda una nota de voz
+         * @param sender Usuario que envía
+         * @param target Usuario o grupo receptor
+         * @param audioDataBase64 Audio codificado en Base64
+         * @param isGroup Si es para un grupo
+         * @return ID de la nota de voz o mensaje de error
+         */
+        string saveVoiceNote(string sender, string target, string audioDataBase64, bool isGroup);
+        
+        /**
+         * Obtiene el audio de una nota de voz
+         * @param audioFileRef Referencia al archivo
+         * @return Audio codificado en Base64
+         */
+        string getVoiceNote(string audioFileRef);
+        
+        /**
+         * Obtiene el historial de notas de voz entre dos usuarios
+         * @param user1 Primer usuario
+         * @param user2 Segundo usuario
+         * @return Array de notas de voz
+         */
+        VoiceNoteSeq getVoiceNotesHistory(string user1, string user2);
+        
+        /**
+         * Obtiene las notas de voz de un grupo
+         * @param groupName Nombre del grupo
+         * @return Array de notas de voz
+         */
+        VoiceNoteSeq getGroupVoiceNotes(string groupName);
+    };
+};

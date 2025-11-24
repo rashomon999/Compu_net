@@ -276,7 +276,7 @@ private void handleViewGroupHistory(JsonObject request) {
     List<String> members = history.getGroupMembers(groupName);
     if (!members.contains(username)) {
         sendJsonResponse(false, "ERROR: No eres miembro de este grupo", null);
-        System.out.println("[⚠️] " + username + " intentó ver historial de " + 
+        System.out.println(username + " intento ver historial de " + 
                          groupName + " sin ser miembro");
         return;
     }

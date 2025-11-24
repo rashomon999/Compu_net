@@ -8,5 +8,13 @@
       "Maria"
     ],
     "createdAt": "2025-11-08 18:27:48"
+  },
+  "Segundo": {
+    "name": "Segundo",
+    "creator": "Luis",
+    "members": [
+      "Luis"
+    ],
+    "createdAt": "2025-11-24 00:23:05"
   }
 }

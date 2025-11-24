@@ -278,5 +278,13 @@
     "content": "ddddd",
     "isGroup": false,
     "timestamp": "2025-11-08 23:46:13"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "VOICE",
+    "content": "[AUDIO_FILE:Luis_to_Maria_20251124_002401_836.wav]",
+    "isGroup": false,
+    "timestamp": "2025-11-24 00:24:01"
   }
 ]

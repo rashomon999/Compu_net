@@ -1,28 +1,32 @@
 // ============================================
-// js/chats.js - Gestión de chats privados
+// js/chats.js - Gestión de chats privados con ICE
 // ============================================
 
-import { API_URL } from './config.js';
+import { iceClient } from './iceClient.js';
 import { state } from './state.js';
 import { showError, updateChatHeader, showMessageInput } from './ui.js';
 import { loadHistory } from './messages.js';
-import { startPolling } from './polling.js';
 
-// 🆕 NUEVA FUNCIÓN: Cargar conversaciones desde el servidor
-export async function loadRecentChatsFromServer() {
+// 🆕 Cargar conversaciones desde ICE (reemplaza HTTP)
+export async function loadRecentChatsFromICE() {
   try {
-    const res = await fetch(`${API_URL}/conversaciones/${state.currentUsername}`);
-    const data = await res.json();
+    // Obtener conversaciones via ICE
+    const conversations = await iceClient.getRecentConversations(state.currentUsername);
     
-    if (data.success && data.conversations) {
-      state.recentChats = data.conversations;
-      loadRecentChats(); // Actualizar UI
-      console.log('✓ Conversaciones cargadas:', state.recentChats);
-    }
+    state.recentChats = conversations;
+    loadRecentChats(); // Actualizar UI
+    
+    console.log('✓ Conversaciones cargadas desde ICE:', state.recentChats);
   } catch (err) {
-    console.error('Error cargando conversaciones:', err);
-    // No mostrar error al usuario, solo fallar silenciosamente
+    console.error('Error cargando conversaciones desde ICE:', err);
+    // Fallar silenciosamente
   }
+}
+
+// ⚠️ MANTENER para compatibilidad (ya no se usa)
+export async function loadRecentChatsFromServer() {
+  console.warn('loadRecentChatsFromServer() está deprecated. Usa loadRecentChatsFromICE()');
+  await loadRecentChatsFromICE();
 }
 
 export function loadRecentChats() {
@@ -64,6 +68,7 @@ export function openChat() {
 }
 
 export function openChatFromList(user) {
+  // Agregar a la lista si no existe
   if (!state.recentChats.includes(user)) {
     state.recentChats.unshift(user);
     loadRecentChats();
@@ -75,5 +80,21 @@ export function openChatFromList(user) {
   updateChatHeader(`💬 Chat con ${user}`, 'Conversación privada');
   showMessageInput();
   loadHistory(user, false, true);
-  startPolling();
+  
+  // Actualizar visualmente el chat activo
+  updateActiveChatInUI(user);
+}
+
+function updateActiveChatInUI(chatUser) {
+  const list = document.getElementById('chatsList');
+  const items = list.querySelectorAll('.conversation-item');
+  
+  items.forEach(item => {
+    const itemName = item.querySelector('strong').textContent;
+    if (itemName === chatUser) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
 }

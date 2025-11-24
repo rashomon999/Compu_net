@@ -1,12 +1,13 @@
 // ============================================
-// js/auth.js - Autenticación CORREGIDA
+// js/auth.js - AutenticaciÃ³n con ICE
 // ============================================
 
-import { API_URL } from './config.js';
+import { iceClient } from './iceClient.js';
 import { state } from './state.js';
 import { showError, showChatInterface } from './ui.js';
-import { loadRecentChatsFromServer } from './chats.js';
-import { loadGroups } from './groups.js';
+import { loadRecentChatsFromICE } from './chats.js';
+import { loadGroupsFromICE } from './groups.js';
+import { subscribeToRealTimeNotifications } from './notifications.js';
 
 export async function login() {
   const username = document.getElementById('usernameInput').value.trim();
@@ -16,63 +17,44 @@ export async function login() {
     return;
   }
 
-  // 🔧 Buscar el botón directamente en el DOM
   const btn = document.querySelector('.login-container button');
   const originalText = btn.textContent;
-  btn.textContent = 'Conectando...';
+  btn.textContent = 'Conectando a ICE...';
   btn.disabled = true;
 
   try {
-    const res = await fetch(`${API_URL}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      state.currentUsername = username;
-      showChatInterface();
-      
-      // 🆕 PASO 1: Inicializar notificaciones en el servidor
-      await initializeNotifications(username);
-      
-      // PASO 2: Cargar conversaciones desde el servidor
-      await loadRecentChatsFromServer();
-      
-      // PASO 3: Cargar grupos
-      loadGroups();
-      
-      console.log('✓ Login exitoso:', username);
-    } else {
-      showError(data.error || 'Error al conectar');
-    }
+    // PASO 1: Conectar al servidor ICE
+    await iceClient.connect(username);
+    
+    // PASO 2: Guardar estado
+    state.currentUsername = username;
+    
+    // PASO 3: Suscribirse a notificaciones en tiempo real
+    await subscribeToRealTimeNotifications(username);
+    
+    // PASO 4: Mostrar interfaz
+    showChatInterface();
+    
+    // PASO 5: Cargar datos iniciales
+    await loadRecentChatsFromICE();
+    await loadGroupsFromICE();
+    
+    console.log('âœ… Login exitoso con ICE:', username);
+    
   } catch (err) {
-    console.error('Error en login:', err);
-    showError('No se pudo conectar al servidor');
+    console.error('âŒ Error en login:', err);
+    showError('No se pudo conectar al servidor ICE. Â¿EstÃ¡ corriendo en puerto 10000?');
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
   }
 }
 
-// 🆕 Nueva función para inicializar el timestamp de notificaciones
-async function initializeNotifications(username) {
+export async function logout() {
   try {
-    const res = await fetch(`${API_URL}/notificaciones/inicializar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    
-    const data = await res.json();
-    
-    if (data.success) {
-      console.log('✓ Notificaciones inicializadas para', username);
-    }
+    await iceClient.disconnect();
+    console.log('ðŸ‘‹ Logout exitoso');
   } catch (err) {
-    console.error('⚠️ Error inicializando notificaciones:', err);
-    // No bloquear el login por esto
+    console.error('Error en logout:', err);
   }
 }

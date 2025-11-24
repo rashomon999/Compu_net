@@ -2,23 +2,44 @@
 // js/main.js - Punto de entrada principal
 // ============================================
 
-import { login } from './auth.js';
-import { openChat } from './chats.js';
-import { createGroup, joinGroup } from './groups.js';
+// ⚡ IMPORTAR CSS
+import '../style.css';
+
+// Importar módulos del sistema
+import { login, logout } from './auth.js';
+import { openChat, loadRecentChats } from './chats.js';
+import { createGroup, joinGroup, loadGroupsFromICE } from './groups.js';
 import { sendMessage } from './messages.js';
 import { stopPolling } from './polling.js';
-import { state, resetState } from './state.js';
+import { resetState } from './state.js';
 import { showLoginInterface, resetMainContent } from './ui.js';
 
-// Funciones globales para HTML
-window.login = login;
-window.openChat = openChat;
-window.createGroup = createGroup;
-window.joinGroup = joinGroup;
-window.sendMessage = sendMessage;
-window.switchTab = switchTab;
-window.logout = logout;
+// 🎙️ Importar funcionalidad de audio
+import { 
+  toggleRecording, 
+  cancelRecording,
+  toggleAudioMenu,
+  showAudioControls,
+  hideAudioControls
+} from './audioUI.js';
 
+// ========================================
+// FUNCIONES GLOBALES (para debugging)
+// ========================================
+window._debug = {
+  login,
+  logout,
+  openChat,
+  createGroup,
+  joinGroup,
+  sendMessage,
+  toggleRecording,
+  cancelRecording
+};
+
+// ========================================
+// CAMBIO DE TABS
+// ========================================
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -26,34 +47,141 @@ function switchTab(tab) {
   if (tab === 'chats') {
     document.querySelectorAll('.tab')[0].classList.add('active');
     document.getElementById('chatsTab').classList.add('active');
-    import('./chats.js').then(m => m.loadRecentChats());
+    loadRecentChats();
   } else {
     document.querySelectorAll('.tab')[1].classList.add('active');
     document.getElementById('gruposTab').classList.add('active');
-    import('./groups.js').then(m => m.loadGroups());
+    loadGroupsFromICE();
   }
 }
 
-function logout() {
-  stopPolling();
-  resetState();
-  showLoginInterface();
-  document.getElementById('usernameInput').value = '';
-  resetMainContent();
-}
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
+// ========================================
+// EVENT LISTENERS
+// ========================================
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🚀 Aplicación de chat inicializada');
+  
+  // ✅ Esperar a que Ice.js esté disponible
+  if (window._iceLoadPromise) {
+    try {
+      await window._iceLoadPromise;
+      console.log('✅ Ice.js disponible, continuando inicialización...');
+    } catch (error) {
+      console.error('❌ Error cargando Ice.js:', error);
+      alert('Error: No se pudo cargar Ice.js. Por favor recarga la página.');
+      return;
+    }
+  }
+  
+  // ========================================
+  // PANTALLA DE LOGIN
+  // ========================================
   const usernameInput = document.getElementById('usernameInput');
-  if (usernameInput) {
+  const loginButton = document.getElementById('loginButton');
+  
+  if (usernameInput && loginButton) {
+    // Login con Enter
     usernameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') login();
+      if (e.key === 'Enter') {
+        login();
+      }
     });
+    
+    // Login con botón
+    loginButton.addEventListener('click', () => {
+      login();
+    });
+    
     usernameInput.focus();
   }
-
+  
+  // ========================================
+  // LOGOUT
+  // ========================================
+  const logoutButton = document.getElementById('logoutButton');
+  if (logoutButton) {
+    logoutButton.addEventListener('click', () => {
+      logout();
+    });
+  }
+  
+  // ========================================
+  // TABS
+  // ========================================
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      const tabName = e.target.getAttribute('data-tab');
+      if (tabName) {
+        switchTab(tabName);
+      }
+    });
+  });
+  
+  // ========================================
+  // CHATS
+  // ========================================
+  const openChatButton = document.getElementById('openChatButton');
+  const newChatUser = document.getElementById('newChatUser');
+  
+  if (openChatButton) {
+    openChatButton.addEventListener('click', () => {
+      openChat();
+    });
+  }
+  
+  if (newChatUser) {
+    newChatUser.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        openChat();
+      }
+    });
+  }
+  
+  // ========================================
+  // GRUPOS
+  // ========================================
+  const createGroupButton = document.getElementById('createGroupButton');
+  const newGroupName = document.getElementById('newGroupName');
+  
+  if (createGroupButton) {
+    createGroupButton.addEventListener('click', () => {
+      createGroup();
+    });
+  }
+  
+  if (newGroupName) {
+    newGroupName.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        createGroup();
+      }
+    });
+  }
+  
+  const joinGroupButton = document.getElementById('joinGroupButton');
+  const joinGroupName = document.getElementById('joinGroupName');
+  
+  if (joinGroupButton) {
+    joinGroupButton.addEventListener('click', () => {
+      joinGroup();
+    });
+  }
+  
+  if (joinGroupName) {
+    joinGroupName.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        joinGroup();
+      }
+    });
+  }
+  
+  // ========================================
+  // MENSAJES
+  // ========================================
   const messageInput = document.getElementById('messageText');
+  const sendMessageButton = document.getElementById('sendMessageButton');
+  
   if (messageInput) {
+    // Enviar mensaje con Enter (sin Shift)
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -61,4 +189,37 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+  
+  if (sendMessageButton) {
+    sendMessageButton.addEventListener('click', () => {
+      sendMessage();
+    });
+  }
+  
+  // ========================================
+  // AUDIO
+  // ========================================
+  const recordButton = document.getElementById('recordButton');
+  const cancelButton = document.getElementById('cancelButton');
+  const toggleAudioButton = document.getElementById('toggleAudioButton');
+  
+  if (recordButton) {
+    recordButton.addEventListener('click', () => {
+      toggleRecording();
+    });
+  }
+  
+  if (cancelButton) {
+    cancelButton.addEventListener('click', () => {
+      cancelRecording();
+    });
+  }
+  
+  if (toggleAudioButton) {
+    toggleAudioButton.addEventListener('click', () => {
+      toggleAudioMenu();
+    });
+  }
+  
+  console.log('✅ Event listeners registrados');
 });
