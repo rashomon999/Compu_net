@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación con CallManager
+// js/auth.js - Autenticación con configuración de servidor
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -12,25 +12,45 @@ import { callManager } from './callManager.js';
 
 export async function login() {
   const username = document.getElementById('usernameInput').value.trim();
+  const serverHost = document.getElementById('serverHostInput')?.value.trim() || 'localhost';
+  const serverPort = parseInt(document.getElementById('serverPortInput')?.value) || 10000;
   
   if (!username) {
     showError('Por favor ingresa un nombre de usuario');
     return;
   }
+  
+  // Validar puerto
+  if (serverPort < 1 || serverPort > 65535) {
+    showError('Puerto inválido (debe estar entre 1 y 65535)');
+    return;
+  }
 
-  const btn = document.querySelector('.login-container button');
+  const btn = document.getElementById('loginButton');
+  const statusEl = document.getElementById('connectionStatus');
   const originalText = btn.textContent;
-  btn.textContent = 'Conectando a ICE...';
+  
+  btn.textContent = 'Conectando...';
   btn.disabled = true;
+  
+  if (statusEl) {
+    statusEl.classList.remove('hidden', 'error');
+    statusEl.classList.add('connecting');
+    statusEl.querySelector('.status-text').textContent = `Conectando a ${serverHost}:${serverPort}...`;
+  }
 
   try {
-    // PASO 1: Conectar al servidor ICE
-    await iceClient.connect(username);
+    // PASO 1: Conectar al servidor ICE con configuración personalizada
+    console.log(`🔌 Intentando conectar a ${serverHost}:${serverPort}`);
+    await iceClient.connect(username, serverHost, serverPort);
     
     // PASO 2: Guardar estado
     state.currentUsername = username;
     
     // PASO 3: Suscribirse a notificaciones en tiempo real
+    if (statusEl) {
+      statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
+    }
     await subscribeToRealTimeNotifications(username);
     
     // PASO 4: Intentar suscribirse a eventos de llamadas
@@ -44,6 +64,9 @@ export async function login() {
     }
     
     // PASO 5: Mostrar interfaz
+    if (statusEl) {
+      statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
+    }
     showChatInterface();
     
     // PASO 6: Cargar datos iniciales
@@ -51,13 +74,36 @@ export async function login() {
     await loadGroupsFromICE();
     
     console.log('✅ Login exitoso:', username);
+    console.log('🌐 Servidor:', iceClient.getCurrentServerInfo());
     
   } catch (err) {
     console.error('❌ Error en login:', err);
-    showError('No se pudo conectar al servidor ICE. ¿Está corriendo en puerto 10000?');
+    
+    let errorMsg = 'No se pudo conectar al servidor ICE';
+    
+    if (err.message.includes('ChatService')) {
+      errorMsg = `No se pudo conectar a ${serverHost}:${serverPort}\n\nVerifica que:\n• El servidor esté corriendo\n• La dirección IP sea correcta\n• El firewall permita conexiones al puerto ${serverPort}`;
+    } else if (err.message.includes('timeout')) {
+      errorMsg = `Timeout conectando a ${serverHost}:${serverPort}\n\n¿El servidor está corriendo?`;
+    } else {
+      errorMsg = err.message;
+    }
+    
+    showError(errorMsg);
+    
+    if (statusEl) {
+      statusEl.classList.remove('connecting');
+      statusEl.classList.add('error');
+      statusEl.querySelector('.status-icon').textContent = '❌';
+      statusEl.querySelector('.status-text').textContent = 'Error de conexión';
+    }
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
+    
+    if (statusEl && iceClient.isClientConnected()) {
+      statusEl.classList.add('hidden');
+    }
   }
 }
 
@@ -101,7 +147,6 @@ async function subscribeToCallEvents(username) {
         await webrtcManager.handleCallAnswer(answer);
         
         if (answer.status === 'ACCEPTED') {
-          // El callManager ya gestiona los timers
           callManager.activeCall.status = 'CONNECTED';
           callManager.activeCall.answerTime = Date.now();
           callManager.startDurationTimer();
@@ -135,5 +180,75 @@ async function subscribeToCallEvents(username) {
     
   } catch (error) {
     throw new Error('CallService no disponible: ' + error.message);
+  }
+}
+
+// ========================================
+// DETECCIÓN AUTOMÁTICA DE SERVIDOR
+// ========================================
+
+export async function detectServer() {
+  const possibleHosts = ['localhost'];
+  const port = 10000;
+  
+  // Agregar IPs comunes de red local
+  const localIP = await getLocalIP();
+  if (localIP) {
+    const ipParts = localIP.split('.');
+    if (ipParts.length === 4) {
+      const subnet = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}`;
+      // Probar primeras 10 IPs del rango
+      for (let i = 1; i <= 10; i++) {
+        possibleHosts.push(`${subnet}.${i}`);
+      }
+    }
+  }
+  
+  console.log('🔍 Buscando servidores en:', possibleHosts);
+  
+  for (const host of possibleHosts) {
+    try {
+      // Intentar conexión rápida
+      const testClient = new IceClientManager();
+      await testClient.connect('test', host, port);
+      await testClient.disconnect();
+      
+      console.log('✅ Servidor encontrado en:', host);
+      return { host, port };
+    } catch (err) {
+      console.log('❌ No encontrado en:', host);
+    }
+  }
+  
+  return null;
+}
+
+async function getLocalIP() {
+  try {
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.createDataChannel('');
+    await pc.createOffer().then(offer => pc.setLocalDescription(offer));
+    
+    return new Promise((resolve) => {
+      pc.onicecandidate = (ice) => {
+        if (!ice || !ice.candidate || !ice.candidate.candidate) return;
+        
+        const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+        const match = ipRegex.exec(ice.candidate.candidate);
+        
+        if (match) {
+          pc.close();
+          resolve(match[1]);
+        }
+      };
+      
+      setTimeout(() => {
+        pc.close();
+        resolve(null);
+      }, 1000);
+    });
+  } catch (err) {
+    console.error('Error detectando IP local:', err);
+    return null;
   }
 }

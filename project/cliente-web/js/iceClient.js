@@ -1,8 +1,8 @@
 // ============================================
-// js/iceClient.js - Cliente ICE COMPLETO con Llamadas
+// js/iceClient.js - Cliente ICE con soporte para red local
 // ============================================
 
-// ✅ Importar ChatSystem (se cargará cuando Ice esté disponible)
+// ✅ Importar ChatSystem
 import './generated/ChatSystem.js';
 
 // ✅ Función auxiliar para esperar a que Ice.js esté disponible
@@ -41,13 +41,51 @@ class IceClientManager {
     this.isConnected = false;
     this.notificationCallback = null;
     this.username = null;
+    this.serverHost = 'localhost';
+    this.serverPort = 10000;
   }
 
-  async connect(username, serverHost = 'localhost', serverPort = 10000) {
+  // ========================================
+  // CONFIGURACIÓN DEL SERVIDOR
+  // ========================================
+  
+  /**
+   * Obtiene la configuración del servidor desde localStorage o usa defaults
+   */
+  getServerConfig() {
+    const savedHost = localStorage.getItem('serverHost');
+    const savedPort = localStorage.getItem('serverPort');
+    
+    return {
+      host: savedHost || 'localhost',
+      port: savedPort ? parseInt(savedPort) : 10000
+    };
+  }
+  
+  /**
+   * Guarda la configuración del servidor
+   */
+  saveServerConfig(host, port) {
+    localStorage.setItem('serverHost', host);
+    localStorage.setItem('serverPort', port.toString());
+  }
+
+  /**
+   * Conecta al servidor ICE
+   * @param {string} username - Nombre de usuario
+   * @param {string} serverHost - IP del servidor (ej: '192.168.1.100' o 'localhost')
+   * @param {number} serverPort - Puerto del servidor (default: 10000)
+   */
+  async connect(username, serverHost = null, serverPort = null) {
     try {
-      console.log(`🔌 Conectando a ICE: ws://${serverHost}:${serverPort}`);
+      // Usar configuración guardada o parámetros
+      const config = this.getServerConfig();
+      this.serverHost = serverHost || config.host;
+      this.serverPort = serverPort || config.port;
       
-      // ✅ Esperar a que Ice.js esté disponible
+      console.log(`🔌 Conectando a ICE: ws://${this.serverHost}:${this.serverPort}`);
+      
+      // Esperar a que Ice.js esté disponible
       let Ice;
       try {
         Ice = await waitForIce();
@@ -57,10 +95,9 @@ class IceClientManager {
       
       console.log('✅ Ice.js detectado, versión:', Ice.stringVersion());
       
-      // ✅ Verificar que ChatSystem esté cargado
+      // Verificar que ChatSystem esté cargado
       if (!Ice.ChatSystem) {
         console.error('❌ Ice.ChatSystem no está disponible');
-        console.log('Ice object:', Ice);
         throw new Error('ChatSystem.js no se cargó correctamente. Verifica que esté en js/generated/');
       }
       
@@ -77,15 +114,18 @@ class IceClientManager {
       const initData = new Ice.InitializationData();
       initData.properties = Ice.createProperties([
         ['Ice.Default.Protocol', 'ws'],
-        ['Ice.Default.Host', serverHost],
-        ['Ice.Default.Port', serverPort.toString()]
+        ['Ice.Default.Host', this.serverHost],
+        ['Ice.Default.Port', this.serverPort.toString()]
       ]);
       
       this.communicator = Ice.initialize(initData);
       console.log('✅ Communicator inicializado');
       
       // Conectar a servicios
-      await this.connectToServices(serverHost, serverPort);
+      await this.connectToServices(this.serverHost, this.serverPort);
+      
+      // Guardar configuración exitosa
+      this.saveServerConfig(this.serverHost, this.serverPort);
       
       this.isConnected = true;
       
@@ -122,12 +162,11 @@ class IceClientManager {
         this.chatService = await Ice.ChatSystem.ChatServicePrx.checkedCast(chatProxy);
         
         if (!this.chatService) {
-          throw new Error('ChatService proxy retornó null. ¿Está el servidor corriendo?');
+          throw new Error('ChatService proxy retornó null');
         }
         console.log('  ✅ ChatService conectado');
       } catch (err) {
-        console.error('  ❌ Error en ChatService:', err);
-        throw new Error(`No se pudo conectar a ChatService: ${err.message}\n\nVerifica que:\n1. El servidor ICE esté corriendo en puerto ${port}\n2. ChatService esté disponible\n3. Los archivos .ice estén correctamente generados`);
+        throw new Error(`No se pudo conectar a ChatService en ${host}:${port}\n\nVerifica que:\n1. El servidor ICE esté corriendo\n2. El firewall permita conexiones en el puerto ${port}\n3. Ambos dispositivos estén en la misma red`);
       }
       
       // GroupService (OBLIGATORIO)
@@ -141,7 +180,6 @@ class IceClientManager {
         }
         console.log('  ✅ GroupService conectado');
       } catch (err) {
-        console.error('  ❌ Error en GroupService:', err);
         throw new Error(`No se pudo conectar a GroupService: ${err.message}`);
       }
       
@@ -152,7 +190,7 @@ class IceClientManager {
         this.notificationService = await Ice.ChatSystem.NotificationServicePrx.checkedCast(notifProxy);
         console.log('  ✅ NotificationService conectado');
       } catch (err) {
-        console.warn('  ⚠️ NotificationService no disponible:', err.message);
+        console.warn('  ⚠️ NotificationService no disponible');
         this.notificationService = null;
       }
       
@@ -163,7 +201,7 @@ class IceClientManager {
         this.voiceService = await Ice.ChatSystem.VoiceServicePrx.checkedCast(voiceProxy);
         console.log('  ✅ VoiceService conectado');
       } catch (err) {
-        console.warn('  ⚠️ VoiceService no disponible:', err.message);
+        console.warn('  ⚠️ VoiceService no disponible');
         this.voiceService = null;
       }
       
@@ -174,11 +212,11 @@ class IceClientManager {
         this.callService = await Ice.ChatSystem.CallServicePrx.checkedCast(callProxy);
         console.log('  ✅ CallService conectado');
       } catch (err) {
-        console.warn('  ⚠️ CallService no disponible:', err.message);
+        console.warn('  ⚠️ CallService no disponible');
         this.callService = null;
       }
       
-      console.log('✅ Todos los servicios disponibles conectados');
+      console.log('✅ Servicios conectados exitosamente');
       
     } catch (error) {
       console.error('❌ Error conectando servicios:', error);
@@ -191,10 +229,9 @@ class IceClientManager {
   // ========================================================================
 
   async sendPrivateMessage(sender, recipient, message) {
-    if (!this.chatService) throw new Error('No conectado a ICE - ChatService no disponible');
+    if (!this.chatService) throw new Error('ChatService no disponible');
     try {
-      const result = await this.chatService.sendPrivateMessage(sender, recipient, message);
-      return result;
+      return await this.chatService.sendPrivateMessage(sender, recipient, message);
     } catch (error) {
       console.error('Error enviando mensaje privado:', error);
       throw error;
@@ -202,10 +239,9 @@ class IceClientManager {
   }
 
   async sendGroupMessage(sender, groupName, message) {
-    if (!this.chatService) throw new Error('No conectado a ICE - ChatService no disponible');
+    if (!this.chatService) throw new Error('ChatService no disponible');
     try {
-      const result = await this.chatService.sendGroupMessage(sender, groupName, message);
-      return result;
+      return await this.chatService.sendGroupMessage(sender, groupName, message);
     } catch (error) {
       console.error('Error enviando mensaje grupal:', error);
       throw error;
@@ -213,7 +249,7 @@ class IceClientManager {
   }
 
   async getConversationHistory(user1, user2) {
-    if (!this.chatService) throw new Error('No conectado a ICE - ChatService no disponible');
+    if (!this.chatService) throw new Error('ChatService no disponible');
     try {
       return await this.chatService.getConversationHistory(user1, user2);
     } catch (error) {
@@ -223,7 +259,7 @@ class IceClientManager {
   }
 
   async getGroupHistory(groupName, username) {
-    if (!this.chatService) throw new Error('No conectado a ICE - ChatService no disponible');
+    if (!this.chatService) throw new Error('ChatService no disponible');
     try {
       return await this.chatService.getGroupHistory(groupName, username);
     } catch (error) {
@@ -233,7 +269,7 @@ class IceClientManager {
   }
 
   async getRecentConversations(username) {
-    if (!this.chatService) throw new Error('No conectado a ICE - ChatService no disponible');
+    if (!this.chatService) throw new Error('ChatService no disponible');
     try {
       return await this.chatService.getRecentConversations(username);
     } catch (error) {
@@ -247,7 +283,7 @@ class IceClientManager {
   // ========================================================================
 
   async createGroup(groupName, creator) {
-    if (!this.groupService) throw new Error('No conectado a ICE - GroupService no disponible');
+    if (!this.groupService) throw new Error('GroupService no disponible');
     try {
       return await this.groupService.createGroup(groupName, creator);
     } catch (error) {
@@ -257,7 +293,7 @@ class IceClientManager {
   }
 
   async joinGroup(groupName, username) {
-    if (!this.groupService) throw new Error('No conectado a ICE - GroupService no disponible');
+    if (!this.groupService) throw new Error('GroupService no disponible');
     try {
       return await this.groupService.joinGroup(groupName, username);
     } catch (error) {
@@ -267,7 +303,7 @@ class IceClientManager {
   }
 
   async listUserGroups(username) {
-    if (!this.groupService) throw new Error('No conectado a ICE - GroupService no disponible');
+    if (!this.groupService) throw new Error('GroupService no disponible');
     try {
       const groupsInfo = await this.groupService.listUserGroups(username);
       return groupsInfo.map(g => g.name);
@@ -278,7 +314,7 @@ class IceClientManager {
   }
 
   async getGroupMembers(groupName) {
-    if (!this.groupService) throw new Error('No conectado a ICE - GroupService no disponible');
+    if (!this.groupService) throw new Error('GroupService no disponible');
     try {
       return await this.groupService.getGroupMembers(groupName);
     } catch (error) {
@@ -293,7 +329,7 @@ class IceClientManager {
 
   async subscribeToNotifications(username, callbacks) {
     if (!this.notificationService) {
-      console.warn('⚠️ NotificationService no disponible, las notificaciones en tiempo real no funcionarán');
+      console.warn('⚠️ NotificationService no disponible');
       return;
     }
     
@@ -362,13 +398,10 @@ class IceClientManager {
 
   async saveVoiceNote(sender, target, audioDataBase64, isGroup) {
     if (!this.voiceService) {
-      throw new Error('VoiceService no disponible. Las notas de voz no están habilitadas en el servidor.');
+      throw new Error('VoiceService no disponible');
     }
     try {
-      const result = await this.voiceService.saveVoiceNote(
-        sender, target, audioDataBase64, isGroup
-      );
-      return result;
+      return await this.voiceService.saveVoiceNote(sender, target, audioDataBase64, isGroup);
     } catch (error) {
       console.error('Error guardando nota de voz:', error);
       throw error;
@@ -560,6 +593,18 @@ class IceClientManager {
   isClientConnected() {
     return this.isConnected;
   }
+  
+  /**
+   * Obtiene información del servidor actual
+   */
+  getCurrentServerInfo() {
+    return {
+      host: this.serverHost,
+      port: this.serverPort,
+      connected: this.isConnected
+    };
+  }
 }
 
+// Exportar instancia única
 export const iceClient = new IceClientManager();

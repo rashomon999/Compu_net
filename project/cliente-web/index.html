@@ -6,9 +6,7 @@
   <title>Chat COMPU_NET - ICE + WebSocket</title>
   
   <!-- ✅ Ice.js DEBE cargarse ANTES que bundle.js -->
-  <!-- Usar versión específica y verificar carga -->
   <script>
-    // Verificar que Ice.js se carga correctamente
     window._iceLoadPromise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/ice/3.7.100/Ice.min.js';
@@ -27,23 +25,248 @@
       document.head.appendChild(script);
     });
   </script>
+
+  <style>
+    /* Estilos para la configuración del servidor */
+    .server-config {
+      margin-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 20px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .section-header h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .btn-toggle {
+      padding: 6px 12px;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-toggle:hover {
+      background: #e0e0e0;
+    }
+
+    .config-panel {
+      margin-top: 15px;
+      animation: slideDown 0.3s ease;
+    }
+
+    .config-panel.hidden {
+      display: none;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .input-group {
+      margin-bottom: 15px;
+    }
+
+    .input-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .help-icon {
+      cursor: help;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    .server-hint {
+      background: #f8f9fa;
+      border-left: 3px solid #667eea;
+      padding: 12px;
+      margin: 15px 0;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .server-hint p {
+      margin: 0 0 8px 0;
+      color: #333;
+    }
+
+    .server-hint ul {
+      margin: 8px 0 0 20px;
+      padding: 0;
+      color: #666;
+    }
+
+    .server-hint li {
+      margin-bottom: 4px;
+    }
+
+    .server-hint .warning {
+      margin-top: 10px;
+      color: #ff6b6b;
+      font-weight: 500;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 10px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+      transform: translateY(-1px);
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 15px;
+      padding: 10px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .connection-status.hidden {
+      display: none;
+    }
+
+    .connection-status.connecting {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .connection-status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .connection-status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-icon {
+      font-size: 16px;
+    }
+
+    .status-icon.spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
   
-  <!-- PANTALLA DE LOGIN -->
+  <!-- PANTALLA DE LOGIN CON CONFIGURACIÓN DE SERVIDOR -->
   <div id="loginContainer" class="login-container">
     <div class="login-box">
       <h1>🌐 Chat COMPU_NET</h1>
       <p class="subtitle">Sistema de mensajería con ZeroC Ice</p>
       
       <div class="section">
+        <label for="usernameInput">Nombre de usuario</label>
         <input 
           type="text" 
           id="usernameInput" 
-          placeholder="Ingresa tu nombre de usuario"
+          placeholder="Tu nombre de usuario"
           autocomplete="off"
         >
-        <button id="loginButton">Conectar</button>
+      </div>
+      
+      <!-- ✅ CONFIGURACIÓN DEL SERVIDOR -->
+      <div class="section server-config">
+        <div class="section-header">
+          <h3>⚙️ Configuración del Servidor</h3>
+          <button type="button" id="toggleServerConfig" class="btn-toggle">
+            Mostrar opciones
+          </button>
+        </div>
+        
+        <div id="serverConfigPanel" class="config-panel hidden">
+          <div class="input-group">
+            <label for="serverHostInput">
+              Dirección del servidor
+              <span class="help-icon" title="Usa 'localhost' para servidor local o la IP para red local (ej: 192.168.1.100)">ℹ️</span>
+            </label>
+            <input 
+              type="text" 
+              id="serverHostInput" 
+              placeholder="localhost o IP del servidor"
+              value="localhost"
+            >
+          </div>
+          
+          <div class="input-group">
+            <label for="serverPortInput">Puerto</label>
+            <input 
+              type="number" 
+              id="serverPortInput" 
+              placeholder="10000"
+              value="10000"
+              min="1"
+              max="65535"
+            >
+          </div>
+          
+          <div class="server-hint">
+            <p><strong>💡 Conexión en red local:</strong></p>
+            <ul>
+              <li><strong>Mismo equipo:</strong> localhost:10000</li>
+              <li><strong>Otra computadora:</strong> IP-del-servidor:10000</li>
+              <li>Ejemplo: 192.168.1.100:10000</li>
+            </ul>
+            <p class="warning">⚠️ Asegúrate que el firewall permita conexiones al puerto 10000</p>
+          </div>
+          
+          <button type="button" id="detectServerBtn" class="btn-secondary">
+            🔍 Detectar servidor automáticamente
+          </button>
+        </div>
+      </div>
+      
+      <button id="loginButton" class="btn-primary">Conectar</button>
+      
+      <div id="connectionStatus" class="connection-status hidden">
+        <span class="status-icon">🔄</span>
+        <span class="status-text">Conectando...</span>
       </div>
       
       <div class="tech-info">
@@ -132,7 +355,7 @@
         </div>
       </div>
 
-      <!-- 🆕 CONTROLES DE AUDIO -->
+      <!-- CONTROLES DE AUDIO -->
       <div id="audioControls" class="audio-controls hidden">
         <div id="voiceNoteControls" class="voice-controls">
           <button id="recordButton" class="btn-audio">
@@ -158,7 +381,6 @@
             <button id="toggleAudioButton" class="btn-audio-menu" title="Nota de voz">
               🎤
             </button>
-            <!-- ✅ BOTÓN DE LLAMADAS -->
             <button id="callButton" class="btn-call-menu" title="Iniciar llamada">
               📞
             </button>
@@ -167,7 +389,34 @@
       </div>
     </div>
   </div>
+
+  <script>
+    // Script para manejar el toggle del panel de configuración
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleBtn = document.getElementById('toggleServerConfig');
+      const configPanel = document.getElementById('serverConfigPanel');
+      
+      if (toggleBtn && configPanel) {
+        toggleBtn.addEventListener('click', () => {
+          const isHidden = configPanel.classList.contains('hidden');
+          configPanel.classList.toggle('hidden');
+          toggleBtn.textContent = isHidden ? 'Ocultar opciones' : 'Mostrar opciones';
+        });
+      }
+      
+      // Cargar configuración guardada
+      const savedHost = localStorage.getItem('serverHost');
+      const savedPort = localStorage.getItem('serverPort');
+      
+      if (savedHost) {
+        document.getElementById('serverHostInput').value = savedHost;
+      }
+      if (savedPort) {
+        document.getElementById('serverPortInput').value = savedPort;
+      }
+    });
+  </script>
+
   <script src="/bundle.js"></script>
-  <!-- ✅ Webpack inyectará automáticamente bundle.js aquí -->
 </body>
 </html>
