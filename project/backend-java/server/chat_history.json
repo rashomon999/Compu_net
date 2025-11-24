@@ -286,5 +286,13 @@
     "content": "[AUDIO_FILE:Luis_to_Maria_20251124_002401_836.wav]",
     "isGroup": false,
     "timestamp": "2025-11-24 00:24:01"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Ligotti",
+    "type": "TEXT",
+    "content": "Porque?",
+    "isGroup": false,
+    "timestamp": "2025-11-24 03:32:14"
   }
 ]

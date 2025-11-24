@@ -83,6 +83,11 @@ public class IceServer {
             adapter.add(voiceServiceImpl, Util.stringToIdentity("VoiceService"));
             System.out.println("   ✓ VoiceService registrado");
             
+            // ⚡ NUEVO: Servicio de Llamadas
+            CallServiceI callServiceImpl = new CallServiceI();
+            adapter.add(callServiceImpl, Util.stringToIdentity("CallService"));
+            System.out.println("   ✓ CallService registrado");
+            
             // ============================================================
             // 4. ACTIVAR SERVIDOR
             // ============================================================
@@ -100,6 +105,7 @@ public class IceServer {
             System.out.println("   • GroupService");
             System.out.println("   • NotificationService");
             System.out.println("   • VoiceService");
+            System.out.println("   • CallService 📞");
             System.out.println();
             System.out.println("🌐 Cliente web: http://localhost:3000");
             System.out.println();

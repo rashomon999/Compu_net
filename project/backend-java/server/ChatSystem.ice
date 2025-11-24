@@ -236,4 +236,140 @@ module ChatSystem {
          */
         VoiceNoteSeq getGroupVoiceNotes(string groupName);
     };
+    
+    // ========================================================================
+    // SERVICIO DE LLAMADAS (WEBRTC)
+    // ========================================================================
+    
+    /**
+     * Tipos de llamada
+     */
+    enum CallType {
+        AudioOnly,
+        Video
+    };
+    
+    /**
+     * Estados de una llamada
+     */
+    enum CallStatus {
+        Ringing,
+        Accepted,
+        Rejected,
+        Ended,
+        Busy,
+        NoAnswer
+    };
+    
+    /**
+     * Oferta de llamada (SDP)
+     */
+    struct CallOffer {
+        string callId;
+        string caller;
+        string callee;
+        CallType callType;
+        string sdp;
+        long timestamp;
+    };
+    
+    /**
+     * Respuesta a una llamada
+     */
+    struct CallAnswer {
+        string callId;
+        string sdp;
+        CallStatus status;
+    };
+    
+    /**
+     * Candidato ICE de WebRTC
+     */
+    struct RtcCandidate {
+        string callId;
+        string candidate;
+        string sdpMid;
+        int sdpMLineIndex;
+    };
+    
+    /**
+     * Callback para eventos de llamadas
+     * Implementado por el cliente
+     */
+    interface CallCallback {
+        /**
+         * Notifica cuando llega una llamada entrante
+         */
+        void onIncomingCall(CallOffer offer);
+        
+        /**
+         * Notifica la respuesta a una llamada
+         */
+        void onCallAnswer(CallAnswer answer);
+        
+        /**
+         * Notifica un candidato ICE
+         */
+        void onRtcCandidate(RtcCandidate candidate);
+        
+        /**
+         * Notifica que la llamada terminó
+         */
+        void onCallEnded(string callId, string reason);
+    };
+    
+    /**
+     * Servicio de gestión de llamadas
+     */
+    interface CallService {
+        /**
+         * Inicia una llamada a otro usuario
+         * @param caller Usuario que llama
+         * @param callee Usuario que recibe
+         * @param callType Tipo de llamada (audio/video)
+         * @param sdp Session Description Protocol
+         * @return ID de la llamada o mensaje de error
+         */
+        string initiateCall(string caller, string callee, CallType callType, string sdp);
+        
+        /**
+         * Responde a una llamada entrante
+         * @param callId ID de la llamada
+         * @param callee Usuario que responde
+         * @param status Estado de respuesta
+         * @param sdp Session Description Protocol
+         * @return Resultado de la operación
+         */
+        string answerCall(string callId, string callee, CallStatus status, string sdp);
+        
+        /**
+         * Finaliza una llamada activa
+         * @param callId ID de la llamada
+         * @param username Usuario que finaliza
+         */
+        void endCall(string callId, string username);
+        
+        /**
+         * Envía un candidato ICE para establecer conexión
+         * @param callId ID de la llamada
+         * @param username Usuario que envía
+         * @param candidate Candidato ICE
+         * @param sdpMid Media stream ID
+         * @param sdpMLineIndex Índice de línea SDP
+         */
+        void sendRtcCandidate(string callId, string username, string candidate, string sdpMid, int sdpMLineIndex);
+        
+        /**
+         * Suscribe un cliente para recibir eventos de llamadas
+         * @param username Usuario que se suscribe
+         * @param callback Objeto callback del cliente
+         */
+        void subscribe(string username, CallCallback* callback);
+        
+        /**
+         * Desuscribe un cliente de eventos de llamadas
+         * @param username Usuario que se desuscribe
+         */
+        void unsubscribe(string username);
+    };
 };

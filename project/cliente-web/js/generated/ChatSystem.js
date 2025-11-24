@@ -143,6 +143,133 @@ Slice.defineStruct(ChatSystem.VoiceNote, true, true);
 Slice.defineSequence(ChatSystem, "VoiceNoteSeqHelper", "ChatSystem.VoiceNote", false);
 
 // ========================================================================
+// ENUMS PARA LLAMADAS
+// ========================================================================
+
+/**
+ * Tipos de llamada
+ **/
+ChatSystem.CallType = Slice.defineEnum([
+  ['AudioOnly', 0], 
+  ['Video', 1]
+]);
+
+/**
+ * Estados de una llamada
+ **/
+ChatSystem.CallStatus = Slice.defineEnum([
+  ['Ringing', 0], 
+  ['Accepted', 1], 
+  ['Rejected', 2], 
+  ['Ended', 3], 
+  ['Busy', 4],
+  ['NoAnswer', 5]
+]);
+
+// ========================================================================
+// ESTRUCTURAS PARA LLAMADAS
+// ========================================================================
+
+/**
+ * Oferta de llamada (SDP)
+ **/
+ChatSystem.CallOffer = class {
+  constructor(callId = "", caller = "", callee = "", callType = ChatSystem.CallType.AudioOnly, sdp = "", timestamp = new Ice.Long(0, 0)) {
+    this.callId = callId;
+    this.caller = caller;
+    this.callee = callee;
+    this.callType = callType;
+    this.sdp = sdp;
+    this.timestamp = timestamp;
+  }
+
+  _write(ostr) {
+    ostr.writeString(this.callId);
+    ostr.writeString(this.caller);
+    ostr.writeString(this.callee);
+    ChatSystem.CallType._write(ostr, this.callType);
+    ostr.writeString(this.sdp);
+    ostr.writeLong(this.timestamp);
+  }
+
+  _read(istr) {
+    this.callId = istr.readString();
+    this.caller = istr.readString();
+    this.callee = istr.readString();
+    this.callType = ChatSystem.CallType._read(istr);
+    this.sdp = istr.readString();
+    this.timestamp = istr.readLong();
+  }
+
+  static get minWireSize() {
+    return 13;
+  }
+};
+
+Slice.defineStruct(ChatSystem.CallOffer, true, true);
+
+/**
+ * Respuesta a una llamada
+ **/
+ChatSystem.CallAnswer = class {
+  constructor(callId = "", sdp = "", status = ChatSystem.CallStatus.Ringing) {
+    this.callId = callId;
+    this.sdp = sdp;
+    this.status = status;
+  }
+
+  _write(ostr) {
+    ostr.writeString(this.callId);
+    ostr.writeString(this.sdp);
+    ChatSystem.CallStatus._write(ostr, this.status);
+  }
+
+  _read(istr) {
+    this.callId = istr.readString();
+    this.sdp = istr.readString();
+    this.status = ChatSystem.CallStatus._read(istr);
+  }
+
+  static get minWireSize() {
+    return 3;
+  }
+};
+
+Slice.defineStruct(ChatSystem.CallAnswer, true, true);
+
+/**
+ * Candidato ICE de WebRTC
+ **/
+ChatSystem.RtcCandidate = class {
+  constructor(callId = "", candidate = "", sdpMid = "", sdpMLineIndex = 0) {
+    this.callId = callId;
+    this.candidate = candidate;
+    this.sdpMid = sdpMid;
+    this.sdpMLineIndex = sdpMLineIndex;
+  }
+
+  _write(ostr) {
+    ostr.writeString(this.callId);
+    ostr.writeString(this.candidate);
+    ostr.writeString(this.sdpMid);
+    ostr.writeInt(this.sdpMLineIndex);
+  }
+
+  _read(istr) {
+    this.callId = istr.readString();
+    this.candidate = istr.readString();
+    this.sdpMid = istr.readString();
+    this.sdpMLineIndex = istr.readInt();
+  }
+
+  static get minWireSize() {
+    return 7;
+  }
+};
+
+Slice.defineStruct(ChatSystem.RtcCandidate, true, true);
+
+// ========================================================================
 // SERVICIOS
 // ========================================================================
 
@@ -222,10 +349,57 @@ Slice.defineOperations(ChatSystem.VoiceService, ChatSystem.VoiceServicePrx, iceC
   "getGroupVoiceNotes": [, , , , ["ChatSystem.VoiceNoteSeqHelper"], [[7]], , , ,]
 });
 
+// ========================================================================
+// CALLBACK PARA LLAMADAS
+// ========================================================================
+
+const iceC_ChatSystem_CallCallback_ids = [
+  "::ChatSystem::CallCallback",
+  "::Ice::Object"
+];
+
+/**
+ * Callback para eventos de llamadas
+ * Implementado por el cliente
+ **/
+ChatSystem.CallCallback = class extends Ice.Object {};
+ChatSystem.CallCallbackPrx = class extends Ice.ObjectPrx {};
+
+Slice.defineOperations(ChatSystem.CallCallback, ChatSystem.CallCallbackPrx, iceC_ChatSystem_CallCallback_ids, 0, {
+  "onIncomingCall": [, , , , , [[ChatSystem.CallOffer]], , , ,],
+  "onCallAnswer": [, , , , , [[ChatSystem.CallAnswer]], , , ,],
+  "onRtcCandidate": [, , , , , [[ChatSystem.RtcCandidate]], , , ,],
+  "onCallEnded": [, , , , , [[7], [7]], , , ,]
+});
+
+// ========================================================================
+// SERVICIO DE LLAMADAS
+// ========================================================================
+
+const iceC_ChatSystem_CallService_ids = [
+  "::ChatSystem::CallService",
+  "::Ice::Object"
+];
+
+/**
+ * Servicio de gestión de llamadas
+ **/
+ChatSystem.CallService = class extends Ice.Object {};
+ChatSystem.CallServicePrx = class extends Ice.ObjectPrx {};
+
+Slice.defineOperations(ChatSystem.CallService, ChatSystem.CallServicePrx, iceC_ChatSystem_CallService_ids, 0, {
+  "initiateCall": [, , , , [7], [[7], [7], [ChatSystem.CallType._helper], [7]], , , ,],
+  "answerCall": [, , , , [7], [[7], [7], [ChatSystem.CallStatus._helper], [7]], , , ,],
+  "endCall": [, , , , , [[7], [7]], , , ,],
+  "sendRtcCandidate": [, , , , , [[7], [7], [7], [7], [3]], , , ,],
+  "subscribe": [, , , , , [[7], ["ChatSystem.CallCallbackPrx"]], , , ,],
+  "unsubscribe": [, , , , , [[7]], , , ,]
+});
+
 // ✅ Registrar en Ice global
 window.Ice.ChatSystem = ChatSystem;
 
-console.log('✅ ChatSystem.js cargado correctamente');
+console.log('✅ ChatSystem.js cargado correctamente (incluye CallService)');
 }
 
 // ✅ Exponer función de inicialización para llamarla después si es necesario

@@ -47,7 +47,7 @@
       </div>
       
       <div class="tech-info">
-        <small>🔗 WebSocket ICE | 🎤 Notas de voz | ⚡ Tiempo real</small>
+        <small>🔗 WebSocket ICE | 🎤 Notas de voz | 📞 Llamadas | ⚡ Tiempo real</small>
       </div>
     </div>
   </div>
@@ -125,6 +125,7 @@
           <ul>
             <li>💬 Mensajes de texto en tiempo real</li>
             <li>🎤 Notas de voz (hasta 30 segundos)</li>
+            <li>📞 Llamadas de audio y video</li>
             <li>👥 Grupos de chat</li>
             <li>🔔 Notificaciones push automáticas</li>
           </ul>
@@ -157,12 +158,16 @@
             <button id="toggleAudioButton" class="btn-audio-menu" title="Nota de voz">
               🎤
             </button>
+            <!-- ✅ BOTÓN DE LLAMADAS -->
+            <button id="callButton" class="btn-call-menu" title="Iniciar llamada">
+              📞
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
-
+  <script src="/bundle.js"></script>
   <!-- ✅ Webpack inyectará automáticamente bundle.js aquí -->
 </body>
 </html>

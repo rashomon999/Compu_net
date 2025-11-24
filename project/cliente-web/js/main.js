@@ -11,8 +11,8 @@ import { openChat, loadRecentChats } from './chats.js';
 import { createGroup, joinGroup, loadGroupsFromICE } from './groups.js';
 import { sendMessage } from './messages.js';
 import { stopPolling } from './polling.js';
-import { resetState } from './state.js';
-import { showLoginInterface, resetMainContent } from './ui.js';
+import { state, resetState } from './state.js';
+import { showLoginInterface, resetMainContent, showError } from './ui.js';
 
 // 🎙️ Importar funcionalidad de audio
 import { 
@@ -56,6 +56,55 @@ function switchTab(tab) {
 }
 
 // ========================================
+// MENÚ DE LLAMADAS (SOLO AUDIO)
+// ========================================
+function showCallOptionsMenu() {
+  // ⚠️ Validar que CallService esté disponible
+  if (state.callsAvailable === false) {
+    showError('❌ Las llamadas no están disponibles - CallService no está en el servidor');
+    return;
+  }
+  
+  // Remover menú existente si hay
+  const existingMenu = document.querySelector('.call-options-menu');
+  if (existingMenu) {
+    existingMenu.remove();
+  }
+  
+  const options = document.createElement('div');
+  options.className = 'call-options-menu';
+  options.innerHTML = `
+    <button class="call-option" id="audioCallBtn">
+      📞 Llamada de audio
+    </button>
+  `;
+  
+  document.body.appendChild(options);
+  
+  document.getElementById('audioCallBtn').onclick = async () => {
+    options.remove();
+    try {
+      const { initiateCall } = await import('./callUI.js');
+      await initiateCall(state.currentChat);
+    } catch (error) {
+      console.error('Error iniciando llamada de audio:', error);
+      showError('Error al iniciar llamada: ' + error.message);
+    }
+  };
+  
+  // Cerrar al hacer clic fuera
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!options.contains(e.target) && e.target.id !== 'callButton') {
+        options.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 100);
+}
+
+// ========================================
 // EVENT LISTENERS
 // ========================================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -73,6 +122,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   
+  // ========================================
+  // LLAMADAS
+  // ========================================
+  const callButton = document.getElementById('callButton');
+
+  if (callButton) {
+    callButton.addEventListener('click', () => {
+      if (!state.currentChat) {
+        showError('Selecciona un chat primero');
+        return;
+      }
+      
+      if (state.isGroup) {
+        showError('Las llamadas solo están disponibles para chats privados');
+        return;
+      }
+      
+      // ✅ Mostrar opciones de llamada (con validación interna)
+      showCallOptionsMenu();
+    });
+  }
+
   // ========================================
   // PANTALLA DE LOGIN
   // ========================================
