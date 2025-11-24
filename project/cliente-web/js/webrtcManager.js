@@ -104,9 +104,14 @@ class WebRTCManager {
       
       // Obtener stream local
       console.log('🎤 [WebRTC] Solicitando acceso al micrófono...');
+      
+      // ✅ Detectar tipo de llamada del enum
+      const Ice = window.Ice;
+      const isVideoCall = (offer.callType === Ice.ChatSystem.CallType.Video);
+      
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: offer.callType === 'VIDEO'
+        video: isVideoCall
       });
       
       // Crear PeerConnection

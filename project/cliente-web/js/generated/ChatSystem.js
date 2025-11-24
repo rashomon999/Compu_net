@@ -1,5 +1,5 @@
 // ============================================
-// js/generated/ChatSystem.js - MODIFICADO PARA WEBPACK
+// js/generated/ChatSystem.js - MODIFICADO PARA WEBPACK CON POLLING
 // ============================================
 
 // ✅ Verificar Ice con fallback
@@ -7,9 +7,7 @@ const Ice = typeof window !== 'undefined' && window.Ice ? window.Ice : null;
 
 if (!Ice) {
   console.error('❌ Ice.js no está disponible. Esperando carga...');
-  // No lanzar error, esperar a que se cargue
   if (typeof window !== 'undefined') {
-    // Marcar que ChatSystem necesita ser reinicializado
     window._chatSystemPending = true;
   }
 } else {
@@ -269,6 +267,11 @@ ChatSystem.RtcCandidate = class {
 
 Slice.defineStruct(ChatSystem.RtcCandidate, true, true);
 
+// ✅ SECUENCIAS PARA POLLING
+Slice.defineSequence(ChatSystem, "CallOfferSeqHelper", "ChatSystem.CallOffer", false);
+Slice.defineSequence(ChatSystem, "CallAnswerSeqHelper", "ChatSystem.CallAnswer", false);
+Slice.defineSequence(ChatSystem, "RtcCandidateSeqHelper", "ChatSystem.RtcCandidate", false);
+
 // ========================================================================
 // SERVICIOS
 // ========================================================================
@@ -358,10 +361,6 @@ const iceC_ChatSystem_CallCallback_ids = [
   "::Ice::Object"
 ];
 
-/**
- * Callback para eventos de llamadas
- * Implementado por el cliente
- **/
 ChatSystem.CallCallback = class extends Ice.Object {};
 ChatSystem.CallCallbackPrx = class extends Ice.ObjectPrx {};
 
@@ -373,7 +372,7 @@ Slice.defineOperations(ChatSystem.CallCallback, ChatSystem.CallCallbackPrx, iceC
 });
 
 // ========================================================================
-// SERVICIO DE LLAMADAS
+// SERVICIO DE LLAMADAS CON POLLING
 // ========================================================================
 
 const iceC_ChatSystem_CallService_ids = [
@@ -381,9 +380,6 @@ const iceC_ChatSystem_CallService_ids = [
   "::Ice::Object"
 ];
 
-/**
- * Servicio de gestión de llamadas
- **/
 ChatSystem.CallService = class extends Ice.Object {};
 ChatSystem.CallServicePrx = class extends Ice.ObjectPrx {};
 
@@ -393,16 +389,21 @@ Slice.defineOperations(ChatSystem.CallService, ChatSystem.CallServicePrx, iceC_C
   "endCall": [, , , , , [[7], [7]], , , ,],
   "sendRtcCandidate": [, , , , , [[7], [7], [7], [7], [3]], , , ,],
   "subscribe": [, , , , , [[7], ["ChatSystem.CallCallbackPrx"]], , , ,],
-  "unsubscribe": [, , , , , [[7]], , , ,]
+  "unsubscribe": [, , , , , [[7]], , , ,],
+  // ✅ MÉTODOS DE POLLING
+  "getPendingIncomingCalls": [, , , , ["ChatSystem.CallOfferSeqHelper"], [[7]], , , ,],
+  "getPendingCallAnswers": [, , , , ["ChatSystem.CallAnswerSeqHelper"], [[7]], , , ,],
+  "getPendingRtcCandidates": [, , , , ["ChatSystem.RtcCandidateSeqHelper"], [[7]], , , ,]
 });
 
 // ✅ Registrar en Ice global
 window.Ice.ChatSystem = ChatSystem;
 
-console.log('✅ ChatSystem.js cargado correctamente (incluye CallService)');
+console.log('✅ ChatSystem.js cargado correctamente (con polling)');
+console.log('✅ CallService tiene métodos:', Object.keys(ChatSystem.CallServicePrx.prototype));
 }
 
-// ✅ Exponer función de inicialización para llamarla después si es necesario
+// ✅ Exponer función de inicialización
 if (typeof window !== 'undefined') {
   window._initializeChatSystem = initializeChatSystem;
 }
