@@ -1,5 +1,5 @@
 // ============================================
-// js/iceClient.js - Cliente ICE con Sistema de Llamadas
+// js/iceClient.js - Cliente ICE con Sistema de Llamadas del Profesor
 // ============================================
 
 import './generated/ChatSystem.js';
@@ -42,7 +42,7 @@ class IceClientManager {
     this.serverHost = 'localhost';
     this.serverPort = 10000;
     
-    // Callbacks de llamadas
+    // ⚡ Callbacks de llamadas (Sistema Profesor)
     this._onIncomingCall = null;
     this._onCallAccepted = null;
     this._onCallRejected = null;
@@ -77,19 +77,16 @@ class IceClientManager {
       try {
         Ice = await waitForIce();
       } catch (error) {
-        throw new Error('Ice.js no se cargó. Asegúrate de incluir <script src="https://unpkg.com/ice@3.7.10/lib/Ice.min.js"></script> en tu HTML ANTES del bundle.js');
+        throw new Error('Ice.js no se cargó correctamente');
       }
       
       console.log('✅ Ice.js detectado, versión:', Ice.stringVersion());
       
-      // ✅ FIX: Validación más robusta
       if (!Ice.ChatSystem) {
-        console.error('❌ Ice.ChatSystem no está disponible');
-        console.log('Verificando window.Ice.ChatSystem:', window.Ice?.ChatSystem);
-        throw new Error('ChatSystem.js no se cargó correctamente. Verifica que esté en js/generated/');
+        throw new Error('ChatSystem.js no se cargó correctamente');
       }
       
-      console.log('✅ ChatSystem cargado:', Object.keys(Ice.ChatSystem).filter(k => k.includes('Service')));
+      console.log('✅ ChatSystem cargado');
       
       this.username = username;
       
@@ -189,12 +186,12 @@ class IceClientManager {
         this.voiceService = null;
       }
       
-      // ⚡ CallService (OPCIONAL)
+      // ⚡ CallService (OPCIONAL - Sistema Profesor)
       try {
-        console.log('  🔗 Conectando CallService...');
+        console.log('  🔗 Conectando CallService (Sistema Profesor)...');
         const callProxy = this.communicator.stringToProxy(`CallService:ws -h ${host} -p ${port}`);
         this.callService = await Ice.ChatSystem.CallServicePrx.checkedCast(callProxy);
-        console.log('  ✅ CallService conectado');
+        console.log('  ✅ CallService conectado (Audio directo)');
       } catch (err) {
         console.warn('  ⚠️ CallService no disponible');
         this.callService = null;
@@ -209,7 +206,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // ⚡ LLAMADAS (SISTEMA PROFESOR - SIN WEBRTC)
+  // ⚡ LLAMADAS (SISTEMA PROFESOR - AUDIO DIRECTO)
   // ========================================================================
 
   async sendAudio(fromUser, audioData) {
@@ -228,6 +225,7 @@ class IceClientManager {
   async startCall(fromUser, toUser) {
     if (!this.callService) throw new Error('CallService no disponible');
     try {
+      console.log('📞 [ICE] Enviando startCall:', fromUser, '→', toUser);
       await this.callService.startCall(fromUser, toUser);
       console.log('✅ [ICE] startCall enviado');
     } catch (error) {
@@ -239,6 +237,7 @@ class IceClientManager {
   async acceptCall(fromUser, toUser) {
     if (!this.callService) throw new Error('CallService no disponible');
     try {
+      console.log('✅ [ICE] Enviando acceptCall:', toUser, 'acepta a', fromUser);
       await this.callService.acceptCall(fromUser, toUser);
       console.log('✅ [ICE] acceptCall enviado');
     } catch (error) {
@@ -250,6 +249,7 @@ class IceClientManager {
   async rejectCall(fromUser, toUser) {
     if (!this.callService) throw new Error('CallService no disponible');
     try {
+      console.log('❌ [ICE] Enviando rejectCall');
       await this.callService.rejectCall(fromUser, toUser);
     } catch (error) {
       console.error('Error en rejectCall:', error);
@@ -259,6 +259,7 @@ class IceClientManager {
   async colgar(fromUser, toUser) {
     if (!this.callService) throw new Error('CallService no disponible');
     try {
+      console.log('📴 [ICE] Enviando colgar');
       await this.callService.colgar(fromUser, toUser);
     } catch (error) {
       console.error('Error en colgar:', error);
@@ -275,7 +276,7 @@ class IceClientManager {
     }
   }
 
-  // Callbacks
+  // ⚡ Registrar callbacks
   onIncomingCall(callback) {
     this._onIncomingCall = callback;
   }
@@ -302,7 +303,8 @@ class IceClientManager {
     }
     
     try {
-      console.log('📞 Suscribiendo a eventos de llamadas...');
+      console.log('📞 Suscribiendo a eventos de llamadas (Sistema Profesor)...');
+      console.log('   Usuario:', username);
       
       const Ice = window.Ice;
       
@@ -313,7 +315,9 @@ class IceClientManager {
       }
       
       const identity = Ice.generateUUID();
+      console.log('   🆔 Identity:', identity);
       
+      // Crear callback object
       const callbackObj = {
         receiveAudio: (data) => {
           if (this._onReceiveAudio) {
@@ -322,28 +326,28 @@ class IceClientManager {
         },
         
         incomingCall: (fromUser) => {
-          console.log('📞 [ICE] incomingCall de:', fromUser);
+          console.log('🔔 [ICE CALLBACK] incomingCall de:', fromUser);
           if (this._onIncomingCall) {
             this._onIncomingCall(fromUser);
           }
         },
         
         callAccepted: (fromUser) => {
-          console.log('✅ [ICE] callAccepted de:', fromUser);
+          console.log('✅ [ICE CALLBACK] callAccepted de:', fromUser);
           if (this._onCallAccepted) {
             this._onCallAccepted(fromUser);
           }
         },
         
         callRejected: (fromUser) => {
-          console.log('❌ [ICE] callRejected de:', fromUser);
+          console.log('❌ [ICE CALLBACK] callRejected de:', fromUser);
           if (this._onCallRejected) {
             this._onCallRejected(fromUser);
           }
         },
         
         callColgada: (fromUser) => {
-          console.log('📴 [ICE] callColgada de:', fromUser);
+          console.log('📴 [ICE CALLBACK] callColgada de:', fromUser);
           if (this._onCallColgada) {
             this._onCallColgada(fromUser);
           }
@@ -355,12 +359,14 @@ class IceClientManager {
         new Ice.Identity(identity, "")
       );
       
+      console.log('   📝 Proxy creado');
+      
       await this.callService.subscribe(
         username,
         Ice.ChatSystem.CallCallbackPrx.uncheckedCast(callbackProxy)
       );
       
-      console.log('✅ Suscrito a eventos de llamadas');
+      console.log('✅ Suscrito a eventos de llamadas (Sistema Profesor)');
       
     } catch (error) {
       console.error('❌ Error suscribiéndose a llamadas:', error);
