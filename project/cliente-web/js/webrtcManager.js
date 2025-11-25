@@ -331,15 +331,8 @@ async handleCallAnswer(answer) {
   // ========================================
   // ✅ CONFIGURAR AUDIO REMOTO
   // ========================================
-  
   setupRemoteAudio() {
     console.log('🔊 [WebRTC] Configurando audio remoto...');
-
-    // Verificar stream
-    if (!this.remoteStream) {
-        console.error("❌ [WebRTC] remoteStream no está definido");
-        return;
-    }
 
     // Limpiar elemento anterior
     if (this.remoteAudioElement) {
@@ -349,7 +342,12 @@ async handleCallAnswer(answer) {
         this.remoteAudioElement = null;
     }
 
-    // Obtener tracks de audio
+    // Verificar stream
+    if (!this.remoteStream) {
+        console.error("❌ [WebRTC] remoteStream no está definido");
+        return;
+    }
+
     const audioTracks = this.remoteStream.getAudioTracks();
     console.log('🎵 [WebRTC] Audio tracks:', audioTracks.length);
 
@@ -366,7 +364,7 @@ async handleCallAnswer(answer) {
         });
     });
 
-    // Crear elemento de audio
+    // Crear elemento audio
     this.remoteAudioElement = document.createElement('audio');
     this.remoteAudioElement.id = 'remoteAudio';
     this.remoteAudioElement.autoplay = true;
@@ -374,21 +372,21 @@ async handleCallAnswer(answer) {
     this.remoteAudioElement.muted = false;
     this.remoteAudioElement.volume = 1.0;
 
-    // Asignar stream
     this.remoteAudioElement.srcObject = this.remoteStream;
-
-    // Insertar en el DOM
     document.body.appendChild(this.remoteAudioElement);
 
-    // Event Listeners
-    this.remoteAudioElement.onloadedmetadata = () =>
+    // Listeners
+    this.remoteAudioElement.onloadedmetadata = () => {
         console.log('📊 [WebRTC] Metadata cargada');
+    };
 
-    this.remoteAudioElement.onplaying = () =>
+    this.remoteAudioElement.onplaying = () => {
         console.log('▶️ [WebRTC] Audio REPRODUCIENDO');
+    };
 
-    this.remoteAudioElement.onerror = (e) =>
+    this.remoteAudioElement.onerror = e => {
         console.error('❌ [WebRTC] Error en audio:', e);
+    };
 
     // Intentar reproducir
     this.remoteAudioElement.play()
@@ -397,23 +395,21 @@ async handleCallAnswer(answer) {
             this.showAudioStatus?.();
         })
         .catch(err => {
-            console.error('❌ [WebRTC] Error reproduciendo audio:', err);
+            console.error('❌ [WebRTC] Error reproduciendo:', err);
 
             if (err.name === 'NotAllowedError') {
+                // Botón para desbloquear audio
                 this.showAudioUnlockButton?.();
             }
         });
-    }
+}
 
-
-    async initiateOutgoingCall(targetUser, webrtcManager) {
+async initiateOutgoingCall(targetUser, webrtcManager) {
     try {
         console.log('📞 [SALIENTE] Iniciando llamada a', targetUser);
 
-        // Guardar referencia
         this.webrtcManager = webrtcManager;
 
-        // Crear objeto activeCall
         this.activeCall = {
             id: null,
             type: 'OUTGOING',
@@ -426,27 +422,25 @@ async handleCallAnswer(answer) {
 
         console.log('activeCall creado:', this.activeCall);
 
-        // Iniciar llamada WebRTC
         const callId = await webrtcManager.initiateCall(targetUser, false);
         this.activeCall.id = callId;
 
         console.log('Llamada iniciada con ID:', callId);
 
-        // Guardar globalmente
         window._currentOutgoingCall = this.activeCall;
 
-        // Iniciar temporizador visual
         this.setupOutgoingRingTimer?.();
 
         return callId;
 
     } catch (error) {
-        console.error('❌ Error en llamada saliente:', error);
+        console.error('❌ Error llamada saliente:', error);
         window._currentOutgoingCall = null;
         this.cleanup?.();
         throw error;
     }
 }
+
 
 
   // ========================================
