@@ -1,5 +1,5 @@
 // ============================================
-// js/webrtcManager.js - Gestor WebRTC CON AUDIO REMOTO FUNCIONANDO
+// js/webrtcManager.js - CORREGIDO: Audio remoto funcionando
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -24,7 +24,6 @@ class WebRTCManager {
     try {
       console.log('📞 [WebRTC] Iniciando llamada a', targetUser);
       
-      // ✅ PASO 1: Obtener stream local
       console.log('🎤 [WebRTC] Solicitando acceso al micrófono...');
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -32,18 +31,15 @@ class WebRTCManager {
       });
       console.log('✅ [WebRTC] Stream local obtenido');
       
-      // ✅ PASO 2: Crear PeerConnection
       console.log('🔗 [WebRTC] Creando PeerConnection...');
       await this.createPeerConnection();
       console.log('✅ [WebRTC] PeerConnection creada');
       
-      // ✅ PASO 3: Agregar tracks
       this.localStream.getTracks().forEach(track => {
         console.log('📎 [WebRTC] Agregando track:', track.kind);
         this.peerConnection.addTrack(track, this.localStream);
       });
       
-      // ✅ PASO 4: Crear offer
       console.log('📝 [WebRTC] Creando offer...');
       const offer = await this.peerConnection.createOffer({
         offerToReceiveAudio: true,
@@ -53,7 +49,6 @@ class WebRTCManager {
       await this.peerConnection.setLocalDescription(offer);
       console.log('✅ [WebRTC] Local description establecida');
       
-      // ✅ PASO 5: Enviar offer al servidor ICE
       console.log('📤 [WebRTC] Enviando offer al servidor...');
       const callType = isVideoCall ? 'VIDEO' : 'AUDIO';
       const result = await iceClient.initiateCall(
@@ -63,7 +58,6 @@ class WebRTCManager {
         offer.sdp
       );
       
-      // ⚡ CRÍTICO: Extraer solo el ID, removiendo "SUCCESS:" si existe
       const callId = result.startsWith('SUCCESS:') ? result.substring(8) : result;
       
       this.currentCallId = callId;
@@ -99,11 +93,9 @@ class WebRTCManager {
         return;
       }
       
-      // Aceptar llamada
       this.currentCallId = offer.callId;
       this.isInitiator = false;
       
-      // Obtener stream local
       console.log('🎤 [WebRTC] Solicitando acceso al micrófono...');
       
       const Ice = window.Ice;
@@ -114,15 +106,12 @@ class WebRTCManager {
         video: isVideoCall
       });
       
-      // Crear PeerConnection
       await this.createPeerConnection();
       
-      // Agregar tracks
       this.localStream.getTracks().forEach(track => {
         this.peerConnection.addTrack(track, this.localStream);
       });
       
-      // Establecer remote description
       console.log('📥 [WebRTC] Estableciendo remote description...');
       await this.peerConnection.setRemoteDescription(
         new RTCSessionDescription({
@@ -131,17 +120,15 @@ class WebRTCManager {
         })
       );
       
-      // Crear answer
       console.log('📝 [WebRTC] Creando answer...');
       const answer = await this.peerConnection.createAnswer();
       await this.peerConnection.setLocalDescription(answer);
       
-      // ⚡ CRÍTICO: Enviar answer con status ACCEPTED (no Ringing)
       console.log('📤 [WebRTC] Enviando answer con status ACCEPTED...');
       await iceClient.answerCall(
         offer.callId,
         state.currentUsername,
-        'ACCEPTED',  // ⚡ DEBE ser 'ACCEPTED', NO 'Ringing'
+        'ACCEPTED',
         answer.sdp
       );
       
@@ -154,80 +141,64 @@ class WebRTCManager {
     }
   }
 
-  // ============================================
-// MANEJAR RESPUESTA DE LLAMADA
-// ============================================
+  // ========================================
+  // MANEJAR RESPUESTA DE LLAMADA
+  // ========================================
 
-async handleCallAnswer(answer) {
-  try {
-    console.log('📥 [WebRTC] Procesando respuesta:', answer.status);
-    console.log('📥 [WebRTC] answer.status type:', typeof answer.status);
-    console.log('📥 [WebRTC] answer.status value:', answer.status);
-    
-    // ✅ CRÍTICO: Normalizar el status del enum Ice.js
-    let normalizedStatus = answer.status;
-    
-    if (typeof answer.status === 'object' && answer.status._name) {
-      // Es un enum Ice.js
-      normalizedStatus = answer.status._name;
-      console.log('📝 [WebRTC] Normalizado desde enum Ice.js:', normalizedStatus);
-    } else if (typeof answer.status === 'number') {
-      // Es un número
-      const statusMap = { 0: 'Ringing', 1: 'Accepted', 2: 'Rejected', 3: 'Ended', 4: 'Busy', 5: 'NoAnswer' };
-      normalizedStatus = statusMap[answer.status];
-      console.log('📝 [WebRTC] Normalizado desde número:', normalizedStatus);
-    } else if (typeof answer.status === 'string') {
-      // Ya es un string
-      console.log('📝 [WebRTC] Ya es string:', normalizedStatus);
-    }
-    
-    console.log('✅ [WebRTC] Status final normalizado:', normalizedStatus);
-    
-    // ✅ CRÍTICO: Comparar con el status normalizado
-    if (normalizedStatus === 'Accepted' || normalizedStatus === 'ACCEPTED') {
-      console.log('✅ [WebRTC] Llamada ACEPTADA');
+  async handleCallAnswer(answer) {
+    try {
+      console.log('📥 [WebRTC] Procesando respuesta:', answer.status);
       
-      if (!this.peerConnection) {
-        console.error('❌ [WebRTC] No hay PeerConnection activa');
-        return;
+      let normalizedStatus = answer.status;
+      
+      if (typeof answer.status === 'object' && answer.status._name) {
+        normalizedStatus = answer.status._name;
+      } else if (typeof answer.status === 'number') {
+        const statusMap = { 0: 'Ringing', 1: 'Accepted', 2: 'Rejected', 3: 'Ended', 4: 'Busy', 5: 'NoAnswer' };
+        normalizedStatus = statusMap[answer.status];
       }
       
-      console.log('📝 [WebRTC] Estableciendo remote description...');
-      await this.peerConnection.setRemoteDescription(
-        new RTCSessionDescription({
-          type: 'answer',
-          sdp: answer.sdp
-        })
-      );
+      // Convertir a mayúsculas
+      normalizedStatus = normalizedStatus.toUpperCase();
       
-      // Procesar ICE candidates pendientes
-      if (this.iceCandidateQueue.length > 0) {
-        console.log('🧊 [WebRTC] Procesando', this.iceCandidateQueue.length, 'candidates pendientes');
-        for (const candidate of this.iceCandidateQueue) {
-          await this.peerConnection.addIceCandidate(candidate);
+      console.log('✅ [WebRTC] Status final normalizado:', normalizedStatus);
+      
+      if (normalizedStatus === 'ACCEPTED') {
+        console.log('✅ [WebRTC] Llamada ACEPTADA');
+        
+        if (!this.peerConnection) {
+          console.error('❌ [WebRTC] No hay PeerConnection activa');
+          return;
         }
-        this.iceCandidateQueue = [];
+        
+        console.log('📝 [WebRTC] Estableciendo remote description...');
+        await this.peerConnection.setRemoteDescription(
+          new RTCSessionDescription({
+            type: 'answer',
+            sdp: answer.sdp
+          })
+        );
+        
+        if (this.iceCandidateQueue.length > 0) {
+          console.log('🧊 [WebRTC] Procesando', this.iceCandidateQueue.length, 'candidates pendientes');
+          for (const candidate of this.iceCandidateQueue) {
+            await this.peerConnection.addIceCandidate(candidate);
+          }
+          this.iceCandidateQueue = [];
+        }
+        
+        console.log('✅ [WebRTC] Respuesta procesada correctamente');
+        
+      } else if (normalizedStatus === 'REJECTED') {
+        console.log('❌ [WebRTC] Llamada RECHAZADA');
+        this.cleanup();
       }
       
-      console.log('✅ [WebRTC] Respuesta procesada correctamente');
-      
-    } else if (normalizedStatus === 'Rejected' || normalizedStatus === 'REJECTED') {
-      console.log('❌ [WebRTC] Llamada RECHAZADA');
-      this.cleanup();
-      
-    } else {
-      console.warn('⚠️ [WebRTC] Estado desconocido:', {
-        original: answer.status,
-        normalized: normalizedStatus,
-        type: typeof answer.status
-      });
+    } catch (error) {
+      console.error('❌ [WebRTC] Error procesando respuesta:', error);
+      throw error;
     }
-    
-  } catch (error) {
-    console.error('❌ [WebRTC] Error procesando respuesta:', error);
-    throw error;
   }
-}
 
   // ========================================
   // MANEJAR ICE CANDIDATE
@@ -246,7 +217,6 @@ async handleCallAnswer(answer) {
         sdpMLineIndex: candidateData.sdpMLineIndex
       });
       
-      // Si aún no tenemos remote description, encolar
       if (!this.peerConnection.remoteDescription) {
         console.log('🧊 [WebRTC] Encolando candidate (sin remote description aún)');
         this.iceCandidateQueue.push(candidate);
@@ -275,7 +245,6 @@ async handleCallAnswer(answer) {
     
     this.peerConnection = new RTCPeerConnection(config);
     
-    // ICE Candidate
     this.peerConnection.onicecandidate = async (event) => {
       if (event.candidate && this.currentCallId) {
         console.log('🧊 [WebRTC] Enviando ICE candidate');
@@ -293,7 +262,6 @@ async handleCallAnswer(answer) {
       }
     };
     
-    // Connection State
     this.peerConnection.onconnectionstatechange = () => {
       console.log('🔗 [WebRTC] Connection state:', this.peerConnection.connectionState);
       
@@ -306,13 +274,11 @@ async handleCallAnswer(answer) {
       }
     };
     
-    // ✅ CRÍTICO: Remote Stream con audio
     this.peerConnection.ontrack = (event) => {
       console.log('📡 [WebRTC] Track remoto recibido:', event.track.kind);
       console.log('   - Track ID:', event.track.id);
       console.log('   - Track enabled:', event.track.enabled);
       console.log('   - Track readyState:', event.track.readyState);
-      console.log('   - Streams:', event.streams.length);
       
       if (!this.remoteStream) {
         this.remoteStream = new MediaStream();
@@ -320,128 +286,178 @@ async handleCallAnswer(answer) {
       
       this.remoteStream.addTrack(event.track);
       
-      // ✅ SOLUCIÓN: Llamar setupRemoteAudio() cuando llegue el track
       if (event.track.kind === 'audio') {
         console.log('🔊 [WebRTC] Configurando reproducción de audio remoto...');
-        this.setupRemoteAudio();
+        // ⚡ CRÍTICO: Esperar un momento para que el stream esté completamente listo
+        setTimeout(() => this.setupRemoteAudio(), 500);
       }
     };
   }
 
   // ========================================
-  // ✅ CONFIGURAR AUDIO REMOTO
+  // ✅ CONFIGURAR AUDIO REMOTO - CORREGIDO
   // ========================================
   setupRemoteAudio() {
-    console.log('🔊 [WebRTC] Configurando audio remoto...');
+    console.log('🔊 [WebRTC] setupRemoteAudio iniciado');
 
     // Limpiar elemento anterior
     if (this.remoteAudioElement) {
+      try {
         this.remoteAudioElement.pause();
         this.remoteAudioElement.srcObject = null;
         this.remoteAudioElement.remove();
-        this.remoteAudioElement = null;
+      } catch (e) {
+        console.warn('Error limpiando audio anterior:', e);
+      }
+      this.remoteAudioElement = null;
     }
 
-    // Verificar stream
     if (!this.remoteStream) {
-        console.error("❌ [WebRTC] remoteStream no está definido");
-        return;
+      console.error('❌ [WebRTC] remoteStream no está definido');
+      return;
     }
 
     const audioTracks = this.remoteStream.getAudioTracks();
-    console.log('🎵 [WebRTC] Audio tracks:', audioTracks.length);
+    console.log('🎵 [WebRTC] Audio tracks disponibles:', audioTracks.length);
 
     if (audioTracks.length === 0) {
-        console.error('❌ [WebRTC] No hay tracks de audio!');
-        return;
+      console.error('❌ [WebRTC] No hay tracks de audio en remoteStream');
+      return;
     }
 
     audioTracks.forEach((track, i) => {
-        console.log(`Track ${i}:`, {
-            id: track.id,
-            enabled: track.enabled,
-            readyState: track.readyState
-        });
+      console.log(`   Track ${i}:`, {
+        id: track.id,
+        enabled: track.enabled,
+        readyState: track.readyState,
+        muted: track.muted
+      });
     });
 
-    // Crear elemento audio
-    this.remoteAudioElement = document.createElement('audio');
-    this.remoteAudioElement.id = 'remoteAudio';
+    // ⚡ CREAR elemento Audio (no HTMLAudioElement directamente)
+    this.remoteAudioElement = new Audio();
     this.remoteAudioElement.autoplay = true;
-    this.remoteAudioElement.playsInline = true;
+    this.remoteAudioElement.controls = false;
     this.remoteAudioElement.muted = false;
     this.remoteAudioElement.volume = 1.0;
-
-    this.remoteAudioElement.srcObject = this.remoteStream;
+    
+    // ⚡ CRÍTICO: Agregar al DOM (algunos navegadores lo requieren)
+    this.remoteAudioElement.style.display = 'none';
+    this.remoteAudioElement.id = 'remoteAudio_' + Date.now();
     document.body.appendChild(this.remoteAudioElement);
+    
+    // ⚡ Asignar stream
+    this.remoteAudioElement.srcObject = this.remoteStream;
 
-    // Listeners
+    // Event listeners
     this.remoteAudioElement.onloadedmetadata = () => {
-        console.log('📊 [WebRTC] Metadata cargada');
+      console.log('📊 [WebRTC] Metadata cargada del audio remoto');
     };
 
     this.remoteAudioElement.onplaying = () => {
-        console.log('▶️ [WebRTC] Audio REPRODUCIENDO');
+      console.log('▶️ [WebRTC] Audio remoto REPRODUCIENDO');
     };
 
-    this.remoteAudioElement.onerror = e => {
-        console.error('❌ [WebRTC] Error en audio:', e);
+    this.remoteAudioElement.onerror = (e) => {
+      console.error('❌ [WebRTC] Error en elemento audio:', e);
     };
 
-    // Intentar reproducir
-    this.remoteAudioElement.play()
+    // ⚡ FORZAR reproducción con manejo de promesa
+    const playPromise = this.remoteAudioElement.play();
+    
+    if (playPromise !== undefined) {
+      playPromise
         .then(() => {
-            console.log('✅ [WebRTC] Audio remoto reproduciéndose');
-            this.showAudioStatus?.();
+          console.log('✅ [WebRTC] Audio remoto reproduciéndose correctamente');
+          console.log('   📊 Estado final:', {
+            paused: this.remoteAudioElement.paused,
+            muted: this.remoteAudioElement.muted,
+            volume: this.remoteAudioElement.volume,
+            readyState: this.remoteAudioElement.readyState
+          });
         })
-        .catch(err => {
-            console.error('❌ [WebRTC] Error reproduciendo:', err);
-
-            if (err.name === 'NotAllowedError') {
-                // Botón para desbloquear audio
-                this.showAudioUnlockButton?.();
-            }
+        .catch(error => {
+          console.error('❌ [WebRTC] Error al reproducir audio:', error);
+          
+          if (error.name === 'NotAllowedError') {
+            console.warn('⚠️ Autoplay bloqueado por navegador');
+            this.showAudioUnlockButton();
+          }
         });
-}
-
-async initiateOutgoingCall(targetUser, webrtcManager) {
-    try {
-        console.log('📞 [SALIENTE] Iniciando llamada a', targetUser);
-
-        this.webrtcManager = webrtcManager;
-
-        this.activeCall = {
-            id: null,
-            type: 'OUTGOING',
-            callerId: state.currentUsername,
-            calleeId: targetUser,
-            startTime: Date.now(),
-            status: 'RINGING',
-            duration: 0
-        };
-
-        console.log('activeCall creado:', this.activeCall);
-
-        const callId = await webrtcManager.initiateCall(targetUser, false);
-        this.activeCall.id = callId;
-
-        console.log('Llamada iniciada con ID:', callId);
-
-        window._currentOutgoingCall = this.activeCall;
-
-        this.setupOutgoingRingTimer?.();
-
-        return callId;
-
-    } catch (error) {
-        console.error('❌ Error llamada saliente:', error);
-        window._currentOutgoingCall = null;
-        this.cleanup?.();
-        throw error;
     }
-}
+    
+    // ⚡ VERIFICACIÓN adicional después de 1 segundo
+    setTimeout(() => {
+      if (this.remoteAudioElement) {
+        console.log('🔍 [WebRTC] Verificación de audio después de 1s:');
+        console.log('   Paused:', this.remoteAudioElement.paused);
+        console.log('   Muted:', this.remoteAudioElement.muted);
+        console.log('   Volume:', this.remoteAudioElement.volume);
+        console.log('   CurrentTime:', this.remoteAudioElement.currentTime);
+        
+        if (this.remoteAudioElement.paused) {
+          console.warn('⚠️ Audio está pausado, reintentando play()...');
+          this.remoteAudioElement.play().catch(e => {
+            console.error('Error en retry:', e);
+            this.showAudioUnlockButton();
+          });
+        }
+      }
+    }, 1000);
+  }
 
-
+  // ⚡ NUEVO: Botón de desbloqueo de audio
+  showAudioUnlockButton() {
+    // Evitar duplicados
+    const existing = document.getElementById('unlockAudioBtn');
+    if (existing) return;
+    
+    const button = document.createElement('button');
+    button.id = 'unlockAudioBtn';
+    button.textContent = '🔊 Activar Audio Remoto';
+    button.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      padding: 20px 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      animation: pulse 2s infinite;
+    `;
+    
+    button.onclick = () => {
+      if (this.remoteAudioElement) {
+        this.remoteAudioElement.play()
+          .then(() => {
+            console.log('✅ Audio desbloqueado manualmente');
+            button.remove();
+          })
+          .catch(err => {
+            console.error('❌ No se pudo desbloquear:', err);
+            alert('No se pudo activar el audio. Verifica los permisos del navegador.');
+          });
+      } else {
+        button.remove();
+      }
+    };
+    
+    document.body.appendChild(button);
+    
+    // Auto-eliminar después de 15 segundos
+    setTimeout(() => {
+      if (button.parentNode) {
+        button.remove();
+      }
+    }, 15000);
+  }
 
   // ========================================
   // FINALIZAR LLAMADA
@@ -491,13 +507,22 @@ async initiateOutgoingCall(targetUser, webrtcManager) {
   cleanup() {
     console.log('🧹 [WebRTC] Limpiando recursos...');
     
-    // ✅ Limpiar audio remoto
     if (this.remoteAudioElement) {
-      this.remoteAudioElement.pause();
-      this.remoteAudioElement.srcObject = null;
-      this.remoteAudioElement.remove();
+      try {
+        this.remoteAudioElement.pause();
+        this.remoteAudioElement.srcObject = null;
+        this.remoteAudioElement.remove();
+      } catch (e) {
+        console.warn('Error limpiando audio remoto:', e);
+      }
       this.remoteAudioElement = null;
       console.log('🔇 Audio remoto eliminado');
+    }
+    
+    // Limpiar botón de desbloqueo si existe
+    const unlockBtn = document.getElementById('unlockAudioBtn');
+    if (unlockBtn) {
+      unlockBtn.remove();
     }
     
     if (this.localStream) {
