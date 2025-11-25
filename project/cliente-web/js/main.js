@@ -31,7 +31,8 @@ window._debug = {
   joinGroup,
   sendMessage,
   toggleRecording,
-  cancelRecording
+  cancelRecording,
+  state
 };
 
 // ========================================
@@ -53,9 +54,11 @@ function switchTab(tab) {
 }
 
 // ========================================
-// ⚡ INICIAR LLAMADA DE AUDIO (Sistema Profesor)
+// ⚡ INICIAR LLAMADA (Sistema Profesor)
 // ========================================
 async function initiateAudioCall() {
+  console.log('📞 [MAIN] Botón de llamada presionado');
+  
   if (!state.currentChat) {
     showError('Selecciona un chat primero');
     return;
@@ -72,14 +75,29 @@ async function initiateAudioCall() {
   }
   
   try {
+    console.log('📞 [MAIN] Importando Player...');
+    
     // Importar Player dinámicamente
     const { audioPlayer } = await import('./Player.js');
+    
+    console.log('📞 [MAIN] Player importado, verificando inicialización...');
+    
+    // ✅ VERIFICAR que Player esté inicializado
+    if (!audioPlayer.init) {
+      console.error('❌ [MAIN] Player no tiene método init');
+      throw new Error('Player no inicializado correctamente');
+    }
+    
+    console.log('📞 [MAIN] Iniciando llamada a:', state.currentChat);
     
     // Iniciar llamada
     await audioPlayer.startCall(state.currentChat);
     
+    console.log('✅ [MAIN] Llamada iniciada');
+    
   } catch (error) {
-    console.error('❌ Error iniciando llamada:', error);
+    console.error('❌ [MAIN] Error iniciando llamada:', error);
+    console.error('Stack:', error.stack);
     showError('Error al iniciar llamada: ' + error.message);
   }
 }
@@ -88,29 +106,33 @@ async function initiateAudioCall() {
 // EVENT LISTENERS
 // ========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🚀 Aplicación de chat inicializada');
+  console.log('🚀 [MAIN] Aplicación inicializada');
   
   // ✅ Esperar a que Ice.js esté disponible
   if (window._iceLoadPromise) {
     try {
       await window._iceLoadPromise;
-      console.log('✅ Ice.js disponible, continuando inicialización...');
+      console.log('✅ [MAIN] Ice.js disponible');
     } catch (error) {
-      console.error('❌ Error cargando Ice.js:', error);
+      console.error('❌ [MAIN] Error cargando Ice.js:', error);
       alert('Error: No se pudo cargar Ice.js. Por favor recarga la página.');
       return;
     }
   }
   
   // ========================================
-  // 📞 LLAMADAS (Sistema Profesor)
+  // 📞 BOTÓN DE LLAMADAS
   // ========================================
   const callButton = document.getElementById('callButton');
 
   if (callButton) {
+    console.log('✅ [MAIN] Botón de llamadas encontrado');
     callButton.addEventListener('click', () => {
+      console.log('🔘 [MAIN] Click en botón de llamada');
       initiateAudioCall();
     });
+  } else {
+    console.warn('⚠️ [MAIN] Botón de llamadas NO encontrado en el DOM');
   }
 
   // ========================================
@@ -261,5 +283,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   
-  console.log('✅ Event listeners registrados');
+  console.log('✅ [MAIN] Todos los event listeners registrados');
 });

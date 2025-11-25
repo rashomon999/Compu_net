@@ -1,5 +1,5 @@
 // ============================================
-// js/Player.js - Sistema de Llamadas (ICE Directo)
+// js/Player.js - Sistema de Llamadas COMPLETO
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -16,56 +16,47 @@ class AudioPlayer {
     this.isPlaying = false;
     this.isStreaming = false;
     this.callModal = null;
+    this.callTimerInterval = null;
   }
 
   // ========================================
-  // INICIALIZAR
+  // ✅ INICIALIZAR - REGISTRAR CALLBACKS
   // ========================================
   init() {
-    console.log('🎵 Inicializando AudioPlayer');
-    this.setupCallbacks();
-  }
-
-  // ========================================
-  // CALLBACKS DE LLAMADAS
-  // ========================================
-  setupCallbacks() {
-    // Llamada entrante
+    console.log('🎵 [PLAYER] Inicializando AudioPlayer');
+    
+    // ✅ CRÍTICO: Registrar callbacks INMEDIATAMENTE
     iceClient.onIncomingCall((fromUser) => {
       console.log('📞 [PLAYER] Llamada entrante de:', fromUser);
       this.showIncomingCallModal(fromUser);
     });
 
-    // Llamada aceptada
-    iceClient.onCallAccepted(async (byUser) => {
+    iceClient.onCallAccepted((byUser) => {
       console.log('✅ [PLAYER] Llamada aceptada por:', byUser);
-      this.currentTarget = byUser;
-      await this.startRecording();
-      this.showActiveCallModal(byUser);
+      this.handleCallAccepted(byUser);
     });
 
-    // Llamada rechazada
     iceClient.onCallRejected((byUser) => {
       console.log('❌ [PLAYER] Llamada rechazada por:', byUser);
       alert(`${byUser} rechazó la llamada`);
       this.cleanup();
     });
 
-    // Llamada colgada
     iceClient.onCallColgada((byUser) => {
       console.log('📴 [PLAYER] Llamada colgada por:', byUser);
       alert(`${byUser} colgó la llamada`);
       this.cleanup();
     });
 
-    // Recibir audio
     iceClient.onReceiveAudio((audioData) => {
       this.playAudio(audioData);
     });
+    
+    console.log('✅ [PLAYER] Callbacks registrados');
   }
 
   // ========================================
-  // INICIAR LLAMADA
+  // 📞 INICIAR LLAMADA (CALLER)
   // ========================================
   async startCall(targetUser) {
     if (this.isStreaming) {
@@ -81,15 +72,17 @@ class AudioPlayer {
     try {
       console.log('📞 [PLAYER] Iniciando llamada a:', targetUser);
       
+      this.currentTarget = targetUser;
+      
       // Mostrar modal de "llamando..."
       this.showOutgoingCallModal(targetUser);
       
-      // Enviar señal de inicio al servidor
+      // ✅ PASO 1: Enviar señal de inicio al servidor
       await iceClient.startCall(state.currentUsername, targetUser);
-      
-      this.currentTarget = targetUser;
-      
       console.log('✅ [PLAYER] Señal de llamada enviada');
+      
+      // ✅ PASO 2: Ya NO iniciamos grabación aquí
+      // Esperamos a que el otro usuario ACEPTE
       
     } catch (error) {
       console.error('❌ [PLAYER] Error iniciando llamada:', error);
@@ -99,16 +92,51 @@ class AudioPlayer {
   }
 
   // ========================================
-  // ACEPTAR/RECHAZAR LLAMADA
+  // ✅ MANEJAR ACEPTACIÓN (CALLER)
+  // ========================================
+  async handleCallAccepted(byUser) {
+    console.log('✅ [PLAYER] Procesando aceptación de:', byUser);
+    
+    try {
+      // Cerrar modal de "llamando"
+      this.closeModal();
+      
+      // Iniciar captura de audio
+      await this.startRecording();
+      
+      // Mostrar modal de llamada activa
+      this.showActiveCallModal(byUser);
+      
+      console.log('✅ [PLAYER] Llamada establecida con:', byUser);
+      
+    } catch (error) {
+      console.error('❌ [PLAYER] Error en handleCallAccepted:', error);
+      alert('Error estableciendo llamada');
+      this.cleanup();
+    }
+  }
+
+  // ========================================
+  // ✅ ACEPTAR LLAMADA (CALLEE)
   // ========================================
   async acceptCall(fromUser) {
     try {
       console.log('✅ [PLAYER] Aceptando llamada de:', fromUser);
       
+      // ✅ PASO 1: Enviar señal de aceptación
       await iceClient.acceptCall(fromUser, state.currentUsername);
+      console.log('   ✅ Señal enviada');
+      
+      // ✅ PASO 2: Establecer target
       this.currentTarget = fromUser;
+      
+      // ✅ PASO 3: Iniciar captura de audio
       await this.startRecording();
+      console.log('   ✅ Grabación iniciada');
+      
+      // ✅ PASO 4: Mostrar UI de llamada activa
       this.showActiveCallModal(fromUser);
+      console.log('   ✅ UI actualizada');
       
     } catch (error) {
       console.error('❌ [PLAYER] Error aceptando llamada:', error);
@@ -117,6 +145,9 @@ class AudioPlayer {
     }
   }
 
+  // ========================================
+  // ❌ RECHAZAR LLAMADA
+  // ========================================
   async rejectCall(fromUser) {
     try {
       console.log('❌ [PLAYER] Rechazando llamada de:', fromUser);
@@ -128,7 +159,7 @@ class AudioPlayer {
   }
 
   // ========================================
-  // CAPTURA Y ENVÍO DE AUDIO
+  // 🎤 CAPTURA Y ENVÍO DE AUDIO
   // ========================================
   async startRecording() {
     if (this.mediaStream) {
@@ -152,6 +183,8 @@ class AudioPlayer {
         }
       });
       
+      console.log('   ✅ Micrófono capturado');
+      
       // Crear nodos de audio
       const audioInput = this.audioContext.createMediaStreamSource(this.mediaStream);
       const gainNode = this.audioContext.createGain();
@@ -163,6 +196,7 @@ class AudioPlayer {
       gainNode.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
 
+      // ✅ Procesar y enviar audio
       this.processor.onaudioprocess = (e) => {
         if (!this.currentTarget || !this.isStreaming) return;
 
@@ -177,7 +211,7 @@ class AudioPlayer {
           const merged = this.mergePCM(this.sendBuffer);
           this.sendBuffer = [];
           
-          // Enviar via ICE
+          // ✅ Enviar via ICE
           iceClient.sendAudio(state.currentUsername, new Uint8Array(merged.buffer));
         }
       };
@@ -197,6 +231,7 @@ class AudioPlayer {
       }
       
       this.cleanup();
+      throw error;
     }
   }
 
@@ -219,7 +254,7 @@ class AudioPlayer {
   }
 
   // ========================================
-  // REPRODUCCIÓN DE AUDIO REMOTO
+  // 🔊 REPRODUCCIÓN DE AUDIO REMOTO
   // ========================================
   playAudio(byteArray) {
     if (!byteArray || byteArray.length === 0) return;
@@ -266,7 +301,7 @@ class AudioPlayer {
   }
 
   // ========================================
-  // UTILIDADES DE CONVERSIÓN
+  // 🔧 UTILIDADES DE CONVERSIÓN
   // ========================================
   applySoftCompression(buffer) {
     const threshold = 0.65;
@@ -316,10 +351,11 @@ class AudioPlayer {
   }
 
   // ========================================
-  // UI MODALES
+  // 🎨 UI MODALES
   // ========================================
   
   showIncomingCallModal(fromUser) {
+    console.log('🎨 [PLAYER] Mostrando modal de llamada entrante');
     this.closeModal();
 
     this.callModal = document.createElement('div');
@@ -348,6 +384,7 @@ class AudioPlayer {
   }
 
   showOutgoingCallModal(targetUser) {
+    console.log('🎨 [PLAYER] Mostrando modal de llamada saliente');
     this.closeModal();
 
     this.callModal = document.createElement('div');
@@ -373,6 +410,7 @@ class AudioPlayer {
   }
 
   showActiveCallModal(targetUser) {
+    console.log('🎨 [PLAYER] Mostrando modal de llamada activa');
     this.closeModal();
 
     this.callModal = document.createElement('div');
@@ -421,7 +459,7 @@ class AudioPlayer {
   }
 
   // ========================================
-  // COLGAR LLAMADA
+  // 📴 COLGAR LLAMADA
   // ========================================
   async endCall() {
     if (!this.currentTarget) {
