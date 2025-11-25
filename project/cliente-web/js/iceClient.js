@@ -1,5 +1,5 @@
 // ============================================
-// js/iceClient.js - Cliente ICE con callbacks indirectos
+// js/iceClient.js - Cliente ICE con conversión de enums
 // ============================================
 
 // ✅ Importar ChatSystem
@@ -433,14 +433,42 @@ class IceClientManager {
     }
   }
 
+  // ⚡ CRÍTICO: Convertir string a enum de CallStatus
   async answerCall(callId, callee, status, sdp) {
     if (!this.callService) {
       throw new Error('CallService no disponible');
     }
     try {
-      return await this.callService.answerCall(callId, callee, status, sdp);
+      const Ice = window.Ice;
+      
+      // ⚡ CRÍTICO: Convertir string a enum de CallStatus
+      let callStatus;
+      if (typeof status === 'string') {
+        // Mapear strings a enums de Ice.js
+        const statusMap = {
+          'RINGING': Ice.ChatSystem.CallStatus.Ringing,
+          'ACCEPTED': Ice.ChatSystem.CallStatus.Accepted,
+          'REJECTED': Ice.ChatSystem.CallStatus.Rejected,
+          'ENDED': Ice.ChatSystem.CallStatus.Ended,
+          'BUSY': Ice.ChatSystem.CallStatus.Busy,
+          'NO_ANSWER': Ice.ChatSystem.CallStatus.NoAnswer
+        };
+        callStatus = statusMap[status.toUpperCase()];
+        
+        if (!callStatus) {
+          console.error('❌ Status inválido:', status);
+          throw new Error('Status de llamada inválido: ' + status);
+        }
+        
+        console.log('🔄 [ICE] Convertido status:', status, '→', callStatus._name, '(value:', callStatus._value + ')');
+      } else {
+        callStatus = status; // Ya es un enum
+      }
+      
+      console.log('📤 [ICE] Enviando answerCall con status:', callStatus._name);
+      return await this.callService.answerCall(callId, callee, callStatus, sdp);
     } catch (error) {
-      console.error('Error respondiendo llamada:', error);
+      console.error('❌ [ICE] Error respondiendo llamada:', error);
       throw error;
     }
   }
@@ -607,10 +635,14 @@ class IceClientManager {
     
     console.log('✅ [POLLING] Polling activo (cada 1 segundo)');
   }
+  
   async unsubscribeFromCallEvents(username) {
     if (!this.callService) return;
     try {
-      this._stopCallPolling();
+      if (this.callPollingInterval) {
+        clearInterval(this.callPollingInterval);
+        this.callPollingInterval = null;
+      }
       await this.callService.unsubscribe(username);
       console.log('🔕 Desuscrito de eventos de llamadas');
     } catch (error) {

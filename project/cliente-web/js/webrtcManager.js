@@ -13,7 +13,7 @@ class WebRTCManager {
     this.currentCallId = null;
     this.isInitiator = false;
     this.iceCandidateQueue = [];
-    this.remoteAudioElement = null; // ✅ Agregar referencia
+    this.remoteAudioElement = null;
   }
 
   // ========================================
@@ -56,12 +56,15 @@ class WebRTCManager {
       // ✅ PASO 5: Enviar offer al servidor ICE
       console.log('📤 [WebRTC] Enviando offer al servidor...');
       const callType = isVideoCall ? 'VIDEO' : 'AUDIO';
-      const callId = await iceClient.initiateCall(
+      const result = await iceClient.initiateCall(
         state.currentUsername,
         targetUser,
         callType,
         offer.sdp
       );
+      
+      // ⚡ CRÍTICO: Extraer solo el ID, removiendo "SUCCESS:" si existe
+      const callId = result.startsWith('SUCCESS:') ? result.substring(8) : result;
       
       this.currentCallId = callId;
       this.isInitiator = true;
@@ -133,12 +136,12 @@ class WebRTCManager {
       const answer = await this.peerConnection.createAnswer();
       await this.peerConnection.setLocalDescription(answer);
       
-      // Enviar answer al servidor
-      console.log('📤 [WebRTC] Enviando answer...');
+      // ⚡ CRÍTICO: Enviar answer con status ACCEPTED (no Ringing)
+      console.log('📤 [WebRTC] Enviando answer con status ACCEPTED...');
       await iceClient.answerCall(
         offer.callId,
         state.currentUsername,
-        'ACCEPTED',
+        'ACCEPTED',  // ⚡ DEBE ser 'ACCEPTED', NO 'Ringing'
         answer.sdp
       );
       
@@ -295,7 +298,7 @@ class WebRTCManager {
   }
 
   // ========================================
-  // ✅ CONFIGURAR AUDIO REMOTO (AHORA SE USA)
+  // ✅ CONFIGURAR AUDIO REMOTO
   // ========================================
   
   setupRemoteAudio() {
