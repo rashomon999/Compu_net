@@ -10,17 +10,14 @@ import { login, logout } from './auth.js';
 import { openChat, loadRecentChats } from './chats.js';
 import { createGroup, joinGroup, loadGroupsFromICE } from './groups.js';
 import { sendMessage } from './messages.js';
-import { stopPolling } from './polling.js';
-import { state, resetState } from './state.js';
-import { showLoginInterface, resetMainContent, showError } from './ui.js';
+import { state } from './state.js';
+import { showError } from './ui.js';
 
-// 🎙️ Importar funcionalidad de audio
+// 🎙️ Importar funcionalidad de audio (notas de voz)
 import { 
   toggleRecording, 
   cancelRecording,
-  toggleAudioMenu,
-  showAudioControls,
-  hideAudioControls
+  toggleAudioMenu
 } from './audioUI.js';
 
 // ========================================
@@ -56,52 +53,35 @@ function switchTab(tab) {
 }
 
 // ========================================
-// MENÚ DE LLAMADAS (SOLO AUDIO)
+// ⚡ INICIAR LLAMADA DE AUDIO (Sistema Profesor)
 // ========================================
-function showCallOptionsMenu() {
-  // ⚠️ Validar que CallService esté disponible
+async function initiateAudioCall() {
+  if (!state.currentChat) {
+    showError('Selecciona un chat primero');
+    return;
+  }
+  
+  if (state.isGroup) {
+    showError('Las llamadas solo están disponibles para chats privados');
+    return;
+  }
+  
   if (state.callsAvailable === false) {
     showError('❌ Las llamadas no están disponibles - CallService no está en el servidor');
     return;
   }
   
-  // Remover menú existente si hay
-  const existingMenu = document.querySelector('.call-options-menu');
-  if (existingMenu) {
-    existingMenu.remove();
+  try {
+    // Importar Player dinámicamente
+    const { audioPlayer } = await import('./Player.js');
+    
+    // Iniciar llamada
+    await audioPlayer.startCall(state.currentChat);
+    
+  } catch (error) {
+    console.error('❌ Error iniciando llamada:', error);
+    showError('Error al iniciar llamada: ' + error.message);
   }
-  
-  const options = document.createElement('div');
-  options.className = 'call-options-menu';
-  options.innerHTML = `
-    <button class="call-option" id="audioCallBtn">
-      📞 Llamada de audio
-    </button>
-  `;
-  
-  document.body.appendChild(options);
-  
-  document.getElementById('audioCallBtn').onclick = async () => {
-    options.remove();
-    try {
-      const { initiateCall } = await import('./callUI.js');
-      await initiateCall(state.currentChat);
-    } catch (error) {
-      console.error('Error iniciando llamada de audio:', error);
-      showError('Error al iniciar llamada: ' + error.message);
-    }
-  };
-  
-  // Cerrar al hacer clic fuera
-  setTimeout(() => {
-    const closeHandler = (e) => {
-      if (!options.contains(e.target) && e.target.id !== 'callButton') {
-        options.remove();
-        document.removeEventListener('click', closeHandler);
-      }
-    };
-    document.addEventListener('click', closeHandler);
-  }, 100);
 }
 
 // ========================================
@@ -123,24 +103,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   // ========================================
-  // LLAMADAS
+  // 📞 LLAMADAS (Sistema Profesor)
   // ========================================
   const callButton = document.getElementById('callButton');
 
   if (callButton) {
     callButton.addEventListener('click', () => {
-      if (!state.currentChat) {
-        showError('Selecciona un chat primero');
-        return;
-      }
-      
-      if (state.isGroup) {
-        showError('Las llamadas solo están disponibles para chats privados');
-        return;
-      }
-      
-      // ✅ Mostrar opciones de llamada (con validación interna)
-      showCallOptionsMenu();
+      initiateAudioCall();
     });
   }
 
@@ -268,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   // ========================================
-  // AUDIO
+  // 🎤 NOTAS DE VOZ
   // ========================================
   const recordButton = document.getElementById('recordButton');
   const cancelButton = document.getElementById('cancelButton');

@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - CORREGIDO: Normalización de enums robusta
+// js/auth.js - Autenticación con Suscripción a Llamadas
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -8,7 +8,6 @@ import { showError, showChatInterface } from './ui.js';
 import { loadRecentChatsFromICE } from './chats.js';
 import { loadGroupsFromICE } from './groups.js';
 import { subscribeToRealTimeNotifications } from './notifications.js';
-import { callManager } from './callManager.js';
 
 export async function login() {
   const username = document.getElementById('usernameInput').value.trim();
@@ -44,11 +43,13 @@ export async function login() {
     
     state.currentUsername = username;
     
+    // ✅ Suscribirse a notificaciones push
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
     }
     await subscribeToRealTimeNotifications(username);
     
+    // ⚡ Suscribirse a eventos de llamadas
     try {
       await subscribeToCallEvents(username);
       console.log('✅ Eventos de llamadas habilitados');
@@ -58,11 +59,13 @@ export async function login() {
       state.callsAvailable = false;
     }
     
+    // Mostrar interfaz
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
     }
     showChatInterface();
     
+    // Cargar chats y grupos
     await loadRecentChatsFromICE();
     await loadGroupsFromICE();
     
@@ -101,8 +104,10 @@ export async function login() {
 
 export async function logout() {
   try {
-    if (callManager.isCallActive()) {
-      await callManager.endCall();
+    // Limpiar cualquier llamada activa
+    const { audioPlayer } = await import('./Player.js');
+    if (audioPlayer && audioPlayer.currentTarget) {
+      await audioPlayer.cleanup();
     }
     
     await iceClient.disconnect();
@@ -113,171 +118,18 @@ export async function logout() {
 }
 
 // ========================================
-// SUSCRIPCIÓN A EVENTOS DE LLAMADAS
+// ⚡ SUSCRIPCIÓN A EVENTOS DE LLAMADAS
 // ========================================
 
 async function subscribeToCallEvents(username) {
   try {
-    await iceClient.subscribeToCallEvents(username, {
-      
-      // Llamada entrante
-      onIncomingCall: async (offer) => {
-        console.log('📞 [AUTH] Llamada entrante de', offer.caller);
-        
-        const { showIncomingCallUI } = await import('./callUI.js');
-        await showIncomingCallUI(offer);
-      },
-      
-      // ⚡ CORREGIDO: Normalización ultra-robusta de status
-      onCallAnswer: async (answer) => {
-        console.log('📞 [AUTH] Respuesta de llamada recibida');
-        console.log('   📋 Datos completos del answer:', answer);
-        console.log('   📋 Status RAW:', answer.status);
-        console.log('   📋 Status type:', typeof answer.status);
-        
-        // ⚡ NORMALIZACIÓN ULTRA-ROBUSTA
-        let normalizedStatus = null;
-        
-        if (typeof answer.status === 'string') {
-          // Ya es string
-          normalizedStatus = answer.status;
-          console.log('   ✅ Status es string:', normalizedStatus);
-          
-        } else if (typeof answer.status === 'number') {
-          // Mapear número a string
-          const statusMap = {
-            0: 'Ringing',
-            1: 'Accepted',
-            2: 'Rejected',
-            3: 'Ended',
-            4: 'Busy',
-            5: 'NoAnswer'
-          };
-          normalizedStatus = statusMap[answer.status] || 'Unknown';
-          console.log('   ✅ Status convertido de número', answer.status, '→', normalizedStatus);
-          
-        } else if (answer.status && typeof answer.status === 'object') {
-          // Es un enum de Ice.js
-          if (answer.status._name) {
-            normalizedStatus = answer.status._name;
-            console.log('   ✅ Status extraído de enum._name:', normalizedStatus);
-          } else if (answer.status.name) {
-            normalizedStatus = answer.status.name;
-            console.log('   ✅ Status extraído de enum.name:', normalizedStatus);
-          } else if (answer.status._value !== undefined) {
-            // Fallback: usar el valor numérico del enum
-            const statusMap = {
-              0: 'Ringing',
-              1: 'Accepted',
-              2: 'Rejected',
-              3: 'Ended',
-              4: 'Busy',
-              5: 'NoAnswer'
-            };
-            normalizedStatus = statusMap[answer.status._value] || 'Unknown';
-            console.log('   ✅ Status convertido desde _value:', normalizedStatus);
-          } else {
-            // Último intento: convertir objeto a string
-            normalizedStatus = String(answer.status);
-            console.log('   ⚠️ Status convertido a string:', normalizedStatus);
-          }
-        }
-        
-        // ⚡ CRÍTICO: Convertir a MAYÚSCULAS para comparación
-        if (normalizedStatus) {
-          normalizedStatus = normalizedStatus.toUpperCase();
-        } else {
-          console.error('❌ No se pudo normalizar el status');
-          normalizedStatus = 'UNKNOWN';
-        }
-        
-        console.log('   🎯 Status FINAL normalizado:', normalizedStatus);
-        
-        // ⚡ IGNORAR "Ringing" (estado transitorio)
-        if (normalizedStatus === 'RINGING') {
-          console.log('ℹ️ [AUTH] Estado Ringing ignorado (esperando respuesta final)');
-          return;
-        }
-        
-        try {
-          const { webrtcManager } = await import('./webrtcManager.js');
-          const { showActiveCallUI, hideCallUI } = await import('./callUI.js');
-          
-          if (normalizedStatus === 'ACCEPTED') {
-            console.log('✅ [AUTH] Llamada ACEPTADA - Procesando WebRTC...');
-            
-            // ⚡ CRÍTICO: Procesar en callManager
-            await callManager.handleCallAnswer(answer, webrtcManager);
-            
-            // Mostrar UI solo para llamada saliente
-            const activeCall = callManager.getActiveCall();
-            console.log('   📋 activeCall después de handleAnswer:', activeCall);
-            
-            if (activeCall && activeCall.type === 'OUTGOING') {
-              console.log('   📱 Mostrando UI de llamada activa');
-              showActiveCallUI(activeCall.calleeId);
-            } else {
-              console.log('   ℹ️ No mostrar UI (es llamada entrante o no hay activeCall)');
-            }
-            
-          } else if (normalizedStatus === 'REJECTED') {
-            console.log('❌ [AUTH] Llamada RECHAZADA');
-            hideCallUI();
-            showError(`${state.currentChat} rechazó la llamada`);
-            
-          } else if (normalizedStatus === 'BUSY') {
-            console.log('📵 [AUTH] Usuario ocupado');
-            hideCallUI();
-            showError(`${state.currentChat} está ocupado en otra llamada`);
-            
-          } else if (normalizedStatus === 'NOANSWER') {
-            console.log('⏱️ [AUTH] Sin respuesta');
-            hideCallUI();
-            showError(`${state.currentChat} no respondió la llamada`);
-            
-          } else if (normalizedStatus === 'ENDED') {
-            console.log('📞 [AUTH] Llamada finalizada');
-            hideCallUI();
-            
-          } else {
-            console.warn('⚠️ [AUTH] Estado no manejado:', {
-              original: answer.status,
-              normalized: normalizedStatus
-            });
-          }
-          
-        } catch (error) {
-          console.error('❌ [AUTH] Error procesando respuesta:', error);
-          console.error('   Stack trace:', error.stack);
-          
-          const { hideCallUI } = await import('./callUI.js');
-          hideCallUI();
-          showError('Error procesando respuesta de llamada');
-        }
-      },
-      
-      // ICE Candidate
-      onRtcCandidate: async (candidate) => {
-        console.log('🧊 [AUTH] RTC candidate recibido');
-        
-        const { webrtcManager } = await import('./webrtcManager.js');
-        await webrtcManager.handleIceCandidate(candidate);
-      },
-      
-      // Llamada finalizada
-      onCallEnded: async (callId, reason) => {
-        console.log('📞 [AUTH] Llamada finalizada:', reason);
-        
-        const { hideCallUI } = await import('./callUI.js');
-        const { webrtcManager } = await import('./webrtcManager.js');
-        
-        webrtcManager.cleanup();
-        await callManager.endCall();
-        hideCallUI();
-        
-        showError(`Llamada finalizada: ${reason}`);
-      }
-    });
+    await iceClient.subscribeToCallEvents(username);
+    
+    // Inicializar Player
+    const { audioPlayer } = await import('./Player.js');
+    audioPlayer.init();
+    
+    console.log('✅ Sistema de llamadas inicializado');
     
   } catch (error) {
     throw new Error('CallService no disponible: ' + error.message);

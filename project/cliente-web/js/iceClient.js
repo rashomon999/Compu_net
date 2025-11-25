@@ -1,11 +1,9 @@
 // ============================================
-// js/iceClient.js - Cliente ICE con conversión de enums
+// js/iceClient.js - Cliente ICE con Sistema de Llamadas
 // ============================================
 
-// ✅ Importar ChatSystem
 import './generated/ChatSystem.js';
 
-// ✅ Función auxiliar para esperar a que Ice.js esté disponible
 function waitForIce(timeout = 10000) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
@@ -13,7 +11,6 @@ function waitForIce(timeout = 10000) {
     const checkIce = () => {
       if (typeof window.Ice !== 'undefined') {
         if (window._chatSystemPending && window._initializeChatSystem) {
-          console.log('🔄 Inicializando ChatSystem ahora...');
           window._initializeChatSystem(window.Ice);
           window._chatSystemPending = false;
         }
@@ -36,13 +33,20 @@ class IceClientManager {
     this.groupService = null;
     this.notificationService = null;
     this.voiceService = null;
-    this.callService = null;
+    this.callService = null; // ⚡ NUEVO
     this.isConnected = false;
     this.notificationAdapter = null;
-    this.callAdapter = null;
+    this.callAdapter = null; // ⚡ NUEVO
     this.username = null;
     this.serverHost = 'localhost';
     this.serverPort = 10000;
+    
+    // Callbacks de llamadas
+    this._onIncomingCall = null;
+    this._onCallAccepted = null;
+    this._onCallRejected = null;
+    this._onCallColgada = null;
+    this._onReceiveAudio = null;
   }
 
   getServerConfig() {
@@ -72,17 +76,14 @@ class IceClientManager {
       try {
         Ice = await waitForIce();
       } catch (error) {
-        throw new Error('Ice.js no se cargó. Asegúrate de incluir <script src="https://unpkg.com/ice@3.7.10/lib/Ice.min.js"></script> en tu HTML ANTES del bundle.js');
+        throw new Error('Ice.js no se cargó correctamente');
       }
       
-      console.log('✅ Ice.js detectado, versión:', Ice.stringVersion());
+      console.log('✅ Ice.js detectado');
       
       if (!Ice.ChatSystem) {
-        console.error('❌ Ice.ChatSystem no está disponible');
-        throw new Error('ChatSystem.js no se cargó correctamente. Verifica que esté en js/generated/');
+        throw new Error('ChatSystem.js no se cargó correctamente');
       }
-      
-      console.log('✅ ChatSystem cargado:', Object.keys(Ice.ChatSystem));
       
       this.username = username;
       
@@ -143,7 +144,7 @@ class IceClientManager {
         }
         console.log('  ✅ ChatService conectado');
       } catch (err) {
-        throw new Error(`No se pudo conectar a ChatService en ${host}:${port}\n\nVerifica que:\n1. El servidor ICE esté corriendo\n2. El firewall permita conexiones en el puerto ${port}\n3. Ambos dispositivos estén en la misma red`);
+        throw new Error(`No se pudo conectar a ChatService en ${host}:${port}`);
       }
       
       // GroupService (OBLIGATORIO)
@@ -182,7 +183,7 @@ class IceClientManager {
         this.voiceService = null;
       }
       
-      // CallService (OPCIONAL)
+      // ⚡ CallService (OPCIONAL)
       try {
         console.log('  🔗 Conectando CallService...');
         const callProxy = this.communicator.stringToProxy(`CallService:ws -h ${host} -p ${port}`);
@@ -202,7 +203,167 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // MENSAJES
+  // ⚡ LLAMADAS (SISTEMA PROFESOR - SIN WEBRTC)
+  // ========================================================================
+
+  async sendAudio(fromUser, audioData) {
+    if (!this.callService) {
+      console.warn('⚠️ CallService no disponible');
+      return;
+    }
+    
+    try {
+      await this.callService.sendAudio(fromUser, audioData);
+    } catch (error) {
+      console.error('Error enviando audio:', error);
+    }
+  }
+
+  async startCall(fromUser, toUser) {
+    if (!this.callService) throw new Error('CallService no disponible');
+    try {
+      await this.callService.startCall(fromUser, toUser);
+      console.log('✅ [ICE] startCall enviado');
+    } catch (error) {
+      console.error('❌ [ICE] Error en startCall:', error);
+      throw error;
+    }
+  }
+
+  async acceptCall(fromUser, toUser) {
+    if (!this.callService) throw new Error('CallService no disponible');
+    try {
+      await this.callService.acceptCall(fromUser, toUser);
+      console.log('✅ [ICE] acceptCall enviado');
+    } catch (error) {
+      console.error('❌ [ICE] Error en acceptCall:', error);
+      throw error;
+    }
+  }
+
+  async rejectCall(fromUser, toUser) {
+    if (!this.callService) throw new Error('CallService no disponible');
+    try {
+      await this.callService.rejectCall(fromUser, toUser);
+    } catch (error) {
+      console.error('Error en rejectCall:', error);
+    }
+  }
+
+  async colgar(fromUser, toUser) {
+    if (!this.callService) throw new Error('CallService no disponible');
+    try {
+      await this.callService.colgar(fromUser, toUser);
+    } catch (error) {
+      console.error('Error en colgar:', error);
+    }
+  }
+
+  async getConnectedUsers() {
+    if (!this.callService) return [];
+    try {
+      return await this.callService.getConnectedUsers();
+    } catch (error) {
+      console.error('Error obteniendo usuarios conectados:', error);
+      return [];
+    }
+  }
+
+  // Callbacks
+  onIncomingCall(callback) {
+    this._onIncomingCall = callback;
+  }
+
+  onCallAccepted(callback) {
+    this._onCallAccepted = callback;
+  }
+
+  onCallRejected(callback) {
+    this._onCallRejected = callback;
+  }
+
+  onCallColgada(callback) {
+    this._onCallColgada = callback;
+  }
+
+  onReceiveAudio(callback) {
+    this._onReceiveAudio = callback;
+  }
+
+  async subscribeToCallEvents(username) {
+    if (!this.callService) {
+      throw new Error('CallService no disponible');
+    }
+    
+    try {
+      console.log('📞 Suscribiendo a eventos de llamadas...');
+      
+      const Ice = window.Ice;
+      
+      if (!this.callAdapter) {
+        this.callAdapter = await this.communicator.createObjectAdapter("");
+        await this.callAdapter.activate();
+        console.log('   ✅ Call adapter creado');
+      }
+      
+      const identity = Ice.generateUUID();
+      
+      const callbackObj = {
+        receiveAudio: (data) => {
+          if (this._onReceiveAudio) {
+            this._onReceiveAudio(data);
+          }
+        },
+        
+        incomingCall: (fromUser) => {
+          console.log('📞 [ICE] incomingCall de:', fromUser);
+          if (this._onIncomingCall) {
+            this._onIncomingCall(fromUser);
+          }
+        },
+        
+        callAccepted: (fromUser) => {
+          console.log('✅ [ICE] callAccepted de:', fromUser);
+          if (this._onCallAccepted) {
+            this._onCallAccepted(fromUser);
+          }
+        },
+        
+        callRejected: (fromUser) => {
+          console.log('❌ [ICE] callRejected de:', fromUser);
+          if (this._onCallRejected) {
+            this._onCallRejected(fromUser);
+          }
+        },
+        
+        callColgada: (fromUser) => {
+          console.log('📴 [ICE] callColgada de:', fromUser);
+          if (this._onCallColgada) {
+            this._onCallColgada(fromUser);
+          }
+        }
+      };
+      
+      const callbackProxy = this.callAdapter.add(
+        new Ice.ChatSystem.CallCallback(callbackObj),
+        new Ice.Identity(identity, "")
+      );
+      
+      await this.callService.subscribe(
+        username,
+        Ice.ChatSystem.CallCallbackPrx.uncheckedCast(callbackProxy)
+      );
+      
+      console.log('✅ Suscrito a eventos de llamadas');
+      
+    } catch (error) {
+      console.error('❌ Error suscribiéndose a llamadas:', error);
+      throw error;
+    }
+  }
+
+  // ========================================================================
+  // MENSAJES (mantenidos igual)
   // ========================================================================
 
   async sendPrivateMessage(sender, recipient, message) {
@@ -256,7 +417,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // GRUPOS
+  // GRUPOS (mantenidos igual)
   // ========================================================================
 
   async createGroup(groupName, creator) {
@@ -301,7 +462,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // NOTIFICACIONES EN TIEMPO REAL
+  // NOTIFICACIONES (mantenidas igual)
   // ========================================================================
 
   async subscribeToNotifications(username, callbacks) {
@@ -338,11 +499,10 @@ class IceClientManager {
         }
       };
       
-      // ✅ Usar adapter sin endpoint (solo local)
       if (!this.notificationAdapter) {
         this.notificationAdapter = await this.communicator.createObjectAdapter("");
         await this.notificationAdapter.activate();
-        console.log('   ✅ Notification adapter creado (local)');
+        console.log('   ✅ Notification adapter creado');
       }
       
       const identity = Ice.generateUUID();
@@ -375,7 +535,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // NOTAS DE VOZ
+  // NOTAS DE VOZ (mantenidas igual)
   // ========================================================================
 
   async saveVoiceNote(sender, target, audioDataBase64, isGroup) {
@@ -415,252 +575,12 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // LLAMADAS CON POLLING
-  // ========================================================================
-
-  async initiateCall(caller, callee, callType, sdp) {
-    if (!this.callService) {
-      throw new Error('CallService no disponible');
-    }
-    try {
-      console.log('📤 [ICE] Enviando initiateCall:', { caller, callee, callType });
-      const result = await this.callService.initiateCall(caller, callee, callType, sdp);
-      console.log('📥 [ICE] Respuesta de initiateCall:', result);
-      return result;
-    } catch (error) {
-      console.error('❌ [ICE] Error en initiateCall:', error);
-      throw error;
-    }
-  }
-
-  // ⚡ CRÍTICO: Convertir string a enum de CallStatus
-  async answerCall(callId, callee, status, sdp) {
-    if (!this.callService) {
-      throw new Error('CallService no disponible');
-    }
-    try {
-      const Ice = window.Ice;
-      
-      // ⚡ CRÍTICO: Convertir string a enum de CallStatus
-      let callStatus;
-      if (typeof status === 'string') {
-        // Mapear strings a enums de Ice.js
-        const statusMap = {
-          'RINGING': Ice.ChatSystem.CallStatus.Ringing,
-          'ACCEPTED': Ice.ChatSystem.CallStatus.Accepted,
-          'REJECTED': Ice.ChatSystem.CallStatus.Rejected,
-          'ENDED': Ice.ChatSystem.CallStatus.Ended,
-          'BUSY': Ice.ChatSystem.CallStatus.Busy,
-          'NO_ANSWER': Ice.ChatSystem.CallStatus.NoAnswer
-        };
-        callStatus = statusMap[status.toUpperCase()];
-        
-        if (!callStatus) {
-          console.error('❌ Status inválido:', status);
-          throw new Error('Status de llamada inválido: ' + status);
-        }
-        
-        console.log('🔄 [ICE] Convertido status:', status, '→', callStatus._name, '(value:', callStatus._value + ')');
-      } else {
-        callStatus = status; // Ya es un enum
-      }
-      
-      console.log('📤 [ICE] Enviando answerCall con status:', callStatus._name);
-      return await this.callService.answerCall(callId, callee, callStatus, sdp);
-    } catch (error) {
-      console.error('❌ [ICE] Error respondiendo llamada:', error);
-      throw error;
-    }
-  }
-
-  async endCall(callId, username) {
-    if (!this.callService) {
-      throw new Error('CallService no disponible');
-    }
-    try {
-      await this.callService.endCall(callId, username);
-    } catch (error) {
-      console.error('Error finalizando llamada:', error);
-      throw error;
-    }
-  }
-
-  async sendRtcCandidate(callId, username, candidate, sdpMid, sdpMLineIndex) {
-    if (!this.callService) {
-      throw new Error('CallService no disponible');
-    }
-    try {
-      await this.callService.sendRtcCandidate(callId, username, candidate, sdpMid, sdpMLineIndex);
-    } catch (error) {
-      console.error('Error enviando RTC candidate:', error);
-      throw error;
-    }
-  }
-
-  async subscribeToCallEvents(username, callbacks) {
-    if (!this.callService) {
-      console.warn('⚠️ CallService no disponible');
-      return;
-    }
-    
-    try {
-      console.log('📞 Suscribiendo a eventos de llamadas con POLLING...');
-      console.log('   Usuario:', username);
-      
-      const Ice = window.Ice;
-      
-      // ✅ Usar adapter local (sin endpoint)
-      if (!this.callAdapter) {
-        this.callAdapter = await this.communicator.createObjectAdapter("");
-        await this.callAdapter.activate();
-        console.log('   ✅ Call adapter creado (local)');
-      }
-      
-      const identity = Ice.generateUUID();
-      console.log('   🆔 Identity generado:', identity);
-      
-      // Crear callback object
-      const callbackObj = {
-        onIncomingCall: (offer) => {
-          console.log('🔔 [CALLBACK] onIncomingCall ejecutado!');
-          console.log('   Offer:', offer);
-          if (callbacks.onIncomingCall) {
-            callbacks.onIncomingCall(offer);
-          }
-        },
-        
-        onCallAnswer: (answer) => {
-          console.log('🔔 [CALLBACK] onCallAnswer ejecutado!');
-          if (callbacks.onCallAnswer) {
-            callbacks.onCallAnswer(answer);
-          }
-        },
-        
-        onRtcCandidate: (candidate) => {
-          console.log('🔔 [CALLBACK] onRtcCandidate ejecutado');
-          if (callbacks.onRtcCandidate) {
-            callbacks.onRtcCandidate(candidate);
-          }
-        },
-        
-        onCallEnded: (callId, reason) => {
-          console.log('🔔 [CALLBACK] onCallEnded ejecutado');
-          if (callbacks.onCallEnded) {
-            callbacks.onCallEnded(callId, reason);
-          }
-        }
-      };
-      
-      const callbackProxy = this.callAdapter.add(
-        new Ice.ChatSystem.CallCallback(callbackObj),
-        new Ice.Identity(identity, "")
-      );
-      
-      console.log('   📝 Proxy string:', callbackProxy.toString());
-      console.log('   📤 Enviando suscripción al servidor...');
-      
-      await this.callService.subscribe(
-        username,
-        Ice.ChatSystem.CallCallbackPrx.uncheckedCast(callbackProxy)
-      );
-      
-      console.log('✅ Suscrito a eventos de llamadas');
-      
-      // ✅ SOLUCIÓN TEMPORAL: Implementar polling para llamadas
-      console.warn('⚠️ Usando POLLING para llamadas (callbacks bidireccionales no soportados en browser)');
-      this._startCallPolling(username, callbacks);
-      
-    } catch (error) {
-      console.error('❌ Error suscribiéndose a llamadas:', error);
-      console.error('   Stack:', error.stack);
-      throw error;
-    }
-  }
-
-  /**
-   * ✅ SOLUCIÓN: Polling para detectar llamadas entrantes
-   */
-  _startCallPolling(username, callbacks) {
-    if (this.callPollingInterval) {
-      clearInterval(this.callPollingInterval);
-    }
-    
-    console.log('🔄 [POLLING] Iniciando polling para:', username);
-    
-    // Polling cada 1 segundo
-    this.callPollingInterval = setInterval(async () => {
-      try {
-        console.log('🔍 [POLLING] Consultando llamadas pendientes...');
-        
-        // Obtener llamadas pendientes
-        const incomingCalls = await this.callService.getPendingIncomingCalls(username);
-        console.log('📬 [POLLING] Llamadas recibidas:', incomingCalls ? incomingCalls.length : 0);
-        
-        if (incomingCalls && incomingCalls.length > 0) {
-          console.log('📞 [POLLING] ¡LLAMADA DETECTADA!', incomingCalls);
-          for (const offer of incomingCalls) {
-            console.log('📞 [POLLING] Procesando llamada de:', offer.caller);
-            if (callbacks.onIncomingCall) {
-              callbacks.onIncomingCall(offer);
-            }
-          }
-        }
-        
-        // Obtener respuestas pendientes
-        const answers = await this.callService.getPendingCallAnswers(username);
-        if (answers && answers.length > 0) {
-          console.log('📬 [POLLING] Respuestas pendientes:', answers.length);
-          for (const answer of answers) {
-            if (callbacks.onCallAnswer) {
-              callbacks.onCallAnswer(answer);
-            }
-          }
-        }
-        
-        // Obtener candidates pendientes
-        const candidates = await this.callService.getPendingRtcCandidates(username);
-        if (candidates && candidates.length > 0) {
-          console.log('🧊 [POLLING] Candidates pendientes:', candidates.length);
-          for (const candidate of candidates) {
-            if (callbacks.onRtcCandidate) {
-              callbacks.onRtcCandidate(candidate);
-            }
-          }
-        }
-        
-      } catch (error) {
-        console.error('❌ [POLLING] Error:', error);
-      }
-    }, 1000);
-    
-    console.log('✅ [POLLING] Polling activo (cada 1 segundo)');
-  }
-  
-  async unsubscribeFromCallEvents(username) {
-    if (!this.callService) return;
-    try {
-      if (this.callPollingInterval) {
-        clearInterval(this.callPollingInterval);
-        this.callPollingInterval = null;
-      }
-      await this.callService.unsubscribe(username);
-      console.log('🔕 Desuscrito de eventos de llamadas');
-    } catch (error) {
-      console.error('Error desuscribiéndose de llamadas:', error);
-    }
-  }
-
-  // ========================================================================
   // UTILIDADES
   // ========================================================================
 
   async disconnect() {
     if (this.username && this.notificationService) {
       await this.unsubscribeFromNotifications(this.username);
-    }
-    
-    if (this.username && this.callService) {
-      await this.unsubscribeFromCallEvents(this.username);
     }
     
     if (this.notificationAdapter) {
@@ -707,5 +627,4 @@ class IceClientManager {
   }
 }
 
-// Exportar instancia única
 export const iceClient = new IceClientManager();

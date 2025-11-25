@@ -1,5 +1,5 @@
 // ============================================
-// js/generated/ChatSystem.js - ENUMS CORREGIDOS
+// js/generated/ChatSystem.js - Sistema Profesor (CON LLAMADAS)
 // ============================================
 
 const Ice = typeof window !== 'undefined' && window.Ice ? window.Ice : null;
@@ -135,137 +135,6 @@ Slice.defineStruct(ChatSystem.VoiceNote, true, true);
 Slice.defineSequence(ChatSystem, "VoiceNoteSeqHelper", "ChatSystem.VoiceNote", false);
 
 // ========================================================================
-// ✅ ENUMS CORREGIDOS PARA LLAMADAS
-// ========================================================================
-
-/**
- * Tipos de llamada
- */
-ChatSystem.CallType = Slice.defineEnum([
-  ['AudioOnly', 0], 
-  ['Video', 1]
-]);
-
-/**
- * ✅ CRÍTICO: Estados de llamada con nombres STRING
- * Esto permite comparación correcta en JavaScript
- */
-ChatSystem.CallStatus = Slice.defineEnum([
-  ['Ringing', 0],
-  ['Accepted', 1],
-  ['Rejected', 2],
-  ['Ended', 3],
-  ['Busy', 4],
-  ['NoAnswer', 5]
-]);
-
-// ✅ Agregar constantes de ayuda para comparación fácil
-ChatSystem.CallStatus.RINGING = 'Ringing';
-ChatSystem.CallStatus.ACCEPTED = 'Accepted';
-ChatSystem.CallStatus.REJECTED = 'Rejected';
-ChatSystem.CallStatus.ENDED = 'Ended';
-ChatSystem.CallStatus.BUSY = 'Busy';
-ChatSystem.CallStatus.NO_ANSWER = 'NoAnswer';
-
-// ========================================================================
-// ESTRUCTURAS PARA LLAMADAS
-// ========================================================================
-
-ChatSystem.CallOffer = class {
-  constructor(callId = "", caller = "", callee = "", callType = ChatSystem.CallType.AudioOnly, sdp = "", timestamp = new Ice.Long(0, 0)) {
-    this.callId = callId;
-    this.caller = caller;
-    this.callee = callee;
-    this.callType = callType;
-    this.sdp = sdp;
-    this.timestamp = timestamp;
-  }
-
-  _write(ostr) {
-    ostr.writeString(this.callId);
-    ostr.writeString(this.caller);
-    ostr.writeString(this.callee);
-    ChatSystem.CallType._write(ostr, this.callType);
-    ostr.writeString(this.sdp);
-    ostr.writeLong(this.timestamp);
-  }
-
-  _read(istr) {
-    this.callId = istr.readString();
-    this.caller = istr.readString();
-    this.callee = istr.readString();
-    this.callType = ChatSystem.CallType._read(istr);
-    this.sdp = istr.readString();
-    this.timestamp = istr.readLong();
-  }
-
-  static get minWireSize() {
-    return 13;
-  }
-};
-
-Slice.defineStruct(ChatSystem.CallOffer, true, true);
-
-ChatSystem.CallAnswer = class {
-  constructor(callId = "", sdp = "", status = ChatSystem.CallStatus.Ringing) {
-    this.callId = callId;
-    this.sdp = sdp;
-    this.status = status;
-  }
-
-  _write(ostr) {
-    ostr.writeString(this.callId);
-    ostr.writeString(this.sdp);
-    ChatSystem.CallStatus._write(ostr, this.status);
-  }
-
-  _read(istr) {
-    this.callId = istr.readString();
-    this.sdp = istr.readString();
-    this.status = ChatSystem.CallStatus._read(istr);
-  }
-
-  static get minWireSize() {
-    return 3;
-  }
-};
-
-Slice.defineStruct(ChatSystem.CallAnswer, true, true);
-
-ChatSystem.RtcCandidate = class {
-  constructor(callId = "", candidate = "", sdpMid = "", sdpMLineIndex = 0) {
-    this.callId = callId;
-    this.candidate = candidate;
-    this.sdpMid = sdpMid;
-    this.sdpMLineIndex = sdpMLineIndex;
-  }
-
-  _write(ostr) {
-    ostr.writeString(this.callId);
-    ostr.writeString(this.candidate);
-    ostr.writeString(this.sdpMid);
-    ostr.writeInt(this.sdpMLineIndex);
-  }
-
-  _read(istr) {
-    this.callId = istr.readString();
-    this.candidate = istr.readString();
-    this.sdpMid = istr.readString();
-    this.sdpMLineIndex = istr.readInt();
-  }
-
-  static get minWireSize() {
-    return 7;
-  }
-};
-
-Slice.defineStruct(ChatSystem.RtcCandidate, true, true);
-
-Slice.defineSequence(ChatSystem, "CallOfferSeqHelper", "ChatSystem.CallOffer", false);
-Slice.defineSequence(ChatSystem, "CallAnswerSeqHelper", "ChatSystem.CallAnswer", false);
-Slice.defineSequence(ChatSystem, "RtcCandidateSeqHelper", "ChatSystem.RtcCandidate", false);
-
-// ========================================================================
 // SERVICIOS
 // ========================================================================
 
@@ -345,6 +214,10 @@ Slice.defineOperations(ChatSystem.VoiceService, ChatSystem.VoiceServicePrx, iceC
   "getGroupVoiceNotes": [, , , , ["ChatSystem.VoiceNoteSeqHelper"], [[7]], , , ,]
 });
 
+// ========================================================================
+// ⚡ LLAMADAS (SISTEMA PROFESOR)
+// ========================================================================
+
 const iceC_ChatSystem_CallCallback_ids = [
   "::ChatSystem::CallCallback",
   "::Ice::Object"
@@ -354,10 +227,11 @@ ChatSystem.CallCallback = class extends Ice.Object {};
 ChatSystem.CallCallbackPrx = class extends Ice.ObjectPrx {};
 
 Slice.defineOperations(ChatSystem.CallCallback, ChatSystem.CallCallbackPrx, iceC_ChatSystem_CallCallback_ids, 0, {
-  "onIncomingCall": [, , , , , [[ChatSystem.CallOffer]], , , ,],
-  "onCallAnswer": [, , , , , [[ChatSystem.CallAnswer]], , , ,],
-  "onRtcCandidate": [, , , , , [[ChatSystem.RtcCandidate]], , , ,],
-  "onCallEnded": [, , , , , [[7], [7]], , , ,]
+  "receiveAudio": [, , , , , [["Ice.ByteSeqHelper"]], , , ,],
+  "incomingCall": [, , , , , [[7]], , , ,],
+  "callAccepted": [, , , , , [[7]], , , ,],
+  "callRejected": [, , , , , [[7]], , , ,],
+  "callColgada": [, , , , , [[7]], , , ,]
 });
 
 const iceC_ChatSystem_CallService_ids = [
@@ -369,25 +243,20 @@ ChatSystem.CallService = class extends Ice.Object {};
 ChatSystem.CallServicePrx = class extends Ice.ObjectPrx {};
 
 Slice.defineOperations(ChatSystem.CallService, ChatSystem.CallServicePrx, iceC_ChatSystem_CallService_ids, 0, {
-  "initiateCall": [, , , , [7], [[7], [7], [ChatSystem.CallType._helper], [7]], , , ,],
-  "answerCall": [, , , , [7], [[7], [7], [ChatSystem.CallStatus._helper], [7]], , , ,],
-  "endCall": [, , , , , [[7], [7]], , , ,],
-  "sendRtcCandidate": [, , , , , [[7], [7], [7], [7], [3]], , , ,],
+  "sendAudio": [, , , , , [[7], ["Ice.ByteSeqHelper"]], , , ,],
+  "startCall": [, , , , , [[7], [7]], , , ,],
+  "acceptCall": [, , , , , [[7], [7]], , , ,],
+  "rejectCall": [, , , , , [[7], [7]], , , ,],
+  "colgar": [, , , , , [[7], [7]], , , ,],
   "subscribe": [, , , , , [[7], ["ChatSystem.CallCallbackPrx"]], , , ,],
   "unsubscribe": [, , , , , [[7]], , , ,],
-  "getPendingIncomingCalls": [, , , , ["ChatSystem.CallOfferSeqHelper"], [[7]], , , ,],
-  "getPendingCallAnswers": [, , , , ["ChatSystem.CallAnswerSeqHelper"], [[7]], , , ,],
-  "getPendingRtcCandidates": [, , , , ["ChatSystem.RtcCandidateSeqHelper"], [[7]], , , ,]
+  "getConnectedUsers": [, , , , ["ChatSystem.StringSeqHelper"], , , , ,]
 });
 
 window.Ice.ChatSystem = ChatSystem;
 
-console.log('✅ ChatSystem.js cargado (enums corregidos)');
-console.log('📋 CallStatus valores:', {
-  RINGING: ChatSystem.CallStatus.RINGING,
-  ACCEPTED: ChatSystem.CallStatus.ACCEPTED,
-  REJECTED: ChatSystem.CallStatus.REJECTED
-});
+console.log('✅ ChatSystem.js cargado (Sistema Profesor con Llamadas)');
+console.log('📋 Servicios disponibles:', Object.keys(ChatSystem).filter(k => k.includes('Service')));
 }
 
 if (typeof window !== 'undefined') {
