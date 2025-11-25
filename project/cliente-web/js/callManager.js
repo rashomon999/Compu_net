@@ -1,5 +1,5 @@
 // ============================================
-// js/callManager.js - CORREGIDO: Transiciones de estado
+// js/callManager.js - CORREGIDO: Mantener activeCall persistente
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -40,11 +40,14 @@ class CallManager {
         duration: 0
       };
       
+      console.log('✅ [SALIENTE] activeCall creado:', this.activeCall);
+      
       // Iniciar WebRTC
       const callId = await webrtcManager.initiateCall(targetUser, false);
       this.activeCall.id = callId;
       
       console.log('✅ [SALIENTE] Llamada iniciada con ID:', callId);
+      console.log('✅ [SALIENTE] activeCall actualizado con ID:', this.activeCall);
       
       // Configurar timeout visual
       this.setupOutgoingRingTimer();
@@ -65,10 +68,24 @@ class CallManager {
   async handleCallAnswer(answer, webrtcManager) {
     try {
       console.log('📥 [CALL MANAGER] Procesando respuesta:', answer.status);
+      console.log('📥 [CALL MANAGER] activeCall actual:', this.activeCall);
+      console.log('📥 [CALL MANAGER] answer.callId:', answer.callId);
       
+      // ⚠️ CRÍTICO: Si no hay activeCall, crear uno basado en la respuesta
       if (!this.activeCall) {
-        console.warn('⚠️ No hay llamada activa para procesar respuesta');
-        return;
+        console.warn('⚠️ [CALL MANAGER] activeCall es null, reconstruyendo desde respuesta...');
+        
+        this.activeCall = {
+          id: answer.callId,
+          type: 'OUTGOING',
+          callerId: state.currentUsername,
+          calleeId: state.currentChat,
+          startTime: Date.now(),
+          status: 'RINGING',
+          duration: 0
+        };
+        
+        console.log('✅ [CALL MANAGER] activeCall reconstruido:', this.activeCall);
       }
 
       // ✅ Normalizar status
@@ -76,6 +93,8 @@ class CallManager {
       if (typeof answer.status === 'number') {
         const statusMap = { 0: 'Ringing', 1: 'Accepted', 2: 'Rejected', 3: 'Ended', 4: 'Busy', 5: 'NoAnswer' };
         normalizedStatus = statusMap[answer.status];
+      } else if (typeof answer.status === 'object' && answer.status._name) {
+        normalizedStatus = answer.status._name;
       } else if (typeof answer.status === 'object' && answer.status.name) {
         normalizedStatus = answer.status.name;
       }
@@ -93,7 +112,10 @@ class CallManager {
         this.activeCall.answerTime = Date.now();
         this.activeCall.ringDuration = this.ringSeconds;
         
+        console.log('✅ [CALL MANAGER] activeCall actualizado:', this.activeCall);
+        
         // Procesar SDP en WebRTC
+        console.log('📝 [CALL MANAGER] Procesando SDP en WebRTC...');
         await webrtcManager.handleCallAnswer(answer);
         
         // Iniciar contador de duración
@@ -182,6 +204,8 @@ class CallManager {
         offer: offer
       };
       
+      console.log('✅ [ENTRANTE] activeCall creado:', this.activeCall);
+      
       this.setupIncomingRingTimer();
       
       return this.activeCall;
@@ -264,6 +288,8 @@ class CallManager {
       this.activeCall.status = 'CONNECTED';
       this.activeCall.answerTime = Date.now();
       this.activeCall.ringDuration = this.ringSeconds;
+      
+      console.log('✅ [ACEPTAR] activeCall actualizado:', this.activeCall);
       
       // Iniciar contador de duración
       this.startDurationTimer();
@@ -440,6 +466,7 @@ class CallManager {
   }
 
   cleanup() {
+    console.log('🧹 [CALL MANAGER] Limpiando...');
     this.clearAllTimers();
     this.activeCall = null;
     this.callDuration = 0;
