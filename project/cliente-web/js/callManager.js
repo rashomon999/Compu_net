@@ -71,10 +71,21 @@ class CallManager {
         return;
       }
 
+      // ✅ Normalizar status
+      let normalizedStatus = answer.status;
+      if (typeof answer.status === 'number') {
+        const statusMap = { 0: 'Ringing', 1: 'Accepted', 2: 'Rejected', 3: 'Ended', 4: 'Busy', 5: 'NoAnswer' };
+        normalizedStatus = statusMap[answer.status];
+      } else if (typeof answer.status === 'object' && answer.status.name) {
+        normalizedStatus = answer.status.name;
+      }
+      
+      console.log('📝 [CALL MANAGER] Status normalizado:', normalizedStatus);
+
       // ✅ CRÍTICO: Limpiar timers de ring
       this.clearRingTimers();
       
-      if (answer.status === 'ACCEPTED') {
+      if (normalizedStatus === 'Accepted' || normalizedStatus === 'ACCEPTED' || normalizedStatus === 1) {
         console.log('✅ [CALL MANAGER] Llamada ACEPTADA, cambiando a CONNECTED');
         
         // Cambiar estado
@@ -90,13 +101,13 @@ class CallManager {
         
         console.log('✅ [CALL MANAGER] Transición a CONNECTED completada');
         
-      } else if (answer.status === 'REJECTED') {
+      } else if (normalizedStatus === 'Rejected' || normalizedStatus === 'REJECTED' || normalizedStatus === 2) {
         console.log('❌ [CALL MANAGER] Llamada RECHAZADA');
         this.activeCall.status = 'REJECTED';
         this.cleanup();
         
       } else {
-        console.warn('⚠️ Estado de respuesta desconocido:', answer.status);
+        console.warn('⚠️ [CALL MANAGER] Estado desconocido:', { original: answer.status, normalized: normalizedStatus });
       }
       
     } catch (error) {

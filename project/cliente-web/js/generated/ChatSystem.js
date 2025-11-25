@@ -1,8 +1,7 @@
 // ============================================
-// js/generated/ChatSystem.js - MODIFICADO PARA WEBPACK CON POLLING
+// js/generated/ChatSystem.js - ENUMS CORREGIDOS
 // ============================================
 
-// ✅ Verificar Ice con fallback
 const Ice = typeof window !== 'undefined' && window.Ice ? window.Ice : null;
 
 if (!Ice) {
@@ -22,9 +21,10 @@ function initializeChatSystem(Ice) {
 
   let ChatSystem = _ModuleRegistry.module("ChatSystem");
 
-/**
- * Mensaje de chat (texto o voz)
- **/
+// ========================================================================
+// ESTRUCTURAS BÁSICAS
+// ========================================================================
+
 ChatSystem.Message = class {
   constructor(sender = "", recipient = "", content = "", type = "", timestamp = "", isGroup = false) {
     this.sender = sender;
@@ -62,9 +62,6 @@ Slice.defineStruct(ChatSystem.Message, true, true);
 Slice.defineSequence(ChatSystem, "MessageSeqHelper", "ChatSystem.Message", false);
 Slice.defineSequence(ChatSystem, "StringSeqHelper", "Ice.StringHelper", false);
 
-/**
- * Información detallada de un grupo
- **/
 ChatSystem.GroupInfo = class {
   constructor(name = "", creator = "", members = null, memberCount = 0, createdAt = "") {
     this.name = name;
@@ -98,9 +95,6 @@ ChatSystem.GroupInfo = class {
 Slice.defineStruct(ChatSystem.GroupInfo, true, true);
 Slice.defineSequence(ChatSystem, "GroupSeqHelper", "ChatSystem.GroupInfo", false);
 
-/**
- * Nota de voz con metadata
- **/
 ChatSystem.VoiceNote = class {
   constructor(id = "", sender = "", target = "", audioFileRef = "", isGroup = false, timestamp = "", durationSeconds = 0) {
     this.id = id;
@@ -141,36 +135,42 @@ Slice.defineStruct(ChatSystem.VoiceNote, true, true);
 Slice.defineSequence(ChatSystem, "VoiceNoteSeqHelper", "ChatSystem.VoiceNote", false);
 
 // ========================================================================
-// ENUMS PARA LLAMADAS
+// ✅ ENUMS CORREGIDOS PARA LLAMADAS
 // ========================================================================
 
 /**
  * Tipos de llamada
- **/
+ */
 ChatSystem.CallType = Slice.defineEnum([
   ['AudioOnly', 0], 
   ['Video', 1]
 ]);
 
 /**
- * Estados de una llamada
- **/
+ * ✅ CRÍTICO: Estados de llamada con nombres STRING
+ * Esto permite comparación correcta en JavaScript
+ */
 ChatSystem.CallStatus = Slice.defineEnum([
-  ['Ringing', 0], 
-  ['Accepted', 1], 
-  ['Rejected', 2], 
-  ['Ended', 3], 
+  ['Ringing', 0],
+  ['Accepted', 1],
+  ['Rejected', 2],
+  ['Ended', 3],
   ['Busy', 4],
   ['NoAnswer', 5]
 ]);
+
+// ✅ Agregar constantes de ayuda para comparación fácil
+ChatSystem.CallStatus.RINGING = 'Ringing';
+ChatSystem.CallStatus.ACCEPTED = 'Accepted';
+ChatSystem.CallStatus.REJECTED = 'Rejected';
+ChatSystem.CallStatus.ENDED = 'Ended';
+ChatSystem.CallStatus.BUSY = 'Busy';
+ChatSystem.CallStatus.NO_ANSWER = 'NoAnswer';
 
 // ========================================================================
 // ESTRUCTURAS PARA LLAMADAS
 // ========================================================================
 
-/**
- * Oferta de llamada (SDP)
- **/
 ChatSystem.CallOffer = class {
   constructor(callId = "", caller = "", callee = "", callType = ChatSystem.CallType.AudioOnly, sdp = "", timestamp = new Ice.Long(0, 0)) {
     this.callId = callId;
@@ -206,9 +206,6 @@ ChatSystem.CallOffer = class {
 
 Slice.defineStruct(ChatSystem.CallOffer, true, true);
 
-/**
- * Respuesta a una llamada
- **/
 ChatSystem.CallAnswer = class {
   constructor(callId = "", sdp = "", status = ChatSystem.CallStatus.Ringing) {
     this.callId = callId;
@@ -235,9 +232,6 @@ ChatSystem.CallAnswer = class {
 
 Slice.defineStruct(ChatSystem.CallAnswer, true, true);
 
-/**
- * Candidato ICE de WebRTC
- **/
 ChatSystem.RtcCandidate = class {
   constructor(callId = "", candidate = "", sdpMid = "", sdpMLineIndex = 0) {
     this.callId = callId;
@@ -267,7 +261,6 @@ ChatSystem.RtcCandidate = class {
 
 Slice.defineStruct(ChatSystem.RtcCandidate, true, true);
 
-// ✅ SECUENCIAS PARA POLLING
 Slice.defineSequence(ChatSystem, "CallOfferSeqHelper", "ChatSystem.CallOffer", false);
 Slice.defineSequence(ChatSystem, "CallAnswerSeqHelper", "ChatSystem.CallAnswer", false);
 Slice.defineSequence(ChatSystem, "RtcCandidateSeqHelper", "ChatSystem.RtcCandidate", false);
@@ -352,10 +345,6 @@ Slice.defineOperations(ChatSystem.VoiceService, ChatSystem.VoiceServicePrx, iceC
   "getGroupVoiceNotes": [, , , , ["ChatSystem.VoiceNoteSeqHelper"], [[7]], , , ,]
 });
 
-// ========================================================================
-// CALLBACK PARA LLAMADAS
-// ========================================================================
-
 const iceC_ChatSystem_CallCallback_ids = [
   "::ChatSystem::CallCallback",
   "::Ice::Object"
@@ -370,10 +359,6 @@ Slice.defineOperations(ChatSystem.CallCallback, ChatSystem.CallCallbackPrx, iceC
   "onRtcCandidate": [, , , , , [[ChatSystem.RtcCandidate]], , , ,],
   "onCallEnded": [, , , , , [[7], [7]], , , ,]
 });
-
-// ========================================================================
-// SERVICIO DE LLAMADAS CON POLLING
-// ========================================================================
 
 const iceC_ChatSystem_CallService_ids = [
   "::ChatSystem::CallService",
@@ -390,20 +375,21 @@ Slice.defineOperations(ChatSystem.CallService, ChatSystem.CallServicePrx, iceC_C
   "sendRtcCandidate": [, , , , , [[7], [7], [7], [7], [3]], , , ,],
   "subscribe": [, , , , , [[7], ["ChatSystem.CallCallbackPrx"]], , , ,],
   "unsubscribe": [, , , , , [[7]], , , ,],
-  // ✅ MÉTODOS DE POLLING
   "getPendingIncomingCalls": [, , , , ["ChatSystem.CallOfferSeqHelper"], [[7]], , , ,],
   "getPendingCallAnswers": [, , , , ["ChatSystem.CallAnswerSeqHelper"], [[7]], , , ,],
   "getPendingRtcCandidates": [, , , , ["ChatSystem.RtcCandidateSeqHelper"], [[7]], , , ,]
 });
 
-// ✅ Registrar en Ice global
 window.Ice.ChatSystem = ChatSystem;
 
-console.log('✅ ChatSystem.js cargado correctamente (con polling)');
-console.log('✅ CallService tiene métodos:', Object.keys(ChatSystem.CallServicePrx.prototype));
+console.log('✅ ChatSystem.js cargado (enums corregidos)');
+console.log('📋 CallStatus valores:', {
+  RINGING: ChatSystem.CallStatus.RINGING,
+  ACCEPTED: ChatSystem.CallStatus.ACCEPTED,
+  REJECTED: ChatSystem.CallStatus.REJECTED
+});
 }
 
-// ✅ Exponer función de inicialización
 if (typeof window !== 'undefined') {
   window._initializeChatSystem = initializeChatSystem;
 }

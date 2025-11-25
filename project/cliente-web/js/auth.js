@@ -128,17 +128,42 @@ async function subscribeToCallEvents(username) {
         await showIncomingCallUI(offer);
       },
       
-      // ✅ CORREGIDO: Respuesta a llamada
+      // ✅ CORREGIDO: Respuesta a llamada con soporte para múltiples formatos
       onCallAnswer: async (answer) => {
         console.log('📞 [AUTH] Respuesta de llamada recibida:', answer.status);
         console.log('   Call ID:', answer.callId);
         console.log('   SDP presente:', !!answer.sdp);
+        console.log('   Status type:', typeof answer.status);
+        
+        // ✅ Normalizar el status (puede venir como string, número o enum)
+        let normalizedStatus = answer.status;
+        
+        if (typeof answer.status === 'number') {
+          // Mapear número a string
+          const statusMap = {
+            0: 'Ringing',
+            1: 'Accepted',
+            2: 'Rejected',
+            3: 'Ended',
+            4: 'Busy',
+            5: 'NoAnswer'
+          };
+          normalizedStatus = statusMap[answer.status] || 'Unknown';
+          console.log('   📝 Convertido de número', answer.status, '→', normalizedStatus);
+        } else if (typeof answer.status === 'object' && answer.status.name) {
+          // Si es un enum object de Ice
+          normalizedStatus = answer.status.name;
+          console.log('   📝 Extraído de enum:', normalizedStatus);
+        }
+        
+        console.log('   ✅ Status normalizado:', normalizedStatus);
         
         try {
           const { webrtcManager } = await import('./webrtcManager.js');
           const { showActiveCallUI, hideCallUI } = await import('./callUI.js');
           
-          if (answer.status === 'ACCEPTED') {
+          // ✅ Comparar con múltiples variaciones
+          if (normalizedStatus === 'Accepted' || normalizedStatus === 'ACCEPTED' || normalizedStatus === 1) {
             console.log('✅ [AUTH] Llamada ACEPTADA - Procesando...');
             
             // ✅ CRÍTICO: Llamar a callManager para manejar la transición
@@ -151,13 +176,16 @@ async function subscribeToCallEvents(username) {
               showActiveCallUI(activeCall.calleeId);
             }
             
-          } else if (answer.status === 'REJECTED') {
+          } else if (normalizedStatus === 'Rejected' || normalizedStatus === 'REJECTED' || normalizedStatus === 2) {
             console.log('❌ [AUTH] Llamada RECHAZADA');
             hideCallUI();
             showError(`${state.currentChat} rechazó la llamada`);
             
           } else {
-            console.warn('⚠️ [AUTH] Estado de respuesta desconocido:', answer.status);
+            console.warn('⚠️ [AUTH] Estado de respuesta desconocido:', {
+              original: answer.status,
+              normalized: normalizedStatus
+            });
           }
           
         } catch (error) {
