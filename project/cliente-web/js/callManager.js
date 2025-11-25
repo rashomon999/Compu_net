@@ -26,7 +26,8 @@ class CallManager {
   // ========================================
   // INICIAR LLAMADA SALIENTE
   // ========================================
-      async initiateOutgoingCall(targetUser, webrtcManager) {
+  
+  async initiateOutgoingCall(targetUser, webrtcManager) {
     try {
       console.log('📞 [SALIENTE] Iniciando llamada a', targetUser);
       
@@ -52,10 +53,6 @@ class CallManager {
       console.log('✅ [SALIENTE] Llamada iniciada con ID:', callId);
       console.log('✅ [SALIENTE] activeCall actualizado con ID:', this.activeCall);
       
-      // ⚡ CRÍTICO: Guardar referencia global para que handleCallAnswer la encuentre
-      window._currentOutgoingCall = this.activeCall;
-      console.log('✅ [SALIENTE] activeCall guardado globalmente');
-      
       // Configurar timeout visual
       this.setupOutgoingRingTimer();
       
@@ -63,11 +60,11 @@ class CallManager {
       
     } catch (error) {
       console.error('❌ [SALIENTE] Error:', error);
-      window._currentOutgoingCall = null;
       this.cleanup();
       throw error;
     }
   }
+
   // ========================================
   // MANEJAR RESPUESTA (LLAMADO POR auth.js)
   // ========================================
