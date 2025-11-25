@@ -1,5 +1,5 @@
 // ============================================
-// js/callManager.js - CORREGIDO: Mantener activeCall persistente
+// js/callManager.js - CORREGIDO: Sincronización con WebRTC
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -20,6 +20,7 @@ class CallManager {
     this.callStartTime = null;
     this.callDuration = 0;
     this.ringSeconds = 0;
+    this.webrtcManager = null; // ✅ CRÍTICO: Guardar referencia a WebRTC
   }
 
   // ========================================
@@ -29,6 +30,9 @@ class CallManager {
   async initiateOutgoingCall(targetUser, webrtcManager) {
     try {
       console.log('📞 [SALIENTE] Iniciando llamada a', targetUser);
+      
+      // ✅ CRÍTICO: Guardar referencia a WebRTC
+      this.webrtcManager = webrtcManager;
       
       this.activeCall = {
         id: null,
@@ -71,21 +75,27 @@ class CallManager {
       console.log('📥 [CALL MANAGER] activeCall actual:', this.activeCall);
       console.log('📥 [CALL MANAGER] answer.callId:', answer.callId);
       
-      // ⚠️ CRÍTICO: Si no hay activeCall, crear uno basado en la respuesta
+      // ✅ CRÍTICO: Guardar referencia a WebRTC
+      this.webrtcManager = webrtcManager;
+      
+      // ⚠️ CRÍTICO: Si no hay activeCall, algo está muy mal
       if (!this.activeCall) {
-        console.warn('⚠️ [CALL MANAGER] activeCall es null, reconstruyendo desde respuesta...');
+        console.error('❌ [CALL MANAGER] ERROR CRÍTICO: activeCall es null!');
+        console.error('   Posible causa: callManager no está siendo usado correctamente');
+        console.error('   Hay múltiples instancias de callManager?');
         
+        // Intentar recuperarse, pero esto no debería pasar
         this.activeCall = {
           id: answer.callId,
           type: 'OUTGOING',
           callerId: state.currentUsername,
-          calleeId: state.currentChat,
+          calleeId: state.currentChat, // ✅ Usar state.currentChat
           startTime: Date.now(),
           status: 'RINGING',
           duration: 0
         };
         
-        console.log('✅ [CALL MANAGER] activeCall reconstruido:', this.activeCall);
+        console.warn('⚠️ [CALL MANAGER] activeCall reconstruido:', this.activeCall);
       }
 
       // ✅ Normalizar status
@@ -114,8 +124,11 @@ class CallManager {
         
         console.log('✅ [CALL MANAGER] activeCall actualizado:', this.activeCall);
         
-        // Procesar SDP en WebRTC
+        // ✅ CRÍTICO: Procesar SDP en WebRTC
         console.log('📝 [CALL MANAGER] Procesando SDP en WebRTC...');
+        console.log('   webrtcManager disponible?', !!webrtcManager);
+        console.log('   webrtcManager.peerConnection disponible?', !!webrtcManager?.peerConnection);
+        
         await webrtcManager.handleCallAnswer(answer);
         
         // Iniciar contador de duración
@@ -165,8 +178,9 @@ class CallManager {
       this.activeCall.status = 'NO_ANSWER';
       
       try {
-        const { webrtcManager } = await import('./webrtcManager.js');
-        await webrtcManager.endCall();
+        if (this.webrtcManager) {
+          await this.webrtcManager.endCall();
+        }
       } catch (err) {
         console.error('Error finalizando llamada:', err);
       }
@@ -192,6 +206,9 @@ class CallManager {
   async receiveIncomingCall(offer, webrtcManager) {
     try {
       console.log('📞 [ENTRANTE] Llamada de', offer.caller);
+      
+      // ✅ CRÍTICO: Guardar referencia a WebRTC
+      this.webrtcManager = webrtcManager;
       
       this.activeCall = {
         id: offer.callId,
@@ -246,8 +263,9 @@ class CallManager {
       this.activeCall.status = 'NO_ANSWER';
       
       try {
-        const { webrtcManager } = await import('./webrtcManager.js');
-        await webrtcManager.answerCall(this.activeCall.offer, false);
+        if (this.webrtcManager && this.activeCall.offer) {
+          await this.webrtcManager.answerCall(this.activeCall.offer, false);
+        }
         await iceClient.endCall(this.activeCall.id, state.currentUsername);
       } catch (err) {
         console.error('Error rechazando automáticamente:', err);
@@ -277,6 +295,9 @@ class CallManager {
       }
       
       console.log('✅ [ACEPTAR] Usuario aceptó después de', this.ringSeconds, 'segundos');
+      
+      // ✅ CRÍTICO: Guardar referencia a WebRTC
+      this.webrtcManager = webrtcManager;
       
       // Limpiar timers de sonar
       this.clearRingTimers();
@@ -309,6 +330,9 @@ class CallManager {
   async rejectCall(webrtcManager, reason = 'REJECTED') {
     try {
       console.log('❌ [RECHAZAR] Llamada rechazada:', reason);
+      
+      // ✅ CRÍTICO: Guardar referencia a WebRTC
+      this.webrtcManager = webrtcManager;
       
       this.clearRingTimers();
       
@@ -370,8 +394,10 @@ class CallManager {
       
       this.clearAllTimers();
       
-      if (webrtcManager) {
-        await webrtcManager.endCall();
+      // Usar el WebRTC manager pasado o el guardado
+      const wm = webrtcManager || this.webrtcManager;
+      if (wm) {
+        await wm.endCall();
       }
       
       if (this.activeCall.id) {
@@ -469,6 +495,7 @@ class CallManager {
     console.log('🧹 [CALL MANAGER] Limpiando...');
     this.clearAllTimers();
     this.activeCall = null;
+    this.webrtcManager = null;
     this.callDuration = 0;
     this.callStartTime = null;
     this.ringSeconds = 0;
