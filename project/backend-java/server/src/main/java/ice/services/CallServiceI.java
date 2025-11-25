@@ -78,12 +78,16 @@ public class CallServiceI implements CallService {
             return "ERROR: No autorizado";
         }
         
+        // ✅ CRÍTICO: Crear respuesta con el status REAL que envió el cliente
         CallAnswer answer = new CallAnswer();
         answer.callId = callId;
         answer.sdp = sdp;
-        answer.status = status;
+        answer.status = status; // ⚡ Usar el status recibido, NO cambiarlo
         
-        // ✅ MÉTODO 1: Intentar callback
+        System.out.println("   📝 Creando respuesta con status: " + status);
+        System.out.println("   📝 Status enum value: " + status.value());
+        
+        // ✅ Enviar al caller (quien inició la llamada)
         CallCallbackPrx callerCallback = subscribers.get(offer.caller);
         if (callerCallback != null) {
             try {
@@ -93,7 +97,7 @@ public class CallServiceI implements CallService {
                         System.err.println("   ❌ Callback falló");
                         addPendingAnswer(offer.caller, answer);
                     } else {
-                        System.out.println("   ✅ Callback exitoso");
+                        System.out.println("   ✅ Callback exitoso - Respuesta enviada");
                     }
                 });
             } catch (Exception e) {
@@ -101,7 +105,7 @@ public class CallServiceI implements CallService {
                 addPendingAnswer(offer.caller, answer);
             }
         } else {
-            System.out.println("   ⚠️ Usuario no suscrito, usando polling");
+            System.out.println("   ⚠️ Caller no suscrito, usando polling");
             addPendingAnswer(offer.caller, answer);
         }
         
@@ -190,7 +194,7 @@ public class CallServiceI implements CallService {
     }
 
     // ========================================================================
-    // ✅ MÉTODOS PARA POLLING - AGREGAR AL ChatSystem.ice
+    // ✅ MÉTODOS PARA POLLING
     // ========================================================================
 
     /**
@@ -214,6 +218,7 @@ public class CallServiceI implements CallService {
             return new CallAnswer[0];
         }
         System.out.println("[CALL] 📬 Entregando " + answers.size() + " respuestas pendientes a " + username);
+        System.out.println("   Respuesta status: " + (answers.get(0).status));
         return answers.toArray(new CallAnswer[0]);
     }
 
@@ -239,7 +244,7 @@ public class CallServiceI implements CallService {
 
     private void addPendingAnswer(String username, CallAnswer answer) {
         pendingAnswers.computeIfAbsent(username, k -> new ArrayList<>()).add(answer);
-        System.out.println("   📥 Respuesta agregada a queue de " + username);
+        System.out.println("   📥 Respuesta agregada a queue de " + username + " con status: " + answer.status);
     }
 
     private void addPendingCandidate(String username, RtcCandidate candidate) {
