@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación con configuración de servidor
+// js/auth.js - CORREGIDO: Manejo de respuesta de llamada
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -20,7 +20,6 @@ export async function login() {
     return;
   }
   
-  // Validar puerto
   if (serverPort < 1 || serverPort > 65535) {
     showError('Puerto inválido (debe estar entre 1 y 65535)');
     return;
@@ -40,20 +39,16 @@ export async function login() {
   }
 
   try {
-    // PASO 1: Conectar al servidor ICE con configuración personalizada
     console.log(`🔌 Intentando conectar a ${serverHost}:${serverPort}`);
     await iceClient.connect(username, serverHost, serverPort);
     
-    // PASO 2: Guardar estado
     state.currentUsername = username;
     
-    // PASO 3: Suscribirse a notificaciones en tiempo real
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
     }
     await subscribeToRealTimeNotifications(username);
     
-    // PASO 4: Intentar suscribirse a eventos de llamadas
     try {
       await subscribeToCallEvents(username);
       console.log('✅ Eventos de llamadas habilitados');
@@ -63,18 +58,15 @@ export async function login() {
       state.callsAvailable = false;
     }
     
-    // PASO 5: Mostrar interfaz
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
     }
     showChatInterface();
     
-    // PASO 6: Cargar datos iniciales
     await loadRecentChatsFromICE();
     await loadGroupsFromICE();
     
     console.log('✅ Login exitoso:', username);
-    console.log('🌐 Servidor:', iceClient.getCurrentServerInfo());
     
   } catch (err) {
     console.error('❌ Error en login:', err);
@@ -109,7 +101,6 @@ export async function login() {
 
 export async function logout() {
   try {
-    // Limpiar cualquier llamada activa
     if (callManager.isCallActive()) {
       await callManager.endCall();
     }
@@ -131,33 +122,55 @@ async function subscribeToCallEvents(username) {
       
       // Llamada entrante
       onIncomingCall: async (offer) => {
-        console.log('📞 Llamada entrante de', offer.caller);
+        console.log('📞 [AUTH] Llamada entrante de', offer.caller);
         
         const { showIncomingCallUI } = await import('./callUI.js');
         await showIncomingCallUI(offer);
       },
       
-      // Respuesta a llamada
+      // ✅ CORREGIDO: Respuesta a llamada
       onCallAnswer: async (answer) => {
-        console.log('📞 Respuesta de llamada:', answer.status);
+        console.log('📞 [AUTH] Respuesta de llamada recibida:', answer.status);
+        console.log('   Call ID:', answer.callId);
+        console.log('   SDP presente:', !!answer.sdp);
         
-        const { webrtcManager } = await import('./webrtcManager.js');
-        const { showActiveCallUI } = await import('./callUI.js');
-        
-        await webrtcManager.handleCallAnswer(answer);
-        
-        if (answer.status === 'ACCEPTED') {
-          callManager.activeCall.status = 'CONNECTED';
-          callManager.activeCall.answerTime = Date.now();
-          callManager.startDurationTimer();
+        try {
+          const { webrtcManager } = await import('./webrtcManager.js');
+          const { showActiveCallUI, hideCallUI } = await import('./callUI.js');
           
-          showActiveCallUI(state.currentChat);
+          if (answer.status === 'ACCEPTED') {
+            console.log('✅ [AUTH] Llamada ACEPTADA - Procesando...');
+            
+            // ✅ CRÍTICO: Llamar a callManager para manejar la transición
+            await callManager.handleCallAnswer(answer, webrtcManager);
+            
+            // ✅ Mostrar UI de llamada activa SOLO para el caller
+            const activeCall = callManager.getActiveCall();
+            if (activeCall && activeCall.type === 'OUTGOING') {
+              console.log('📱 [AUTH] Mostrando UI de llamada activa');
+              showActiveCallUI(activeCall.calleeId);
+            }
+            
+          } else if (answer.status === 'REJECTED') {
+            console.log('❌ [AUTH] Llamada RECHAZADA');
+            hideCallUI();
+            showError(`${state.currentChat} rechazó la llamada`);
+            
+          } else {
+            console.warn('⚠️ [AUTH] Estado de respuesta desconocido:', answer.status);
+          }
+          
+        } catch (error) {
+          console.error('❌ [AUTH] Error procesando respuesta:', error);
+          const { hideCallUI } = await import('./callUI.js');
+          hideCallUI();
+          showError('Error procesando respuesta de llamada');
         }
       },
       
       // ICE Candidate
       onRtcCandidate: async (candidate) => {
-        console.log('🧊 RTC candidate recibido');
+        console.log('🧊 [AUTH] RTC candidate recibido');
         
         const { webrtcManager } = await import('./webrtcManager.js');
         await webrtcManager.handleIceCandidate(candidate);
@@ -165,7 +178,7 @@ async function subscribeToCallEvents(username) {
       
       // Llamada finalizada
       onCallEnded: async (callId, reason) => {
-        console.log('📞 Llamada finalizada:', reason);
+        console.log('📞 [AUTH] Llamada finalizada:', reason);
         
         const { hideCallUI } = await import('./callUI.js');
         const { webrtcManager } = await import('./webrtcManager.js');
@@ -180,75 +193,5 @@ async function subscribeToCallEvents(username) {
     
   } catch (error) {
     throw new Error('CallService no disponible: ' + error.message);
-  }
-}
-
-// ========================================
-// DETECCIÓN AUTOMÁTICA DE SERVIDOR
-// ========================================
-
-export async function detectServer() {
-  const possibleHosts = ['localhost'];
-  const port = 10000;
-  
-  // Agregar IPs comunes de red local
-  const localIP = await getLocalIP();
-  if (localIP) {
-    const ipParts = localIP.split('.');
-    if (ipParts.length === 4) {
-      const subnet = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}`;
-      // Probar primeras 10 IPs del rango
-      for (let i = 1; i <= 10; i++) {
-        possibleHosts.push(`${subnet}.${i}`);
-      }
-    }
-  }
-  
-  console.log('🔍 Buscando servidores en:', possibleHosts);
-  
-  for (const host of possibleHosts) {
-    try {
-      // Intentar conexión rápida
-      const testClient = new IceClientManager();
-      await testClient.connect('test', host, port);
-      await testClient.disconnect();
-      
-      console.log('✅ Servidor encontrado en:', host);
-      return { host, port };
-    } catch (err) {
-      console.log('❌ No encontrado en:', host);
-    }
-  }
-  
-  return null;
-}
-
-async function getLocalIP() {
-  try {
-    const pc = new RTCPeerConnection({ iceServers: [] });
-    pc.createDataChannel('');
-    await pc.createOffer().then(offer => pc.setLocalDescription(offer));
-    
-    return new Promise((resolve) => {
-      pc.onicecandidate = (ice) => {
-        if (!ice || !ice.candidate || !ice.candidate.candidate) return;
-        
-        const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
-        const match = ipRegex.exec(ice.candidate.candidate);
-        
-        if (match) {
-          pc.close();
-          resolve(match[1]);
-        }
-      };
-      
-      setTimeout(() => {
-        pc.close();
-        resolve(null);
-      }, 1000);
-    });
-  } catch (err) {
-    console.error('Error detectando IP local:', err);
-    return null;
   }
 }

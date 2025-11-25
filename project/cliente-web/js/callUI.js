@@ -1,5 +1,5 @@
 // ============================================
-// js/callUI.js - Interfaz de llamadas mejorada con feedback visual
+// js/callUI.js - UI CORREGIDA con transiciones de estado
 // ============================================
 
 import { webrtcManager } from './webrtcManager.js';
@@ -8,7 +8,7 @@ import { state } from './state.js';
 import { showError } from './ui.js';
 
 // ========================================
-// INICIAR LLAMADA CON FEEDBACK VISUAL
+// INICIAR LLAMADA
 // ========================================
 
 export async function initiateCall(targetUser) {
@@ -30,65 +30,49 @@ export async function initiateCall(targetUser) {
   let modalShown = false;
   
   try {
-    console.log('🎯 Iniciando proceso de llamada a:', targetUser);
+    console.log('🎯 [CALL UI] Iniciando proceso de llamada a:', targetUser);
     
-    // ✅ PASO 1: Mostrar UI inmediatamente
+    // Mostrar UI inmediatamente
     showOutgoingCallUI(targetUser);
     modalShown = true;
     updateCallStatus('Solicitando permisos de micrófono...');
     
-    // ✅ PASO 2: Pequeño delay para que el usuario vea el modal
     await new Promise(resolve => setTimeout(resolve, 150));
     
-    // ✅ Verificar que el modal sigue ahí
     if (!document.getElementById('outgoingCallModal')) {
-      console.error('❌ Modal desapareció durante inicialización');
       throw new Error('Modal de llamada fue cerrado prematuramente');
     }
     
-    // ✅ PASO 3: Actualizar estado antes de iniciar
     updateCallStatus('Estableciendo conexión...');
-    console.log('⏳ Paso 1: Solicitando permisos de micrófono...');
-    
-    // ✅ PASO 4: Iniciar llamada (esto puede tomar tiempo)
-    console.log('⏳ Paso 2: Conectando con servidor ICE...');
-    updateCallStatus('Conectando con servidor...');
     
     await callManager.initiateOutgoingCall(targetUser, webrtcManager);
     
-    // ✅ Verificar nuevamente que el modal existe
     if (!document.getElementById('outgoingCallModal')) {
-      console.warn('⚠️ Modal desapareció durante iniciación de llamada');
-      return; // Salir silenciosamente si el usuario canceló
+      console.warn('⚠️ Modal desapareció durante iniciación');
+      return;
     }
     
-    // ✅ PASO 5: Actualizar cuando esté lista
     updateCallStatus('Esperando respuesta...');
-    console.log('✅ Llamada en progreso');
+    console.log('✅ [CALL UI] Llamada en progreso, esperando respuesta');
     
   } catch (error) {
-    console.error('❌ Error iniciando llamada:', error);
-    console.error('Stack:', error.stack);
-    console.error('Modal shown:', modalShown);
+    console.error('❌ [CALL UI] Error:', error);
     
-    // Solo ocultar si realmente mostramos el modal
     if (modalShown) {
       hideCallUI();
     }
     
-    // Mensajes de error más descriptivos
     if (error.name === 'NotAllowedError') {
-      showError('❌ Permiso de micrófono denegado. Por favor permite el acceso al micrófono.');
+      showError('❌ Permiso de micrófono denegado');
     } else if (error.name === 'NotFoundError') {
-      showError('❌ No se encontró ningún micrófono en tu dispositivo');
+      showError('❌ No se encontró ningún micrófono');
     } else if (error.message.includes('CallService')) {
       showError('❌ El servidor no soporta llamadas');
       state.callsAvailable = false;
     } else if (error.message.includes('User not found')) {
       showError(`❌ ${targetUser} no está conectado`);
     } else if (error.message.includes('Modal')) {
-      // Usuario canceló manualmente
-      console.log('ℹ️ Usuario canceló la llamada durante inicialización');
+      console.log('ℹ️ Usuario canceló la llamada');
     } else {
       showError('❌ Error al iniciar llamada: ' + error.message);
     }
@@ -96,25 +80,20 @@ export async function initiateCall(targetUser) {
 }
 
 // ========================================
-// MOSTRAR LLAMADA SALIENTE CON ESTADOS
+// MOSTRAR LLAMADA SALIENTE
 // ========================================
 
 function showOutgoingCallUI(targetUser) {
-  console.log('🎨 Creando modal de llamada saliente para:', targetUser);
+  console.log('🎨 [CALL UI] Mostrando modal de llamada saliente');
   
-  // ⚠️ NO limpiar modales existentes aquí - puede causar que desaparezca
-  // Solo eliminar si existe uno con el mismo ID
   const existingModal = document.getElementById('outgoingCallModal');
   if (existingModal) {
-    console.log('⚠️ Modal existente encontrado, reemplazando...');
     existingModal.remove();
   }
   
   const modal = document.createElement('div');
   modal.id = 'outgoingCallModal';
   modal.className = 'call-modal outgoing-call';
-  
-  // Agregar data attribute para prevenir eliminación accidental
   modal.setAttribute('data-call-active', 'true');
   
   modal.innerHTML = `
@@ -123,7 +102,6 @@ function showOutgoingCallUI(targetUser) {
       <h3>Llamando a</h3>
       <p class="caller-name">${targetUser}</p>
       
-      <!-- Estado visual con spinner -->
       <div class="call-status-container">
         <div class="spinner"></div>
         <p class="call-status" id="outgoingCallStatus">Iniciando llamada...</p>
@@ -140,27 +118,15 @@ function showOutgoingCallUI(targetUser) {
   `;
   
   document.body.appendChild(modal);
-  console.log('✅ Modal añadido al DOM con ID:', modal.id);
   
-  // Verificar que se añadió correctamente
-  setTimeout(() => {
-    const check = document.getElementById('outgoingCallModal');
-    if (!check) {
-      console.error('❌ CRÍTICO: Modal desapareció inmediatamente después de añadirse!');
-    } else {
-      console.log('✅ Modal confirmado en DOM después de 50ms');
-    }
-  }, 50);
-  
-  // Evento: Cancelar llamada
   const cancelBtn = document.getElementById('cancelCallBtn');
   if (cancelBtn) {
     cancelBtn.onclick = async () => {
-      console.log('🚫 Usuario canceló la llamada manualmente');
+      console.log('🚫 [CALL UI] Usuario canceló la llamada');
       try {
         await callManager.endCall(webrtcManager);
       } catch (error) {
-        console.error('Error cancelando llamada:', error);
+        console.error('Error cancelando:', error);
       } finally {
         hideCallUI();
       }
@@ -169,20 +135,21 @@ function showOutgoingCallUI(targetUser) {
 }
 
 // ========================================
-// ACTUALIZAR ESTADO DE LLAMADA SALIENTE
+// ACTUALIZAR ESTADO DE LLAMADA
 // ========================================
 
 function updateCallStatus(status) {
   const statusEl = document.getElementById('outgoingCallStatus');
   if (statusEl) {
     statusEl.textContent = status;
-    console.log('📝 Estado actualizado:', status);
+    console.log('📝 [CALL UI] Estado actualizado:', status);
   }
 }
 
 function hideOutgoingCallUI() {
   const modal = document.getElementById('outgoingCallModal');
   if (modal) {
+    console.log('🧹 [CALL UI] Ocultando modal de llamada saliente');
     modal.remove();
   }
 }
@@ -193,7 +160,8 @@ function hideOutgoingCallUI() {
 
 export async function showIncomingCallUI(offer) {
   try {
-    // Registrar en CallManager (inicia el temporizador automáticamente)
+    console.log('📞 [CALL UI] Mostrando llamada entrante de:', offer.caller);
+    
     await callManager.receiveIncomingCall(offer, webrtcManager);
     
     const modal = document.createElement('div');
@@ -221,8 +189,8 @@ export async function showIncomingCallUI(offer) {
     
     document.body.appendChild(modal);
     
-    // Evento: Aceptar
     document.getElementById('acceptCallBtn').onclick = async () => {
+      console.log('✅ [CALL UI] Usuario aceptó llamada');
       try {
         await callManager.acceptCall(webrtcManager);
         hideIncomingCallUI();
@@ -234,13 +202,13 @@ export async function showIncomingCallUI(offer) {
       }
     };
     
-    // Evento: Rechazar
     document.getElementById('rejectCallBtn').onclick = async () => {
+      console.log('❌ [CALL UI] Usuario rechazó llamada');
       try {
         await callManager.rejectCall(webrtcManager, 'USER_REJECTED');
         hideIncomingCallUI();
       } catch (error) {
-        console.error('Error rechazando llamada:', error);
+        console.error('Error rechazando:', error);
         hideIncomingCallUI();
       }
     };
@@ -255,17 +223,28 @@ export async function showIncomingCallUI(offer) {
 
 function hideIncomingCallUI() {
   const modal = document.getElementById('incomingCallModal');
-  if (modal) modal.remove();
+  if (modal) {
+    console.log('🧹 [CALL UI] Ocultando modal de llamada entrante');
+    modal.remove();
+  }
   stopRingtone();
 }
 
 // ========================================
 // MOSTRAR LLAMADA ACTIVA
 // ========================================
-// callUI.js - SIN slider de volumen
+
 export function showActiveCallUI(otherUser) {
+  console.log('📞 [CALL UI] Mostrando UI de llamada activa con:', otherUser);
+  
+  // Limpiar modales anteriores
   hideIncomingCallUI();
   hideOutgoingCallUI();
+  
+  // Verificar que realmente hay una llamada conectada
+  if (!callManager.isCallActive()) {
+    console.warn('⚠️ [CALL UI] Intentando mostrar UI activa sin llamada conectada');
+  }
   
   const modal = document.createElement('div');
   modal.id = 'activeCallModal';
@@ -293,8 +272,9 @@ export function showActiveCallUI(otherUser) {
   `;
   
   document.body.appendChild(modal);
+  console.log('✅ [CALL UI] Modal de llamada activa mostrado');
   
-  // Solo controlar MUTE del micrófono local
+  // Botón de mute
   const muteBtn = document.getElementById('muteBtn');
   let isMuted = false;
   muteBtn.onclick = () => {
@@ -303,37 +283,32 @@ export function showActiveCallUI(otherUser) {
     muteBtn.textContent = isMuted ? '🔇 Silenciado' : '🎤 Micrófono';
   };
   
+  // Botón de finalizar
   document.getElementById('endCallBtn').onclick = async () => {
+    console.log('🔚 [CALL UI] Usuario finalizó llamada');
     await callManager.endCall(webrtcManager);
     hideCallUI();
   };
 }
- 
 
 // ========================================
 // OCULTAR TODAS LAS UI
 // ========================================
 
 export function hideCallUI() {
-  console.log('🧹 Limpiando UIs de llamada...');
-  
-  // Verificar si hay una llamada activa antes de limpiar
-  const hasActiveCall = callManager.getActiveCall();
-  if (hasActiveCall && hasActiveCall.status === 'RINGING') {
-    console.warn('⚠️ Intentando ocultar UI con llamada activa en estado RINGING');
-  }
+  console.log('🧹 [CALL UI] Limpiando TODAS las UIs de llamada');
   
   hideIncomingCallUI();
   hideOutgoingCallUI();
   
   const activeModal = document.getElementById('activeCallModal');
   if (activeModal) {
-    console.log('🧹 Eliminando modal de llamada activa');
+    console.log('🧹 [CALL UI] Eliminando modal de llamada activa');
     activeModal.remove();
   }
   
   stopRingtone();
-  console.log('✅ Todas las UIs limpiadas');
+  console.log('✅ [CALL UI] Todas las UIs limpiadas');
 }
 
 // ========================================
@@ -343,7 +318,7 @@ export function hideCallUI() {
 let ringtoneAudio = null;
 
 function playRingtone() {
-  console.log('🔔 Reproduciendo tono de llamada...');
+  console.log('🔔 Reproduciendo tono de llamada');
   
   try {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -390,24 +365,14 @@ function stopRingtone() {
 
 window.onCallTimeout = (callInfo) => {
   console.log('⏱️ Llamada sin respuesta:', callInfo);
-  const modal = document.getElementById('outgoingCallModal');
-  if (modal) {
-    hideCallUI();
-    showError(`❌ ${callInfo.callee} no respondió después de ${callInfo.ringDuration || 60} segundos`);
-  } else {
-    console.warn('⚠️ Modal ya fue cerrado cuando llegó el timeout');
-  }
+  hideCallUI();
+  showError(`❌ ${callInfo.callee} no respondió después de ${callInfo.ringDuration || 60} segundos`);
 };
 
 window.onIncomingCallTimeout = (callInfo) => {
   console.log('⏱️ Llamada entrante sin respuesta:', callInfo);
-  const modal = document.getElementById('incomingCallModal');
-  if (modal) {
-    hideCallUI();
-    showError(`❌ No respondiste la llamada de ${callInfo.caller} (${callInfo.ringDuration || 60}s)`);
-  } else {
-    console.warn('⚠️ Modal ya fue cerrado cuando llegó el timeout');
-  }
+  hideCallUI();
+  showError(`❌ No respondiste la llamada de ${callInfo.caller}`);
 };
 
 window.updateCallDuration = (seconds) => {
@@ -421,13 +386,5 @@ window.updateCallDuration = (seconds) => {
 
 window.onCallEnded = () => {
   console.log('📞 Evento de llamada finalizada recibido');
-  const hasModal = document.getElementById('activeCallModal') || 
-                    document.getElementById('outgoingCallModal') || 
-                    document.getElementById('incomingCallModal');
-  
-  if (hasModal) {
-    hideCallUI();
-  } else {
-    console.warn('⚠️ No hay modal para cerrar en onCallEnded');
-  }
+  hideCallUI();
 };

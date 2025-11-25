@@ -1,14 +1,14 @@
 // ============================================
-// js/callManager.js - Gestor avanzado de llamadas con UI integrada
+// js/callManager.js - CORREGIDO: Transiciones de estado
 // ============================================
 
 import { iceClient } from './iceClient.js';
 import { state } from './state.js';
 
 const CALL_CONFIG = {
-  RING_TIMEOUT: 60000,      // 60 segundos para responder
-  CALL_TIMEOUT: 3600000,    // 60 minutos máximo de llamada
-  WARNING_TIME: 45000       // Advertencia a los 45 segundos
+  RING_TIMEOUT: 60000,
+  CALL_TIMEOUT: 3600000,
+  WARNING_TIME: 45000
 };
 
 class CallManager {
@@ -59,31 +59,73 @@ class CallManager {
   }
 
   // ========================================
+  // MANEJAR RESPUESTA (LLAMADO POR auth.js)
+  // ========================================
+  
+  async handleCallAnswer(answer, webrtcManager) {
+    try {
+      console.log('📥 [CALL MANAGER] Procesando respuesta:', answer.status);
+      
+      if (!this.activeCall) {
+        console.warn('⚠️ No hay llamada activa para procesar respuesta');
+        return;
+      }
+
+      // ✅ CRÍTICO: Limpiar timers de ring
+      this.clearRingTimers();
+      
+      if (answer.status === 'ACCEPTED') {
+        console.log('✅ [CALL MANAGER] Llamada ACEPTADA, cambiando a CONNECTED');
+        
+        // Cambiar estado
+        this.activeCall.status = 'CONNECTED';
+        this.activeCall.answerTime = Date.now();
+        this.activeCall.ringDuration = this.ringSeconds;
+        
+        // Procesar SDP en WebRTC
+        await webrtcManager.handleCallAnswer(answer);
+        
+        // Iniciar contador de duración
+        this.startDurationTimer();
+        
+        console.log('✅ [CALL MANAGER] Transición a CONNECTED completada');
+        
+      } else if (answer.status === 'REJECTED') {
+        console.log('❌ [CALL MANAGER] Llamada RECHAZADA');
+        this.activeCall.status = 'REJECTED';
+        this.cleanup();
+        
+      } else {
+        console.warn('⚠️ Estado de respuesta desconocido:', answer.status);
+      }
+      
+    } catch (error) {
+      console.error('❌ [CALL MANAGER] Error procesando respuesta:', error);
+      throw error;
+    }
+  }
+
+  // ========================================
   // TEMPORIZADOR VISUAL PARA LLAMADA SALIENTE
   // ========================================
   
   setupOutgoingRingTimer() {
     this.ringSeconds = 0;
     
-    // Actualizar cada segundo
     this.ringInterval = setInterval(() => {
       this.ringSeconds++;
-      
-      // Actualizar UI
       this.updateRingUI(this.ringSeconds);
       
-      // Cambiar color según tiempo transcurrido
       if (this.ringSeconds > 45) {
-        this.setRingUIColor('#ff9500'); // Naranja (advertencia)
+        this.setRingUIColor('#ff9500');
       }
       
       if (this.ringSeconds > 55) {
-        this.setRingUIColor('#ff3b30'); // Rojo (urgente)
+        this.setRingUIColor('#ff3b30');
       }
       
     }, 1000);
     
-    // Timeout para terminar la llamada
     this.ringTimer = setTimeout(async () => {
       console.log('❌ Timeout: Sin respuesta después de 60 segundos');
       
@@ -96,7 +138,6 @@ class CallManager {
         console.error('Error finalizando llamada:', err);
       }
       
-      // Notificar a UI
       if (window.onCallTimeout) {
         window.onCallTimeout({
           caller: state.currentUsername,
@@ -130,7 +171,6 @@ class CallManager {
         offer: offer
       };
       
-      // Configurar timeout para no contestar
       this.setupIncomingRingTimer();
       
       return this.activeCall;
@@ -143,20 +183,18 @@ class CallManager {
   }
 
   // ========================================
-  // TEMPORIZADOR VISUAL PARA LLAMADA ENTRANTE
+  // TEMPORIZADOR PARA LLAMADA ENTRANTE
   // ========================================
   
   setupIncomingRingTimer() {
     this.ringSeconds = 0;
     
-    // Actualizar cada segundo
     this.ringInterval = setInterval(() => {
       this.ringSeconds++;
       
       const remaining = 60 - this.ringSeconds;
       this.updateIncomingRingUI(this.ringSeconds, remaining);
       
-      // Cambiar color
       if (remaining <= 15) {
         this.setIncomingRingUIColor('#ff9500');
       }
@@ -167,7 +205,6 @@ class CallManager {
       
     }, 1000);
     
-    // Timeout para auto-rechazar
     this.ringTimer = setTimeout(async () => {
       console.log('❌ Timeout: No contestaste en 60 segundos');
       
@@ -220,6 +257,8 @@ class CallManager {
       // Iniciar contador de duración
       this.startDurationTimer();
       
+      console.log('✅ [ACEPTAR] Llamada CONECTADA');
+      
     } catch (error) {
       console.error('❌ [ACEPTAR] Error:', error);
       throw error;
@@ -270,12 +309,10 @@ class CallManager {
     this.callTimer = setInterval(() => {
       this.callDuration = Math.floor((Date.now() - this.callStartTime) / 1000);
       
-      // Actualizar UI
       if (window.updateCallDuration) {
         window.updateCallDuration(this.callDuration);
       }
       
-      // Límite máximo
       if (this.callDuration >= CALL_CONFIG.CALL_TIMEOUT / 1000) {
         console.log('⏱️ Límite máximo de duración alcanzado');
         this.endCall();
@@ -317,7 +354,7 @@ class CallManager {
         ringDuration: this.ringSeconds
       };
       
-      console.log('✅ Llamada finalizada. Duración:', this.callDuration, 's (Sonó:', this.ringSeconds, 's)');
+      console.log('✅ Llamada finalizada. Duración:', this.callDuration, 's');
       
       this.cleanup();
       
