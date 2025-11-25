@@ -1,5 +1,5 @@
 // ============================================
-// js/webrtcManager.js - Gestor WebRTC sin cierre prematuro de UI
+// js/webrtcManager.js - Gestor WebRTC CON AUDIO REMOTO FUNCIONANDO
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -13,6 +13,7 @@ class WebRTCManager {
     this.currentCallId = null;
     this.isInitiator = false;
     this.iceCandidateQueue = [];
+    this.remoteAudioElement = null; // ✅ Agregar referencia
   }
 
   // ========================================
@@ -23,7 +24,7 @@ class WebRTCManager {
     try {
       console.log('📞 [WebRTC] Iniciando llamada a', targetUser);
       
-      // ✅ PASO 1: Obtener stream local (puede pedir permisos)
+      // ✅ PASO 1: Obtener stream local
       console.log('🎤 [WebRTC] Solicitando acceso al micrófono...');
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -71,8 +72,6 @@ class WebRTCManager {
       
     } catch (error) {
       console.error('❌ [WebRTC] Error en initiateCall:', error);
-      
-      // ⚠️ IMPORTANTE: NO cerrar la UI aquí, dejar que callUI.js lo maneje
       this.cleanup();
       throw error;
     }
@@ -87,7 +86,6 @@ class WebRTCManager {
       console.log('📞 [WebRTC] Respondiendo llamada:', accept ? 'ACEPTAR' : 'RECHAZAR');
       
       if (!accept) {
-        // Rechazar llamada
         await iceClient.answerCall(
           offer.callId,
           state.currentUsername,
@@ -105,7 +103,6 @@ class WebRTCManager {
       // Obtener stream local
       console.log('🎤 [WebRTC] Solicitando acceso al micrófono...');
       
-      // ✅ Detectar tipo de llamada del enum
       const Ice = window.Ice;
       const isVideoCall = (offer.callType === Ice.ChatSystem.CallType.Video);
       
@@ -266,14 +263,22 @@ class WebRTCManager {
     this.peerConnection.onconnectionstatechange = () => {
       console.log('🔗 [WebRTC] Connection state:', this.peerConnection.connectionState);
       
+      if (this.peerConnection.connectionState === 'connected') {
+        console.log('✅ [WebRTC] Conexión establecida exitosamente');
+      }
+      
       if (this.peerConnection.connectionState === 'failed') {
         console.error('❌ [WebRTC] Conexión falló');
       }
     };
     
-    // Remote Stream
+    // ✅ CRÍTICO: Remote Stream con audio
     this.peerConnection.ontrack = (event) => {
       console.log('📡 [WebRTC] Track remoto recibido:', event.track.kind);
+      console.log('   - Track ID:', event.track.id);
+      console.log('   - Track enabled:', event.track.enabled);
+      console.log('   - Track readyState:', event.track.readyState);
+      console.log('   - Streams:', event.streams.length);
       
       if (!this.remoteStream) {
         this.remoteStream = new MediaStream();
@@ -281,15 +286,86 @@ class WebRTCManager {
       
       this.remoteStream.addTrack(event.track);
       
-      // Reproducir audio remoto
+      // ✅ SOLUCIÓN: Llamar setupRemoteAudio() cuando llegue el track
       if (event.track.kind === 'audio') {
-        const remoteAudio = new Audio();
-        remoteAudio.srcObject = this.remoteStream;
-        remoteAudio.play().catch(err => {
-          console.error('Error reproduciendo audio:', err);
-        });
+        console.log('🔊 [WebRTC] Configurando reproducción de audio remoto...');
+        this.setupRemoteAudio();
       }
     };
+  }
+
+  // ========================================
+  // ✅ CONFIGURAR AUDIO REMOTO (AHORA SE USA)
+  // ========================================
+  
+  setupRemoteAudio() {
+    console.log('🔊 [WebRTC] Configurando audio remoto...');
+    
+    // Limpiar elemento anterior si existe
+    if (this.remoteAudioElement) {
+      this.remoteAudioElement.pause();
+      this.remoteAudioElement.srcObject = null;
+      this.remoteAudioElement.remove();
+      this.remoteAudioElement = null;
+    }
+    
+    // Crear elemento de audio
+    this.remoteAudioElement = document.createElement('audio');
+    this.remoteAudioElement.id = 'remoteAudio';
+    this.remoteAudioElement.autoplay = true;
+    this.remoteAudioElement.playsInline = true;
+    
+    // ✅ IMPORTANTE: Asignar stream
+    this.remoteAudioElement.srcObject = this.remoteStream;
+    
+    // Adjuntar al DOM (necesario en algunos navegadores)
+    document.body.appendChild(this.remoteAudioElement);
+    
+    // Intentar reproducir
+    this.remoteAudioElement.play()
+      .then(() => {
+        console.log('✅ [WebRTC] Audio remoto reproduciéndose');
+        console.log('   Tracks:', this.remoteStream.getTracks().map(t => 
+          `${t.kind} - enabled:${t.enabled} - state:${t.readyState}`
+        ));
+        
+        // Verificar volumen
+        console.log('   Volumen:', this.remoteAudioElement.volume);
+        console.log('   Muted:', this.remoteAudioElement.muted);
+      })
+      .catch(err => {
+        console.error('❌ [WebRTC] Error reproduciendo:', err);
+        
+        // Intentar solución de fallback
+        if (err.name === 'NotAllowedError') {
+          console.warn('⚠️ Autoplay bloqueado. Necesita interacción del usuario.');
+          
+          // Crear botón temporal para activar audio
+          const unlockBtn = document.createElement('button');
+          unlockBtn.textContent = '🔊 Activar Audio';
+          unlockBtn.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            font-size: 18px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 10000;
+          `;
+          
+          unlockBtn.onclick = () => {
+            this.remoteAudioElement.play();
+            unlockBtn.remove();
+          };
+          
+          document.body.appendChild(unlockBtn);
+        }
+      });
   }
 
   // ========================================
@@ -320,7 +396,7 @@ class WebRTCManager {
       this.localStream.getAudioTracks().forEach(track => {
         track.enabled = enabled;
       });
-      console.log('🎤 Audio:', enabled ? 'activado' : 'silenciado');
+      console.log('🎤 Audio local:', enabled ? 'activado' : 'silenciado');
     }
   }
 
@@ -340,10 +416,19 @@ class WebRTCManager {
   cleanup() {
     console.log('🧹 [WebRTC] Limpiando recursos...');
     
+    // ✅ Limpiar audio remoto
+    if (this.remoteAudioElement) {
+      this.remoteAudioElement.pause();
+      this.remoteAudioElement.srcObject = null;
+      this.remoteAudioElement.remove();
+      this.remoteAudioElement = null;
+      console.log('🔇 Audio remoto eliminado');
+    }
+    
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
         track.stop();
-        console.log('🛑 Track detenido:', track.kind);
+        console.log('🛑 Track local detenido:', track.kind);
       });
       this.localStream = null;
     }
@@ -365,44 +450,6 @@ class WebRTCManager {
     console.log('✅ [WebRTC] Recursos limpiados');
   }
 
-
-
-  // ✅ SOLUCIÓN SIMPLE - Solo necesitas esto en webrtcManager.js:
-
-setupRemoteAudio() {
-  console.log('🔊 [WebRTC] Configurando audio remoto...');
-  
-  // Limpiar elemento anterior si existe
-  if (this.remoteAudioElement) {
-    this.remoteAudioElement.pause();
-    this.remoteAudioElement.srcObject = null;
-    this.remoteAudioElement.remove();
-  }
-  
-  // Crear elemento de audio
-  this.remoteAudioElement = document.createElement('audio');
-  this.remoteAudioElement.id = 'remoteAudio';
-  this.remoteAudioElement.autoplay = true;
-  this.remoteAudioElement.playsInline = true;
-  
-  // Asignar stream
-  this.remoteAudioElement.srcObject = this.remoteStream;
-  
-  // Adjuntar al DOM (necesario en algunos navegadores)
-  document.body.appendChild(this.remoteAudioElement);
-  
-  // Intentar reproducir
-  this.remoteAudioElement.play()
-    .then(() => {
-      console.log('✅ [WebRTC] Audio remoto reproduciéndose');
-      console.log('   Tracks:', this.remoteStream.getTracks().map(t => 
-        `${t.kind} - enabled:${t.enabled} - state:${t.readyState}`
-      ));
-    })
-    .catch(err => {
-      console.error('❌ [WebRTC] Error reproduciendo:', err);
-    });
-}
   // ========================================
   // GETTERS
   // ========================================
