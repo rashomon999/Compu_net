@@ -1,5 +1,5 @@
 // ============================================
-// js/callUI.js - UI CORREGIDA con transiciones de estado
+// js/callUI.js - CORRECCIÓN: Pasar webrtcManager siempre
 // ============================================
 
 import { webrtcManager } from './webrtcManager.js';
@@ -45,6 +45,7 @@ export async function initiateCall(targetUser) {
     
     updateCallStatus('Estableciendo conexión...');
     
+    // ✅ CRÍTICO: Pasar webrtcManager al callManager
     await callManager.initiateOutgoingCall(targetUser, webrtcManager);
     
     if (!document.getElementById('outgoingCallModal')) {
@@ -124,6 +125,7 @@ function showOutgoingCallUI(targetUser) {
     cancelBtn.onclick = async () => {
       console.log('🚫 [CALL UI] Usuario canceló la llamada');
       try {
+        // ✅ CRÍTICO: Pasar webrtcManager al endCall
         await callManager.endCall(webrtcManager);
       } catch (error) {
         console.error('Error cancelando:', error);
@@ -162,6 +164,7 @@ export async function showIncomingCallUI(offer) {
   try {
     console.log('📞 [CALL UI] Mostrando llamada entrante de:', offer.caller);
     
+    // ✅ CRÍTICO: Pasar webrtcManager a receiveIncomingCall
     await callManager.receiveIncomingCall(offer, webrtcManager);
     
     const modal = document.createElement('div');
@@ -192,6 +195,7 @@ export async function showIncomingCallUI(offer) {
     document.getElementById('acceptCallBtn').onclick = async () => {
       console.log('✅ [CALL UI] Usuario aceptó llamada');
       try {
+        // ✅ CRÍTICO: Pasar webrtcManager a acceptCall
         await callManager.acceptCall(webrtcManager);
         hideIncomingCallUI();
         showActiveCallUI(offer.caller);
@@ -205,6 +209,7 @@ export async function showIncomingCallUI(offer) {
     document.getElementById('rejectCallBtn').onclick = async () => {
       console.log('❌ [CALL UI] Usuario rechazó llamada');
       try {
+        // ✅ CRÍTICO: Pasar webrtcManager a rejectCall
         await callManager.rejectCall(webrtcManager, 'USER_REJECTED');
         hideIncomingCallUI();
       } catch (error) {
@@ -286,6 +291,7 @@ export function showActiveCallUI(otherUser) {
   // Botón de finalizar
   document.getElementById('endCallBtn').onclick = async () => {
     console.log('🔚 [CALL UI] Usuario finalizó llamada');
+    // ✅ CRÍTICO: Pasar webrtcManager al endCall
     await callManager.endCall(webrtcManager);
     hideCallUI();
   };
