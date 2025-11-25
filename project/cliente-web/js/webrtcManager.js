@@ -154,19 +154,38 @@ class WebRTCManager {
     }
   }
 
-  // ========================================
-  // MANEJAR RESPUESTA DE LLAMADA
-  // ========================================
-  
-  async handleCallAnswer(answer) {
-    try {
-      console.log('📥 [WebRTC] Procesando respuesta:', answer.status);
-      
-      if (answer.status !== 'ACCEPTED') {
-        console.log('❌ [WebRTC] Llamada rechazada');
-        this.cleanup();
-        return;
-      }
+  // ============================================
+// MANEJAR RESPUESTA DE LLAMADA
+// ============================================
+
+async handleCallAnswer(answer) {
+  try {
+    console.log('📥 [WebRTC] Procesando respuesta:', answer.status);
+    console.log('📥 [WebRTC] answer.status type:', typeof answer.status);
+    console.log('📥 [WebRTC] answer.status value:', answer.status);
+    
+    // ✅ CRÍTICO: Normalizar el status del enum Ice.js
+    let normalizedStatus = answer.status;
+    
+    if (typeof answer.status === 'object' && answer.status._name) {
+      // Es un enum Ice.js
+      normalizedStatus = answer.status._name;
+      console.log('📝 [WebRTC] Normalizado desde enum Ice.js:', normalizedStatus);
+    } else if (typeof answer.status === 'number') {
+      // Es un número
+      const statusMap = { 0: 'Ringing', 1: 'Accepted', 2: 'Rejected', 3: 'Ended', 4: 'Busy', 5: 'NoAnswer' };
+      normalizedStatus = statusMap[answer.status];
+      console.log('📝 [WebRTC] Normalizado desde número:', normalizedStatus);
+    } else if (typeof answer.status === 'string') {
+      // Ya es un string
+      console.log('📝 [WebRTC] Ya es string:', normalizedStatus);
+    }
+    
+    console.log('✅ [WebRTC] Status final normalizado:', normalizedStatus);
+    
+    // ✅ CRÍTICO: Comparar con el status normalizado
+    if (normalizedStatus === 'Accepted' || normalizedStatus === 'ACCEPTED') {
+      console.log('✅ [WebRTC] Llamada ACEPTADA');
       
       if (!this.peerConnection) {
         console.error('❌ [WebRTC] No hay PeerConnection activa');
@@ -192,11 +211,23 @@ class WebRTCManager {
       
       console.log('✅ [WebRTC] Respuesta procesada correctamente');
       
-    } catch (error) {
-      console.error('❌ [WebRTC] Error procesando respuesta:', error);
-      throw error;
+    } else if (normalizedStatus === 'Rejected' || normalizedStatus === 'REJECTED') {
+      console.log('❌ [WebRTC] Llamada RECHAZADA');
+      this.cleanup();
+      
+    } else {
+      console.warn('⚠️ [WebRTC] Estado desconocido:', {
+        original: answer.status,
+        normalized: normalizedStatus,
+        type: typeof answer.status
+      });
     }
+    
+  } catch (error) {
+    console.error('❌ [WebRTC] Error procesando respuesta:', error);
+    throw error;
   }
+}
 
   // ========================================
   // MANEJAR ICE CANDIDATE
