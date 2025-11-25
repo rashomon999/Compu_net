@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - CORREGIDO: Manejo de respuesta de llamada
+// js/auth.js - CORREGIDO: Manejo completo de respuesta de llamada
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -134,6 +134,7 @@ async function subscribeToCallEvents(username) {
         console.log('   Call ID:', answer.callId);
         console.log('   SDP presente:', !!answer.sdp);
         console.log('   Status type:', typeof answer.status);
+        console.log('   Status raw:', answer.status);
         
         // ✅ Normalizar el status (puede venir como string, número o enum)
         let normalizedStatus = answer.status;
@@ -150,8 +151,12 @@ async function subscribeToCallEvents(username) {
           };
           normalizedStatus = statusMap[answer.status] || 'Unknown';
           console.log('   📝 Convertido de número', answer.status, '→', normalizedStatus);
+        } else if (typeof answer.status === 'object' && answer.status._name) {
+          // ✅ CORRECCIÓN: Ice.js enums tienen propiedad _name (no .name)
+          normalizedStatus = answer.status._name;
+          console.log('   📝 Extraído de enum Ice:', normalizedStatus);
         } else if (typeof answer.status === 'object' && answer.status.name) {
-          // Si es un enum object de Ice
+          // Fallback para otros formatos
           normalizedStatus = answer.status.name;
           console.log('   📝 Extraído de enum:', normalizedStatus);
         }
@@ -162,7 +167,13 @@ async function subscribeToCallEvents(username) {
           const { webrtcManager } = await import('./webrtcManager.js');
           const { showActiveCallUI, hideCallUI } = await import('./callUI.js');
           
-          // ✅ Comparar con múltiples variaciones
+          // ✅ CRÍTICO: Ignorar "Ringing" (estado inicial/intermedio)
+          if (normalizedStatus === 'Ringing' || normalizedStatus === 'RINGING' || normalizedStatus === 0) {
+            console.log('ℹ️ [AUTH] Estado Ringing recibido (ignorando, esperando respuesta final)');
+            return; // ⚡ Salir sin hacer nada - esperamos Accepted o Rejected
+          }
+          
+          // ✅ Comparar con múltiples variaciones para ACCEPTED
           if (normalizedStatus === 'Accepted' || normalizedStatus === 'ACCEPTED' || normalizedStatus === 1) {
             console.log('✅ [AUTH] Llamada ACEPTADA - Procesando...');
             
@@ -181,11 +192,23 @@ async function subscribeToCallEvents(username) {
             hideCallUI();
             showError(`${state.currentChat} rechazó la llamada`);
             
+          } else if (normalizedStatus === 'Busy' || normalizedStatus === 'BUSY' || normalizedStatus === 4) {
+            console.log('📵 [AUTH] Usuario ocupado');
+            hideCallUI();
+            showError(`${state.currentChat} está ocupado en otra llamada`);
+            
+          } else if (normalizedStatus === 'NoAnswer' || normalizedStatus === 'NO_ANSWER' || normalizedStatus === 5) {
+            console.log('⏱️ [AUTH] Sin respuesta');
+            hideCallUI();
+            showError(`${state.currentChat} no respondió la llamada`);
+            
           } else {
-            console.warn('⚠️ [AUTH] Estado de respuesta desconocido:', {
+            console.warn('⚠️ [AUTH] Estado de respuesta no manejado:', {
               original: answer.status,
-              normalized: normalizedStatus
+              normalized: normalizedStatus,
+              type: typeof answer.status
             });
+            // No hacer nada - puede ser un estado transitorio
           }
           
         } catch (error) {
