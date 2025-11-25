@@ -42,6 +42,7 @@ export async function login() {
     await iceClient.connect(username, serverHost, serverPort);
     
     state.currentUsername = username;
+    state.isLoggedIn = true;
     
     // ✅ Suscribirse a notificaciones push
     if (statusEl) {
@@ -51,8 +52,11 @@ export async function login() {
     
     // ⚡ Suscribirse a eventos de llamadas
     try {
+      if (statusEl) {
+        statusEl.querySelector('.status-text').textContent = 'Configurando sistema de llamadas...';
+      }
       await subscribeToCallEvents(username);
-      console.log('✅ Eventos de llamadas habilitados');
+      console.log('✅ Sistema de llamadas habilitado');
       state.callsAvailable = true;
     } catch (err) {
       console.warn('⚠️ CallService no disponible:', err.message);
@@ -105,12 +109,22 @@ export async function login() {
 export async function logout() {
   try {
     // Limpiar cualquier llamada activa
-    const { audioPlayer } = await import('./Player.js');
-    if (audioPlayer && audioPlayer.currentTarget) {
-      await audioPlayer.cleanup();
+    try {
+      const { audioPlayer } = await import('./Player.js');
+      if (audioPlayer && audioPlayer.currentTarget) {
+        await audioPlayer.cleanup();
+      }
+    } catch (err) {
+      // Si Player no está cargado, ignorar
     }
     
     await iceClient.disconnect();
+    
+    state.currentUsername = null;
+    state.isLoggedIn = false;
+    state.currentChat = null;
+    state.isGroup = false;
+    
     console.log('👋 Logout exitoso');
   } catch (err) {
     console.error('Error en logout:', err);
@@ -123,15 +137,28 @@ export async function logout() {
 
 async function subscribeToCallEvents(username) {
   try {
-    await iceClient.subscribeToCallEvents(username);
+    console.log('📞 Inicializando sistema de llamadas...');
     
-    // Inicializar Player
+    // ✅ CRÍTICO: Suscribirse a eventos ANTES de inicializar Player
+    await iceClient.subscribeToCallEvents(username);
+    console.log('   ✅ Suscrito a eventos ICE de llamadas');
+    
+    // ✅ CRÍTICO: Inicializar Player y conectar callbacks
     const { audioPlayer } = await import('./Player.js');
     audioPlayer.init();
+    console.log('   ✅ AudioPlayer inicializado');
     
-    console.log('✅ Sistema de llamadas inicializado');
+    // ✅ VERIFICAR que los callbacks estén conectados
+    if (!iceClient._onIncomingCall) {
+      console.warn('⚠️ Callbacks no están conectados correctamente');
+    } else {
+      console.log('   ✅ Callbacks de llamadas conectados');
+    }
+    
+    console.log('✅ Sistema de llamadas completamente inicializado');
     
   } catch (error) {
+    console.error('❌ Error inicializando sistema de llamadas:', error);
     throw new Error('CallService no disponible: ' + error.message);
   }
 }
