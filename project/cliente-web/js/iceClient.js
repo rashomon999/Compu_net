@@ -11,6 +11,7 @@ function waitForIce(timeout = 10000) {
     const checkIce = () => {
       if (typeof window.Ice !== 'undefined') {
         if (window._chatSystemPending && window._initializeChatSystem) {
+          console.log('🔄 Inicializando ChatSystem ahora...');
           window._initializeChatSystem(window.Ice);
           window._chatSystemPending = false;
         }
@@ -33,10 +34,10 @@ class IceClientManager {
     this.groupService = null;
     this.notificationService = null;
     this.voiceService = null;
-    this.callService = null; // ⚡ NUEVO
+    this.callService = null;
     this.isConnected = false;
     this.notificationAdapter = null;
-    this.callAdapter = null; // ⚡ NUEVO
+    this.callAdapter = null;
     this.username = null;
     this.serverHost = 'localhost';
     this.serverPort = 10000;
@@ -76,14 +77,19 @@ class IceClientManager {
       try {
         Ice = await waitForIce();
       } catch (error) {
-        throw new Error('Ice.js no se cargó correctamente');
+        throw new Error('Ice.js no se cargó. Asegúrate de incluir <script src="https://unpkg.com/ice@3.7.10/lib/Ice.min.js"></script> en tu HTML ANTES del bundle.js');
       }
       
-      console.log('✅ Ice.js detectado');
+      console.log('✅ Ice.js detectado, versión:', Ice.stringVersion());
       
+      // ✅ FIX: Validación más robusta
       if (!Ice.ChatSystem) {
-        throw new Error('ChatSystem.js no se cargó correctamente');
+        console.error('❌ Ice.ChatSystem no está disponible');
+        console.log('Verificando window.Ice.ChatSystem:', window.Ice?.ChatSystem);
+        throw new Error('ChatSystem.js no se cargó correctamente. Verifica que esté en js/generated/');
       }
+      
+      console.log('✅ ChatSystem cargado:', Object.keys(Ice.ChatSystem).filter(k => k.includes('Service')));
       
       this.username = username;
       
@@ -363,7 +369,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // MENSAJES (mantenidos igual)
+  // MENSAJES
   // ========================================================================
 
   async sendPrivateMessage(sender, recipient, message) {
@@ -417,7 +423,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // GRUPOS (mantenidos igual)
+  // GRUPOS
   // ========================================================================
 
   async createGroup(groupName, creator) {
@@ -462,7 +468,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // NOTIFICACIONES (mantenidas igual)
+  // NOTIFICACIONES
   // ========================================================================
 
   async subscribeToNotifications(username, callbacks) {
@@ -535,7 +541,7 @@ class IceClientManager {
   }
 
   // ========================================================================
-  // NOTAS DE VOZ (mantenidas igual)
+  // NOTAS DE VOZ
   // ========================================================================
 
   async saveVoiceNote(sender, target, audioDataBase64, isGroup) {
