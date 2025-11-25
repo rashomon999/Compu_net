@@ -294,5 +294,21 @@
     "content": "Porque?",
     "isGroup": false,
     "timestamp": "2025-11-24 03:32:14"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "VOICE",
+    "content": "[AUDIO_FILE:Maria_to_Luis_20251125_122643_321.wav]",
+    "isGroup": false,
+    "timestamp": "2025-11-25 12:26:43"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "porque no me llega el mensaje enseguida?",
+    "isGroup": false,
+    "timestamp": "2025-11-25 12:27:47"
   }
 ]

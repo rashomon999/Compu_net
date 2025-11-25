@@ -262,7 +262,7 @@ function hideIncomingCallUI() {
 // ========================================
 // MOSTRAR LLAMADA ACTIVA
 // ========================================
-
+// callUI.js - SIN slider de volumen
 export function showActiveCallUI(otherUser) {
   hideIncomingCallUI();
   hideOutgoingCallUI();
@@ -294,27 +294,21 @@ export function showActiveCallUI(otherUser) {
   
   document.body.appendChild(modal);
   
-  // Evento: Finalizar
-  document.getElementById('endCallBtn').onclick = async () => {
-    try {
-      await callManager.endCall(webrtcManager);
-    } catch (error) {
-      console.error('Error finalizando llamada:', error);
-    } finally {
-      hideCallUI();
-    }
-  };
-  
-  // Evento: Mutear
+  // Solo controlar MUTE del micrófono local
   const muteBtn = document.getElementById('muteBtn');
   let isMuted = false;
   muteBtn.onclick = () => {
     isMuted = !isMuted;
     webrtcManager.toggleAudio(!isMuted);
     muteBtn.textContent = isMuted ? '🔇 Silenciado' : '🎤 Micrófono';
-    muteBtn.classList.toggle('muted', isMuted);
+  };
+  
+  document.getElementById('endCallBtn').onclick = async () => {
+    await callManager.endCall(webrtcManager);
+    hideCallUI();
   };
 }
+ 
 
 // ========================================
 // OCULTAR TODAS LAS UI

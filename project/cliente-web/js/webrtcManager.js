@@ -365,6 +365,44 @@ class WebRTCManager {
     console.log('✅ [WebRTC] Recursos limpiados');
   }
 
+
+
+  // ✅ SOLUCIÓN SIMPLE - Solo necesitas esto en webrtcManager.js:
+
+setupRemoteAudio() {
+  console.log('🔊 [WebRTC] Configurando audio remoto...');
+  
+  // Limpiar elemento anterior si existe
+  if (this.remoteAudioElement) {
+    this.remoteAudioElement.pause();
+    this.remoteAudioElement.srcObject = null;
+    this.remoteAudioElement.remove();
+  }
+  
+  // Crear elemento de audio
+  this.remoteAudioElement = document.createElement('audio');
+  this.remoteAudioElement.id = 'remoteAudio';
+  this.remoteAudioElement.autoplay = true;
+  this.remoteAudioElement.playsInline = true;
+  
+  // Asignar stream
+  this.remoteAudioElement.srcObject = this.remoteStream;
+  
+  // Adjuntar al DOM (necesario en algunos navegadores)
+  document.body.appendChild(this.remoteAudioElement);
+  
+  // Intentar reproducir
+  this.remoteAudioElement.play()
+    .then(() => {
+      console.log('✅ [WebRTC] Audio remoto reproduciéndose');
+      console.log('   Tracks:', this.remoteStream.getTracks().map(t => 
+        `${t.kind} - enabled:${t.enabled} - state:${t.readyState}`
+      ));
+    })
+    .catch(err => {
+      console.error('❌ [WebRTC] Error reproduciendo:', err);
+    });
+}
   // ========================================
   // GETTERS
   // ========================================

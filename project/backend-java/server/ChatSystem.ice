@@ -292,6 +292,11 @@ module ChatSystem {
         int sdpMLineIndex;
     };
     
+    // Secuencias para polling
+    sequence<CallOffer> CallOfferSeq;
+    sequence<CallAnswer> CallAnswerSeq;
+    sequence<RtcCandidate> RtcCandidateSeq;
+    
     /**
      * Callback para eventos de llamadas
      * Implementado por el cliente
@@ -371,5 +376,30 @@ module ChatSystem {
          * @param username Usuario que se desuscribe
          */
         void unsubscribe(string username);
+        
+        // ============================================================
+        // MÉTODOS DE POLLING (fallback para JavaScript)
+        // ============================================================
+        
+        /**
+         * Obtiene llamadas entrantes pendientes
+         * @param username Usuario que consulta
+         * @return Array de ofertas pendientes
+         */
+        CallOfferSeq getPendingIncomingCalls(string username);
+        
+        /**
+         * Obtiene respuestas de llamadas pendientes
+         * @param username Usuario que consulta
+         * @return Array de respuestas pendientes
+         */
+        CallAnswerSeq getPendingCallAnswers(string username);
+        
+        /**
+         * Obtiene candidatos ICE pendientes
+         * @param username Usuario que consulta
+         * @return Array de candidatos pendientes
+         */
+        RtcCandidateSeq getPendingRtcCandidates(string username);
     };
 };
