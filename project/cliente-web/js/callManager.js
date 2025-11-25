@@ -26,7 +26,7 @@ class CallManager {
   // ========================================
   // INICIAR LLAMADA SALIENTE
   // ========================================
-     async initiateOutgoingCall(targetUser, webrtcManager) {
+      async initiateOutgoingCall(targetUser, webrtcManager) {
     try {
       console.log('📞 [SALIENTE] Iniciando llamada a', targetUser);
       
@@ -68,7 +68,6 @@ class CallManager {
       throw error;
     }
   }
-
   // ========================================
   // MANEJAR RESPUESTA (LLAMADO POR auth.js)
   // ========================================
