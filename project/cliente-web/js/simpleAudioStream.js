@@ -169,21 +169,24 @@ class SimpleAudioStreamManager {
   // ✅ ENVIAR AUDIO AL SERVIDOR
   // ========================================
   
-  async sendAudioToServer(audioData) {
+// En simpleAudioStream.js
+async sendAudioToServer(audioData) {
     try {
-      if (!this.isStreaming || !this.audioSubject) return;
-      
-      // Enviar via Ice (ASÍNCRONO, NO BLOQUEA)
-      await this.audioSubject.sendAudio(this.username, audioData);
-      
+        if (!this.isStreaming || !this.audioSubject) {
+            console.warn('⚠️ [SIMPLE AUDIO] No streaming:', {
+                isStreaming: this.isStreaming,
+                hasSubject: !!this.audioSubject
+            });
+            return;
+        }
+        
+        console.log('📤 [SIMPLE AUDIO] Enviando:', audioData.length, 'bytes');
+        await this.audioSubject.sendAudio(this.username, audioData);
+        
     } catch (error) {
-      // Silenciar errores de timeout
-      if (!error.message.includes('timeout')) {
-        console.warn('⚠️ [SIMPLE AUDIO] Error enviando:', error.message);
-      }
+        console.error('❌ [SIMPLE AUDIO] Error enviando:', error);
     }
-  }
-  
+}
   // ========================================
   // ✅ RECIBIR Y REPRODUCIR (COMO EL PROFESOR)
   // ========================================
