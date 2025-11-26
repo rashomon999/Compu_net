@@ -350,5 +350,13 @@
     "content": "hola",
     "isGroup": false,
     "timestamp": "2025-11-26 18:20:54"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "kkk",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:31:45"
   }
 ]
