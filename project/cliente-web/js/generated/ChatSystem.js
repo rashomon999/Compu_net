@@ -1,18 +1,25 @@
-//
-// ChatSystem.js - Generado y corregido para evitar conflictos
-//
+// ============================================
+// ChatSystem.js - Compatible con Webpack
+// ============================================
 
 /* eslint-disable */
 /* jshint ignore: start */
 
-(function(module, require, exports) {
-    const Ice = window.Ice || require("ice").Ice;
+// ✅ ESPERAR a que Ice.js esté disponible
+const initChatSystem = () => {
+    const Ice = window.Ice;
+    
+    if (!Ice) {
+        console.error('❌ Ice.js no está disponible');
+        return;
+    }
+
     const _ModuleRegistry = Ice._ModuleRegistry;
     const Slice = Ice.Slice;
 
     let ChatSystem = _ModuleRegistry.module("ChatSystem");
 
-    // ⚡ CORRECCIÓN: Solo definir si no existe
+    // Solo definir si no existe
     if (!ChatSystem.BytesHelper) {
         Slice.defineSequence(ChatSystem, "BytesHelper", "Ice.ByteHelper", true);
     }
@@ -394,20 +401,18 @@
         "sendAudioChunk": [, , , , , [[7], ["ChatSystem.BytesHelper"]], , , ,]
     });
 
-    // ⚡ Exportar al scope correcto
-    if (typeof exports !== 'undefined') {
-        exports.ChatSystem = ChatSystem;
-    }
-    if (typeof window !== 'undefined') {
-        window.Ice = window.Ice || {};
-        window.Ice.ChatSystem = ChatSystem;
-    }
-
+    // Exportar a window.Ice
+    window.Ice.ChatSystem = ChatSystem;
+    
     console.log('✅ ChatSystem cargado correctamente');
-})(
-    typeof(global) !== "undefined" && typeof(global.process) !== "undefined" ? module : undefined,
-    typeof(global) !== "undefined" && typeof(global.process) !== "undefined" ? require :
-        (typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope) ? self.Ice._require : window.Ice._require,
-    typeof(global) !== "undefined" && typeof(global.process) !== "undefined" ? exports :
-        (typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope) ? self : window
-);
+    
+    return ChatSystem;
+};
+
+// ✅ Exportar para uso con import
+export default initChatSystem;
+
+// ✅ Auto-inicializar si Ice.js ya está disponible
+if (typeof window !== 'undefined' && window.Ice) {
+    initChatSystem();
+}
