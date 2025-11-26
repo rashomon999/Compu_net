@@ -1,5 +1,5 @@
 // ============================================
-// js/main.js - Punto de entrada principal (sin WebRTC)
+// js/main.js - Punto de entrada principal CORREGIDO
 // ============================================
 
 // ⚡ IMPORTAR CSS
@@ -23,6 +23,9 @@ import {
   hideAudioControls
 } from './audioUI.js';
 
+// ✅ CORREGIDO: Importar initiateCall desde callUI
+import { initiateCall, hideCallUI } from './callUI.js';
+
 // ========================================
 // FUNCIONES GLOBALES (para debugging)
 // ========================================
@@ -34,7 +37,8 @@ window._debug = {
   joinGroup,
   sendMessage,
   toggleRecording,
-  cancelRecording
+  cancelRecording,
+  initiateCall  // ✅ Agregar a globales para debugging
 };
 
 // ========================================
@@ -81,13 +85,14 @@ function showCallOptionsMenu() {
   
   document.body.appendChild(options);
   
+  // ✅ CORREGIDO: Usar initiateCall que ya está importado
   document.getElementById('audioCallBtn').onclick = async () => {
     options.remove();
     try {
-      const { initiateCall } = await import('./callUI.js');
+      console.log('🎯 [MAIN] Iniciando llamada a:', state.currentChat);
       await initiateCall(state.currentChat);
     } catch (error) {
-      console.error('Error iniciando llamada de audio:', error);
+      console.error('❌ Error iniciando llamada:', error);
       showError('Error al iniciar llamada: ' + error.message);
     }
   };
@@ -129,6 +134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (callButton) {
     callButton.addEventListener('click', () => {
+      console.log('📱 [MAIN] Click en botón de llamada');
+      
       if (!state.currentChat) {
         showError('Selecciona un chat primero');
         return;
@@ -139,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       
-      // ✅ Mostrar opciones de llamada (con validación interna)
+      // ✅ Mostrar opciones de llamada
       showCallOptionsMenu();
     });
   }
@@ -294,3 +301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   console.log('✅ Event listeners registrados');
 });
+
+// ✅ Exportar para uso global si es necesario
+window.initiateCall = initiateCall;
+window.hideCallUI = hideCallUI;
