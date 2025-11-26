@@ -450,75 +450,109 @@ class IceClientManager {
   // NOTIFICACIONES
   // ========================================================================
 
-  async subscribeToNotifications(username, callbacks) {
-    if (!this.notificationService) {
-      console.warn('⚠️ NotificationService no disponible');
-      return;
+  // ========================================================================
+// NOTIFICACIONES - MÉTODO CORREGIDO
+// ========================================================================
+
+async subscribeToNotifications(username, callbacks) {
+  if (!this.notificationService) {
+    console.warn('⚠️ NotificationService no disponible');
+    return;
+  }
+  
+  try {
+    console.log('\n╔════════════════════════════════════════╗');
+    console.log('║  SUSCRIBIENDO A NOTIFICACIONES         ║');
+    console.log('╠════════════════════════════════════════╣');
+    console.log('║  Usuario:', username.padEnd(30), '║');
+    console.log('╚════════════════════════════════════════╝');
+    
+    const Ice = window.Ice;
+    
+    // 1. Crear el objeto callback con los métodos
+    const callbackObj = {
+      onNewMessage: (msg) => {
+        console.log('📬 [CALLBACK] Nuevo mensaje recibido:', msg);
+        if (callbacks.onNewMessage) {
+          callbacks.onNewMessage(msg);
+        }
+      },
+      
+      onGroupCreated: (groupName, creator) => {
+        console.log('📢 [CALLBACK] Grupo creado:', groupName);
+        if (callbacks.onGroupCreated) {
+          callbacks.onGroupCreated(groupName, creator);
+        }
+      },
+      
+      onUserJoinedGroup: (groupName, user) => {
+        console.log('👥 [CALLBACK] Usuario se unió:', user, 'a', groupName);
+        if (callbacks.onUserJoinedGroup) {
+          callbacks.onUserJoinedGroup(groupName, user);
+        }
+      }
+    };
+    
+    console.log('   ✅ Callbacks configurados');
+    
+    // 2. Crear adaptador SI NO EXISTE
+    if (!this.notificationAdapter) {
+      console.log('   🔧 Creando adaptador de notificaciones...');
+      this.notificationAdapter = await this.communicator.createObjectAdapter("");
+      console.log('   ✅ Adaptador creado');
     }
     
-    try {
-      console.log('📢 Suscribiendo a notificaciones...');
-      
-      const Ice = window.Ice;
-      
-      const callbackObj = {
-        onNewMessage: (msg) => {
-          console.log('📬 Nuevo mensaje:', msg);
-          if (callbacks.onNewMessage) {
-            callbacks.onNewMessage(msg);
-          }
-        },
-        
-        onGroupCreated: (groupName, creator) => {
-          console.log('📢 Grupo creado:', groupName);
-          if (callbacks.onGroupCreated) {
-            callbacks.onGroupCreated(groupName, creator);
-          }
-        },
-        
-        onUserJoinedGroup: (groupName, user) => {
-          console.log('👥 Usuario se unió:', user, 'a', groupName);
-          if (callbacks.onUserJoinedGroup) {
-            callbacks.onUserJoinedGroup(groupName, user);
-          }
-        }
-      };
-      
-      if (!this.notificationAdapter) {
-        this.notificationAdapter = await this.communicator.createObjectAdapter("");
-        await this.notificationAdapter.activate();
-        console.log('   ✅ Notification adapter creado');
-      }
-      
-      const identity = Ice.generateUUID();
-      const callbackProxy = this.notificationAdapter.add(
-        new Ice.ChatSystem.NotificationCallback(callbackObj),
-        new Ice.Identity(identity, "")
-      );
-      
-      await this.notificationService.subscribe(
-        username, 
-        Ice.ChatSystem.NotificationCallbackPrx.uncheckedCast(callbackProxy)
-      );
-      
-      console.log('✅ Suscrito a notificaciones');
-      
-    } catch (error) {
-      console.error('Error suscribiéndose a notificaciones:', error);
-      throw error;
+    // ========================================
+    // 🔥 CRÍTICO: VINCULAR ADAPTADOR A LA CONEXIÓN
+    // (ESTO ES LO QUE FALTABA)
+    // ========================================
+    console.log('   🔗 Vinculando adaptador a la conexión...');
+    const connection = this.notificationService.ice_getCachedConnection();
+    
+    if (!connection) {
+      throw new Error('No hay conexión activa con NotificationService');
     }
-  }
-
-  async unsubscribeFromNotifications(username) {
-    if (!this.notificationService) return;
-    try {
-      await this.notificationService.unsubscribe(username);
-      console.log('📕 Desuscrito de notificaciones');
-    } catch (error) {
-      console.error('Error desuscribiéndose:', error);
+    
+    connection.setAdapter(this.notificationAdapter);
+    console.log('   ✅ Adaptador vinculado a la conexión');
+    
+    // 3. Activar el adaptador SI NO ESTÁ ACTIVO
+    if (!this.notificationAdapter.isActive()) {
+      console.log('   ⚡ Activando adaptador...');
+      await this.notificationAdapter.activate();
+      console.log('   ✅ Adaptador ACTIVO');
     }
+    
+    // 4. Crear el proxy del callback
+    console.log('   📋 Registrando callback en el adaptador...');
+    const identity = new Ice.Identity(Ice.generateUUID(), "");
+    const callbackProxy = this.notificationAdapter.add(
+      new Ice.ChatSystem.NotificationCallback(callbackObj),
+      identity
+    );
+    console.log('   ✅ Callback registrado');
+    
+    // 5. Suscribirse al servicio
+    console.log('   📡 Enviando suscripción al servidor...');
+    await this.notificationService.subscribe(
+      username, 
+      Ice.ChatSystem.NotificationCallbackPrx.uncheckedCast(callbackProxy)
+    );
+    
+    console.log('');
+    console.log('╔════════════════════════════════════════╗');
+    console.log('║  ✅ NOTIFICACIONES ACTIVAS             ║');
+    console.log('╚════════════════════════════════════════╝');
+    console.log('   📡 Callbacks vinculados a la conexión');
+    console.log('   🔔 Escuchando mensajes en tiempo real');
+    console.log('');
+    
+  } catch (error) {
+    console.error('❌ Error suscribiéndose a notificaciones:', error);
+    console.error('   Stack:', error.stack);
+    throw error;
   }
-
+}
   // ========================================================================
   // CLEANUP
   // ========================================================================

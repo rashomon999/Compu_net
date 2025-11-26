@@ -366,5 +366,21 @@
     "content": "ссс",
     "isGroup": false,
     "timestamp": "2025-11-26 18:37:43"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "responde",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:44:23"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:45:42"
   }
 ]
