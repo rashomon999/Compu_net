@@ -136,44 +136,46 @@ public class AudioSubjectImpl implements AudioSubject {
     
     @Override
     public synchronized void startCall(String fromUser, String toUser, Current current) {
-        System.out.println("[AUDIO] 📞 Llamada iniciada:");
-        System.out.println("   De: " + fromUser);
-        System.out.println("   Para: " + toUser);
-        
-        // Buscar el Observer del destinatario
-        AudioObserverPrx destPrx = observers.get(toUser);
-        
-        if (destPrx == null) {
-            System.out.println("   ❌ Usuario no encontrado: " + toUser);
-            notifyCallRejected(fromUser, toUser);
-            return;
-        }
-        
-        // Verificar si el destinatario ya está en otra llamada
-        if (activeCalls.containsKey(toUser)) {
-            System.out.println("   ⚠️ Usuario ocupado: " + toUser);
-            notifyCallRejected(fromUser, toUser);
-            return;
-        }
-        
-        // ✅ MÉTODO 1: Intentar callback directo
-        try {
-            System.out.println("   📤 Intentando callback directo...");
-            destPrx.ice_oneway().incomingCallAsync(fromUser).whenComplete((result, ex) -> {
-                if (ex != null) {
-                    System.err.println("   ❌ Callback falló: " + ex.getMessage());
-                    System.out.println("   📥 Usando polling como fallback");
-                    addPendingIncomingCall(toUser, fromUser);
-                } else {
-                    System.out.println("   ✅ Callback exitoso");
-                }
-            });
-        } catch (Exception e) {
-            System.err.println("   ❌ Excepción en callback: " + e.getMessage());
-            System.out.println("   📥 Usando polling como fallback");
-            addPendingIncomingCall(toUser, fromUser);
-        }
+    System.out.println("[AUDIO] 📞 Llamada iniciada:");
+    System.out.println("   De: " + fromUser);
+    System.out.println("   Para: " + toUser);
+    
+    // Buscar el Observer del destinatario
+    AudioObserverPrx destPrx = observers.get(toUser);
+    
+    if (destPrx == null) {
+        System.out.println("   ❌ Usuario OFFLINE: " + toUser);
+        System.out.println("   📋 Usuarios conectados: " + observers.keySet());
+        notifyCallRejected(fromUser, toUser);
+        return;
     }
+    
+    // Verificar si el destinatario ya está en otra llamada
+    if (activeCalls.containsKey(toUser)) {
+        System.out.println("   ⚠️ Usuario ocupado: " + toUser);
+        notifyCallRejected(fromUser, toUser);
+        return;
+    }
+    
+    // ✅ CRÍTICO: SIEMPRE agregar a cola de polling (sistema primario)
+    System.out.println("   📥 Agregando a cola de polling...");
+    addPendingIncomingCall(toUser, fromUser);
+    System.out.println("   ✅ Llamada en cola para polling");
+    
+    // ✅ OPCIONAL: Intentar callback también (por si funciona)
+    try {
+        System.out.println("   📤 Intentando callback directo (opcional)...");
+        destPrx.ice_oneway().incomingCallAsync(fromUser).whenComplete((result, ex) -> {
+            if (ex != null) {
+                System.err.println("   ⚠️ Callback falló (OK, usará polling): " + ex.getMessage());
+            } else {
+                System.out.println("   ✅ Callback enviado (bonus)");
+            }
+        });
+    } catch (Exception e) {
+        System.err.println("   ⚠️ Excepción en callback (OK, usará polling): " + e.getMessage());
+    }
+}
     
     @Override
     public synchronized void acceptCall(String fromUser, String toUser, Current current) {
@@ -237,49 +239,51 @@ public class AudioSubjectImpl implements AudioSubject {
     // ============================================
     
     private void notifyCallRejected(String userId, String fromUser) {
-        AudioObserverPrx prx = observers.get(userId);
-        if (prx != null) {
-            try {
-                prx.ice_oneway().callRejectedAsync(fromUser).whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        addPendingRejectedCall(userId, fromUser);
-                    }
-                });
-            } catch (Exception e) {
-                addPendingRejectedCall(userId, fromUser);
-            }
+    // SIEMPRE agregar a cola
+    addPendingRejectedCall(userId, fromUser);
+    
+    // Intentar callback también
+    AudioObserverPrx prx = observers.get(userId);
+    if (prx != null) {
+        try {
+            prx.ice_oneway().callRejectedAsync(fromUser);
+        } catch (Exception e) {
+            // Silencioso, polling lo manejará
         }
     }
+}
     
     private void notifyCallAccepted(String userId, String fromUser) {
-        AudioObserverPrx prx = observers.get(userId);
-        if (prx != null) {
-            try {
-                prx.ice_oneway().callAcceptedAsync(fromUser).whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        addPendingAcceptedCall(userId, fromUser);
-                    }
-                });
-            } catch (Exception e) {
-                addPendingAcceptedCall(userId, fromUser);
-            }
+    // SIEMPRE agregar a cola
+    addPendingAcceptedCall(userId, fromUser);
+    System.out.println("   ✅ Aceptación en cola para polling");
+    
+    // Intentar callback también
+    AudioObserverPrx prx = observers.get(userId);
+    if (prx != null) {
+        try {
+            prx.ice_oneway().callAcceptedAsync(fromUser);
+            System.out.println("   📤 Callback de aceptación enviado");
+        } catch (Exception e) {
+            System.err.println("   ⚠️ Callback falló (OK, usará polling)");
         }
     }
+}
     
     private void notifyCallEnded(String userId, String fromUser) {
-        AudioObserverPrx prx = observers.get(userId);
-        if (prx != null) {
-            try {
-                prx.ice_oneway().callEndedAsync(fromUser).whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        addPendingEndedCall(userId, fromUser);
-                    }
-                });
-            } catch (Exception e) {
-                addPendingEndedCall(userId, fromUser);
-            }
+    // SIEMPRE agregar a cola
+    addPendingEndedCall(userId, fromUser);
+    
+    // Intentar callback también
+    AudioObserverPrx prx = observers.get(userId);
+    if (prx != null) {
+        try {
+            prx.ice_oneway().callEndedAsync(fromUser);
+        } catch (Exception e) {
+            // Silencioso, polling lo manejará
         }
     }
+}
     
     // ============================================
     // ✅ MÉTODOS PARA POLLING (FALLBACK)
