@@ -148,7 +148,8 @@ class SimpleCallManager {
       simpleAudioStream.cleanup();
 
       try {
-        await this.audioSubject.colgar(this.username, otherUser);
+        await this.audioSubject.hangup(this.username, otherUser);
+
       } catch (_) {}
 
       this.cleanup();
