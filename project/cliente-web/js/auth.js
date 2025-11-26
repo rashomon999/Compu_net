@@ -1,5 +1,6 @@
 // ============================================
-// js/auth.js - CORREGIDO: Normalización de enums robusta
+// js/auth.js - Autenticación con Audio Streaming
+// SIN WebRTC - Solo streaming directo por ICE
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -128,7 +129,7 @@ async function subscribeToCallEvents(username) {
         await showIncomingCallUI(offer);
       },
       
-      // ⚡ CORREGIDO: Normalización ultra-robusta de status
+      // ⚡ Respuesta de llamada (con normalización robusta)
       onCallAnswer: async (answer) => {
         console.log('📞 [AUTH] Respuesta de llamada recibida');
         console.log('   📋 Datos completos del answer:', answer);
@@ -139,12 +140,10 @@ async function subscribeToCallEvents(username) {
         let normalizedStatus = null;
         
         if (typeof answer.status === 'string') {
-          // Ya es string
           normalizedStatus = answer.status;
           console.log('   ✅ Status es string:', normalizedStatus);
           
         } else if (typeof answer.status === 'number') {
-          // Mapear número a string
           const statusMap = {
             0: 'Ringing',
             1: 'Accepted',
@@ -157,7 +156,6 @@ async function subscribeToCallEvents(username) {
           console.log('   ✅ Status convertido de número', answer.status, '→', normalizedStatus);
           
         } else if (answer.status && typeof answer.status === 'object') {
-          // Es un enum de Ice.js
           if (answer.status._name) {
             normalizedStatus = answer.status._name;
             console.log('   ✅ Status extraído de enum._name:', normalizedStatus);
@@ -165,7 +163,6 @@ async function subscribeToCallEvents(username) {
             normalizedStatus = answer.status.name;
             console.log('   ✅ Status extraído de enum.name:', normalizedStatus);
           } else if (answer.status._value !== undefined) {
-            // Fallback: usar el valor numérico del enum
             const statusMap = {
               0: 'Ringing',
               1: 'Accepted',
@@ -177,7 +174,6 @@ async function subscribeToCallEvents(username) {
             normalizedStatus = statusMap[answer.status._value] || 'Unknown';
             console.log('   ✅ Status convertido desde _value:', normalizedStatus);
           } else {
-            // Último intento: convertir objeto a string
             normalizedStatus = String(answer.status);
             console.log('   ⚠️ Status convertido a string:', normalizedStatus);
           }
@@ -200,14 +196,13 @@ async function subscribeToCallEvents(username) {
         }
         
         try {
-          const { webrtcManager } = await import('./webrtcManager.js');
           const { showActiveCallUI, hideCallUI } = await import('./callUI.js');
           
           if (normalizedStatus === 'ACCEPTED') {
-            console.log('✅ [AUTH] Llamada ACEPTADA - Procesando WebRTC...');
+            console.log('✅ [AUTH] Llamada ACEPTADA - Procesando...');
             
-            // ⚡ CRÍTICO: Procesar en callManager
-            await callManager.handleCallAnswer(answer, webrtcManager);
+            // ⚡ CRÍTICO: Procesar en callManager (sin webrtcManager)
+            await callManager.handleCallAnswer(answer);
             
             // Mostrar UI solo para llamada saliente
             const activeCall = callManager.getActiveCall();
@@ -256,12 +251,27 @@ async function subscribeToCallEvents(username) {
         }
       },
       
-      // ICE Candidate
-      onRtcCandidate: async (candidate) => {
-        console.log('🧊 [AUTH] RTC candidate recibido');
+      // ⚡ NUEVO: Audio chunks (en lugar de RTC candidates)
+      onAudioChunk: async (chunk) => {
+        console.log('🎵 [AUTH] Audio chunk recibido:', chunk.data.length, 'bytes');
         
-        const { webrtcManager } = await import('./webrtcManager.js');
-        await webrtcManager.handleIceCandidate(candidate);
+        try {
+          const { audioStreamManager } = await import('./audioStreamManager.js');
+          
+          // Convertir a Uint8Array si es necesario
+          const audioData = chunk.data instanceof Uint8Array 
+            ? chunk.data 
+            : new Uint8Array(chunk.data);
+          
+          await audioStreamManager.receiveAudioChunk(audioData);
+        } catch (error) {
+          console.error('❌ [AUTH] Error procesando audio chunk:', error);
+        }
+      },
+      
+      // ⚠️ RTC Candidate - Ya no se usa pero mantener para compatibilidad
+      onRtcCandidate: async (candidate) => {
+        console.log('⚠️ [AUTH] RTC candidate recibido pero ya no se usa con streaming directo');
       },
       
       // Llamada finalizada
@@ -269,9 +279,9 @@ async function subscribeToCallEvents(username) {
         console.log('📞 [AUTH] Llamada finalizada:', reason);
         
         const { hideCallUI } = await import('./callUI.js');
-        const { webrtcManager } = await import('./webrtcManager.js');
+        const { audioStreamManager } = await import('./audioStreamManager.js');
         
-        webrtcManager.cleanup();
+        audioStreamManager.cleanup();
         await callManager.endCall();
         hideCallUI();
         

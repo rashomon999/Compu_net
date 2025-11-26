@@ -1,9 +1,11 @@
 // ============================================
-// js/callManager.js - CORREGIDO: Sincronización WebRTC
+// js/callManager.js - Gestor de Llamadas Simplificado
+// Solo señalización, sin WebRTC
 // ============================================
 
 import { iceClient } from './iceClient.js';
 import { state } from './state.js';
+import { audioStreamManager } from './audioStreamManager.js';
 
 const CALL_CONFIG = {
   RING_TIMEOUT: 60000,
@@ -20,19 +22,16 @@ class CallManager {
     this.callStartTime = null;
     this.callDuration = 0;
     this.ringSeconds = 0;
-    this.webrtcManager = null;
   }
 
   // ========================================
   // INICIAR LLAMADA SALIENTE
   // ========================================
-  async initiateOutgoingCall(targetUser, webrtcManager) {
+  async initiateOutgoingCall(targetUser) {
     try {
       console.log('📞 [SALIENTE] Iniciando llamada a', targetUser);
       
-      this.webrtcManager = webrtcManager;
-      
-      // ⚡ CRÍTICO: Crear activeCall ANTES de cualquier operación asíncrona
+      // Crear activeCall ANTES de cualquier operación asíncrona
       this.activeCall = {
         id: null,
         type: 'OUTGOING',
@@ -43,24 +42,33 @@ class CallManager {
         duration: 0
       };
       
-      // ⚡ CRÍTICO: Guardar en variable global INMEDIATAMENTE
+      // Guardar en variable global
       window._callManager_activeCall = this.activeCall;
       console.log('✅ [SALIENTE] activeCall creado y guardado globalmente');
       
-      // Iniciar WebRTC
-      const callId = await webrtcManager.initiateCall(targetUser, false);
-      this.activeCall.id = callId;
+      // ⚡ Llamar al servidor (solo señalización, SDP dummy)
+      const Ice = window.Ice;
+      const callId = await iceClient.initiateCall(
+        state.currentUsername,
+        targetUser,
+        Ice.ChatSystem.CallType.AudioOnly,
+        'dummy-sdp' // No se usa, pero lo requiere la interface
+      );
+      
+      const finalCallId = callId.startsWith('SUCCESS:') ? callId.substring(8) : callId;
+      
+      this.activeCall.id = finalCallId;
       this.activeCall.status = 'RINGING';
       
       // Actualizar referencia global
       window._callManager_activeCall = this.activeCall;
       
-      console.log('✅ [SALIENTE] Llamada iniciada con ID:', callId);
+      console.log('✅ [SALIENTE] Llamada iniciada con ID:', finalCallId);
       
       // Configurar timeout visual
       this.setupOutgoingRingTimer();
       
-      return callId;
+      return finalCallId;
       
     } catch (error) {
       console.error('❌ [SALIENTE] Error:', error);
@@ -71,16 +79,14 @@ class CallManager {
   }
 
   // ========================================
-  // MANEJAR RESPUESTA (LLAMADO POR auth.js)
+  // MANEJAR RESPUESTA
   // ========================================
   
-  async handleCallAnswer(answer, webrtcManager) {
+  async handleCallAnswer(answer) {
     try {
       console.log('📥 [CALL MANAGER] Procesando respuesta:', answer.status);
       
-      this.webrtcManager = webrtcManager;
-      
-      // ⚡ CRÍTICO: Recuperar activeCall desde global si no existe
+      // Recuperar activeCall desde global si no existe
       if (!this.activeCall) {
         console.warn('⚠️ [CALL MANAGER] activeCall es null, recuperando desde global...');
         this.activeCall = window._callManager_activeCall;
@@ -102,7 +108,6 @@ class CallManager {
         normalizedStatus = answer.status._name;
       }
       
-      // Convertir a mayúsculas para comparación
       normalizedStatus = normalizedStatus.toUpperCase();
       console.log('📝 [CALL MANAGER] Status normalizado:', normalizedStatus);
 
@@ -120,10 +125,9 @@ class CallManager {
         // Actualizar global
         window._callManager_activeCall = this.activeCall;
         
-        console.log('📝 [CALL MANAGER] Procesando SDP en WebRTC...');
-        
-        // Procesar SDP en WebRTC
-        await webrtcManager.handleCallAnswer(answer);
+        // ⚡ NUEVO: Iniciar streaming de audio
+        await audioStreamManager.startStreaming();
+        console.log('🎤 [CALL MANAGER] Audio streaming iniciado');
         
         // Iniciar contador de duración
         this.startDurationTimer();
@@ -172,9 +176,7 @@ class CallManager {
       this.activeCall.status = 'NO_ANSWER';
       
       try {
-        if (this.webrtcManager) {
-          await this.webrtcManager.endCall();
-        }
+        await iceClient.endCall(this.activeCall.id, state.currentUsername);
       } catch (err) {
         console.error('Error finalizando llamada:', err);
       }
@@ -197,11 +199,9 @@ class CallManager {
   // RECIBIR LLAMADA ENTRANTE
   // ========================================
   
-  async receiveIncomingCall(offer, webrtcManager) {
+  async receiveIncomingCall(offer) {
     try {
       console.log('📞 [ENTRANTE] Llamada de', offer.caller);
-      
-      this.webrtcManager = webrtcManager;
       
       this.activeCall = {
         id: offer.callId,
@@ -259,9 +259,13 @@ class CallManager {
       this.activeCall.status = 'NO_ANSWER';
       
       try {
-        if (this.webrtcManager && this.activeCall.offer) {
-          await this.webrtcManager.answerCall(this.activeCall.offer, false);
-        }
+        const Ice = window.Ice;
+        await iceClient.answerCall(
+          this.activeCall.id,
+          state.currentUsername,
+          'REJECTED', // Auto-rechazar
+          ''
+        );
         await iceClient.endCall(this.activeCall.id, state.currentUsername);
       } catch (err) {
         console.error('Error rechazando automáticamente:', err);
@@ -284,7 +288,7 @@ class CallManager {
   // ACEPTAR LLAMADA
   // ========================================
   
-  async acceptCall(webrtcManager) {
+  async acceptCall() {
     try {
       if (!this.activeCall || this.activeCall.type !== 'INCOMING') {
         throw new Error('No hay llamada entrante para aceptar');
@@ -292,13 +296,17 @@ class CallManager {
       
       console.log('✅ [ACEPTAR] Usuario aceptó después de', this.ringSeconds, 'segundos');
       
-      this.webrtcManager = webrtcManager;
-      
       // Limpiar timers de sonar
       this.clearRingTimers();
       
-      // Responder
-      await webrtcManager.answerCall(this.activeCall.offer, true);
+      // ⚡ Responder con ACCEPTED
+      const Ice = window.Ice;
+      await iceClient.answerCall(
+        this.activeCall.id,
+        state.currentUsername,
+        'ACCEPTED',
+        'dummy-sdp' // No se usa
+      );
       
       // Actualizar estado
       this.activeCall.status = 'CONNECTED';
@@ -325,16 +333,19 @@ class CallManager {
   // RECHAZAR LLAMADA
   // ========================================
   
-  async rejectCall(webrtcManager, reason = 'REJECTED') {
+  async rejectCall(reason = 'REJECTED') {
     try {
       console.log('❌ [RECHAZAR] Llamada rechazada:', reason);
       
-      this.webrtcManager = webrtcManager;
-      
       this.clearRingTimers();
       
-      if (this.activeCall && this.activeCall.offer) {
-        await webrtcManager.answerCall(this.activeCall.offer, false);
+      if (this.activeCall) {
+        await iceClient.answerCall(
+          this.activeCall.id,
+          state.currentUsername,
+          'REJECTED',
+          ''
+        );
       }
       
       this.activeCall.status = 'REJECTED';
@@ -383,7 +394,7 @@ class CallManager {
   // FINALIZAR LLAMADA
   // ========================================
   
-  async endCall(webrtcManager = null) {
+  async endCall() {
     try {
       if (!this.activeCall) return;
       
@@ -391,10 +402,8 @@ class CallManager {
       
       this.clearAllTimers();
       
-      const wm = webrtcManager || this.webrtcManager;
-      if (wm) {
-        await wm.endCall();
-      }
+      // ⚡ Detener audio streaming
+      audioStreamManager.cleanup();
       
       if (this.activeCall.id) {
         try {
@@ -492,10 +501,12 @@ class CallManager {
     this.clearAllTimers();
     this.activeCall = null;
     window._callManager_activeCall = null;
-    this.webrtcManager = null;
     this.callDuration = 0;
     this.callStartTime = null;
     this.ringSeconds = 0;
+    
+    // ⚡ Limpiar audio
+    audioStreamManager.cleanup();
   }
 
   // ========================================

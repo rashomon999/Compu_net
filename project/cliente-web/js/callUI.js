@@ -1,11 +1,11 @@
 // ============================================
-// js/callUI.js - CORRECCIÓN: Pasar webrtcManager siempre
+// js/callUI.js - UI de Llamadas con Audio Streaming
 // ============================================
 
-import { webrtcManager } from './webrtcManager.js';
 import { callManager } from './callManager.js';
 import { state } from './state.js';
 import { showError } from './ui.js';
+import { audioStreamManager } from './audioStreamManager.js'; // ⚡ NUEVO
 
 // ========================================
 // INICIAR LLAMADA
@@ -45,8 +45,8 @@ export async function initiateCall(targetUser) {
     
     updateCallStatus('Estableciendo conexión...');
     
-    // ✅ CRÍTICO: Pasar webrtcManager al callManager
-    await callManager.initiateOutgoingCall(targetUser, webrtcManager);
+    // ⚠️ Iniciar llamada SIN webrtcManager (ya no se usa)
+    await callManager.initiateOutgoingCall(targetUser);
     
     if (!document.getElementById('outgoingCallModal')) {
       console.warn('⚠️ Modal desapareció durante iniciación');
@@ -125,8 +125,7 @@ function showOutgoingCallUI(targetUser) {
     cancelBtn.onclick = async () => {
       console.log('🚫 [CALL UI] Usuario canceló la llamada');
       try {
-        // ✅ CRÍTICO: Pasar webrtcManager al endCall
-        await callManager.endCall(webrtcManager);
+        await callManager.endCall();
       } catch (error) {
         console.error('Error cancelando:', error);
       } finally {
@@ -164,8 +163,7 @@ export async function showIncomingCallUI(offer) {
   try {
     console.log('📞 [CALL UI] Mostrando llamada entrante de:', offer.caller);
     
-    // ✅ CRÍTICO: Pasar webrtcManager a receiveIncomingCall
-    await callManager.receiveIncomingCall(offer, webrtcManager);
+    await callManager.receiveIncomingCall(offer);
     
     const modal = document.createElement('div');
     modal.id = 'incomingCallModal';
@@ -195,10 +193,14 @@ export async function showIncomingCallUI(offer) {
     document.getElementById('acceptCallBtn').onclick = async () => {
       console.log('✅ [CALL UI] Usuario aceptó llamada');
       try {
-        // ✅ CRÍTICO: Pasar webrtcManager a acceptCall
-        await callManager.acceptCall(webrtcManager);
+        await callManager.acceptCall();
         hideIncomingCallUI();
         showActiveCallUI(offer.caller);
+        
+        // ⚡ NUEVO: Iniciar streaming de audio
+        await audioStreamManager.startStreaming();
+        console.log('🎤 [CALL UI] Audio streaming iniciado');
+        
       } catch (error) {
         console.error('❌ Error aceptando llamada:', error);
         hideCallUI();
@@ -209,8 +211,7 @@ export async function showIncomingCallUI(offer) {
     document.getElementById('rejectCallBtn').onclick = async () => {
       console.log('❌ [CALL UI] Usuario rechazó llamada');
       try {
-        // ✅ CRÍTICO: Pasar webrtcManager a rejectCall
-        await callManager.rejectCall(webrtcManager, 'USER_REJECTED');
+        await callManager.rejectCall('USER_REJECTED');
         hideIncomingCallUI();
       } catch (error) {
         console.error('Error rechazando:', error);
@@ -284,15 +285,14 @@ export function showActiveCallUI(otherUser) {
   let isMuted = false;
   muteBtn.onclick = () => {
     isMuted = !isMuted;
-    webrtcManager.toggleAudio(!isMuted);
+    audioStreamManager.toggleMute(isMuted); // ⚡ NUEVO
     muteBtn.textContent = isMuted ? '🔇 Silenciado' : '🎤 Micrófono';
   };
   
   // Botón de finalizar
   document.getElementById('endCallBtn').onclick = async () => {
     console.log('🔚 [CALL UI] Usuario finalizó llamada');
-    // ✅ CRÍTICO: Pasar webrtcManager al endCall
-    await callManager.endCall(webrtcManager);
+    await callManager.endCall();
     hideCallUI();
   };
 }
@@ -313,12 +313,15 @@ export function hideCallUI() {
     activeModal.remove();
   }
   
+  // ⚡ NUEVO: Detener streaming de audio
+  audioStreamManager.cleanup();
+  
   stopRingtone();
   console.log('✅ [CALL UI] Todas las UIs limpiadas');
 }
 
 // ========================================
-// SONIDO DE LLAMADA
+// SONIDO DE LLAMADA (mantener)
 // ========================================
 
 let ringtoneAudio = null;
@@ -366,7 +369,7 @@ function stopRingtone() {
 }
 
 // ========================================
-// CALLBACKS GLOBALES
+// CALLBACKS GLOBALES (mantener)
 // ========================================
 
 window.onCallTimeout = (callInfo) => {

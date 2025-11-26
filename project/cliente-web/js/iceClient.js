@@ -636,6 +636,25 @@ class IceClientManager {
     console.log('✅ [POLLING] Polling activo (cada 1 segundo)');
   }
   
+  // En iceClient.js, agregar:
+
+async sendAudioChunk(username, audioData) {
+  if (!this.callService) {
+    throw new Error('CallService no disponible');
+  }
+  try {
+    // Asegurar que sea Uint8Array
+    const data = audioData instanceof Uint8Array
+      ? audioData
+      : Uint8Array.from(audioData);
+    
+    await this.callService.sendAudioChunk(username, data);
+  } catch (error) {
+    console.error('Error enviando audio chunk:', error);
+    throw error;
+  }
+}
+
   async unsubscribeFromCallEvents(username) {
     if (!this.callService) return;
     try {

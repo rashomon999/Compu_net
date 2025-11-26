@@ -1,32 +1,32 @@
-// ============================================================================
-// ChatSystem.ice - Definición de interfaces para sistema de chat
-// Ubicación: backend-java/server/ChatSystem.ice
-// ============================================================================
+// ChatSystem.ice - Definición completa con audio streaming
 
 module ChatSystem {
     
-    // ========================================================================
-    // ESTRUCTURAS DE DATOS
-    // ========================================================================
+    // ============================================
+    // TIPOS BASICOS
+    // ============================================
     
-    /**
-     * Mensaje de chat (texto o voz)
-     */
+    sequence<byte> Bytes;
+    sequence<string> StringSeq;
+    
+    // ============================================
+    // MENSAJERÍA
+    // ============================================
+    
     struct Message {
         string sender;
         string recipient;
         string content;
-        string type;        // "TEXT" o "VOICE"
+        string type;
         string timestamp;
         bool isGroup;
     };
-    
     sequence<Message> MessageSeq;
-    sequence<string> StringSeq;
     
-    /**
-     * Información detallada de un grupo
-     */
+    // ============================================
+    // GRUPOS
+    // ============================================
+    
     struct GroupInfo {
         string name;
         string creator;
@@ -34,224 +34,32 @@ module ChatSystem {
         int memberCount;
         string createdAt;
     };
-    
     sequence<GroupInfo> GroupSeq;
     
-    /**
-     * Nota de voz con metadata
-     */
+    // ============================================
+    // NOTAS DE VOZ
+    // ============================================
+    
     struct VoiceNote {
         string id;
         string sender;
         string target;
-        string audioFileRef;    // Referencia al archivo en servidor
+        string audioFileRef;
         bool isGroup;
         string timestamp;
         int durationSeconds;
     };
-    
     sequence<VoiceNote> VoiceNoteSeq;
     
-    // ========================================================================
-    // SERVICIO PRINCIPAL DE CHAT
-    // ========================================================================
+    // ============================================
+    // LLAMADAS
+    // ============================================
     
-    interface ChatService {
-        /**
-         * Envía un mensaje privado a otro usuario
-         * @param sender Usuario que envía
-         * @param recipient Usuario que recibe
-         * @param message Contenido del mensaje
-         * @return Resultado de la operación
-         */
-        string sendPrivateMessage(string sender, string recipient, string message);
-        
-        /**
-         * Envía un mensaje a un grupo
-         * @param sender Usuario que envía
-         * @param groupName Nombre del grupo
-         * @param message Contenido del mensaje
-         * @return Resultado de la operación
-         */
-        string sendGroupMessage(string sender, string groupName, string message);
-        
-        /**
-         * Obtiene el historial de conversación entre dos usuarios
-         * @param user1 Primer usuario
-         * @param user2 Segundo usuario
-         * @return Historial formateado
-         */
-        string getConversationHistory(string user1, string user2);
-        
-        /**
-         * Obtiene el historial de un grupo
-         * @param groupName Nombre del grupo
-         * @param username Usuario que solicita (debe ser miembro)
-         * @return Historial formateado
-         */
-        string getGroupHistory(string groupName, string username);
-        
-        /**
-         * Obtiene la lista de conversaciones recientes de un usuario
-         * @param username Usuario
-         * @return Lista de usuarios con los que ha conversado
-         */
-        StringSeq getRecentConversations(string username);
-    };
-    
-    // ========================================================================
-    // SERVICIO DE GESTIÓN DE GRUPOS
-    // ========================================================================
-    
-    interface GroupService {
-        /**
-         * Crea un nuevo grupo de chat
-         * @param groupName Nombre del grupo
-         * @param creator Usuario creador
-         * @return Resultado de la operación
-         */
-        string createGroup(string groupName, string creator);
-        
-        /**
-         * Une un usuario a un grupo existente
-         * @param groupName Nombre del grupo
-         * @param username Usuario a unir
-         * @return Resultado de la operación
-         */
-        string joinGroup(string groupName, string username);
-        
-        /**
-         * Remueve un usuario de un grupo
-         * @param groupName Nombre del grupo
-         * @param username Usuario a remover
-         * @return Resultado de la operación
-         */
-        string leaveGroup(string groupName, string username);
-        
-        /**
-         * Lista todos los grupos donde el usuario es miembro
-         * @param username Usuario
-         * @return Array de información de grupos
-         */
-        GroupSeq listUserGroups(string username);
-        
-        /**
-         * Obtiene los miembros de un grupo
-         * @param groupName Nombre del grupo
-         * @return Lista de usernames
-         */
-        StringSeq getGroupMembers(string groupName);
-    };
-    
-    // ========================================================================
-    // SERVICIO DE NOTIFICACIONES (PATRÓN OBSERVER)
-    // ========================================================================
-    
-    /**
-     * Callback para recibir notificaciones en tiempo real
-     * Implementado por el cliente
-     */
-    interface NotificationCallback {
-        /**
-         * Notifica cuando llega un mensaje nuevo
-         */
-        void onNewMessage(Message msg);
-        
-        /**
-         * Notifica cuando se crea un grupo nuevo
-         */
-        void onGroupCreated(string groupName, string creator);
-        
-        /**
-         * Notifica cuando alguien se une a un grupo
-         */
-        void onUserJoinedGroup(string groupName, string username);
-    };
-    
-    /**
-     * Servicio de notificaciones push (Subject del patrón Observer)
-     */
-    interface NotificationService {
-        /**
-         * Suscribe un cliente para recibir notificaciones
-         * @param username Usuario que se suscribe
-         * @param callback Objeto callback del cliente
-         */
-        void subscribe(string username, NotificationCallback* callback);
-        
-        /**
-         * Desuscribe un cliente
-         * @param username Usuario que se desuscribe
-         */
-        void unsubscribe(string username);
-        
-        /**
-         * Obtiene mensajes nuevos desde la última consulta
-         * @param username Usuario
-         * @return Array de mensajes nuevos
-         */
-        MessageSeq getNewMessages(string username);
-        
-        /**
-         * Marca mensajes como leídos
-         * @param username Usuario
-         */
-        void markAsRead(string username);
-    };
-    
-    // ========================================================================
-    // SERVICIO DE NOTAS DE VOZ
-    // ========================================================================
-    
-    interface VoiceService {
-        /**
-         * Guarda una nota de voz
-         * @param sender Usuario que envía
-         * @param target Usuario o grupo receptor
-         * @param audioDataBase64 Audio codificado en Base64
-         * @param isGroup Si es para un grupo
-         * @return ID de la nota de voz o mensaje de error
-         */
-        string saveVoiceNote(string sender, string target, string audioDataBase64, bool isGroup);
-        
-        /**
-         * Obtiene el audio de una nota de voz
-         * @param audioFileRef Referencia al archivo
-         * @return Audio codificado en Base64
-         */
-        string getVoiceNote(string audioFileRef);
-        
-        /**
-         * Obtiene el historial de notas de voz entre dos usuarios
-         * @param user1 Primer usuario
-         * @param user2 Segundo usuario
-         * @return Array de notas de voz
-         */
-        VoiceNoteSeq getVoiceNotesHistory(string user1, string user2);
-        
-        /**
-         * Obtiene las notas de voz de un grupo
-         * @param groupName Nombre del grupo
-         * @return Array de notas de voz
-         */
-        VoiceNoteSeq getGroupVoiceNotes(string groupName);
-    };
-    
-    // ========================================================================
-    // SERVICIO DE LLAMADAS (WEBRTC)
-    // ========================================================================
-    
-    /**
-     * Tipos de llamada
-     */
     enum CallType {
         AudioOnly,
         Video
     };
     
-    /**
-     * Estados de una llamada
-     */
     enum CallStatus {
         Ringing,
         Accepted,
@@ -261,9 +69,6 @@ module ChatSystem {
         NoAnswer
     };
     
-    /**
-     * Oferta de llamada (SDP)
-     */
     struct CallOffer {
         string callId;
         string caller;
@@ -272,134 +77,100 @@ module ChatSystem {
         string sdp;
         long timestamp;
     };
+    sequence<CallOffer> CallOfferSeq;
     
-    /**
-     * Respuesta a una llamada
-     */
     struct CallAnswer {
         string callId;
         string sdp;
         CallStatus status;
     };
+    sequence<CallAnswer> CallAnswerSeq;
     
-    /**
-     * Candidato ICE de WebRTC
-     */
     struct RtcCandidate {
         string callId;
         string candidate;
         string sdpMid;
         int sdpMLineIndex;
     };
-    
-    // Secuencias para polling
-    sequence<CallOffer> CallOfferSeq;
-    sequence<CallAnswer> CallAnswerSeq;
     sequence<RtcCandidate> RtcCandidateSeq;
     
-    /**
-     * Callback para eventos de llamadas
-     * Implementado por el cliente
-     */
-    interface CallCallback {
-        /**
-         * Notifica cuando llega una llamada entrante
-         */
-        void onIncomingCall(CallOffer offer);
-        
-        /**
-         * Notifica la respuesta a una llamada
-         */
-        void onCallAnswer(CallAnswer answer);
-        
-        /**
-         * Notifica un candidato ICE
-         */
-        void onRtcCandidate(RtcCandidate candidate);
-        
-        /**
-         * Notifica que la llamada terminó
-         */
-        void onCallEnded(string callId, string reason);
+    //  NUEVO: Estructura para chunks de audio en tiempo real
+    struct AudioChunk {
+        Bytes data;
+        long timestamp;
     };
     
-    /**
-     * Servicio de gestión de llamadas
-     */
+    // ============================================
+    // CALLBACKS
+    // ============================================
+    
+    interface NotificationCallback {
+        void onNewMessage(Message msg);
+        void onGroupCreated(string groupName, string creator);
+        void onUserJoinedGroup(string groupName, string username);
+    };
+    
+    interface CallCallback {
+        void onIncomingCall(CallOffer offer);
+        void onCallAnswer(CallAnswer answer);
+        void onRtcCandidate(RtcCandidate candidate);
+        void onCallEnded(string callId, string reason);
+        
+        //  NUEVO: Callback para recibir audio en tiempo real
+        void onAudioChunk(AudioChunk chunk);
+    };
+    
+    // ============================================
+    // SERVICIOS
+    // ============================================
+    
+    interface ChatService {
+        string sendPrivateMessage(string sender, string recipient, string message);
+        string sendGroupMessage(string sender, string groupName, string message);
+        string getConversationHistory(string user1, string user2);
+        string getGroupHistory(string groupName, string username);
+        StringSeq getRecentConversations(string username);
+    };
+    
+    interface GroupService {
+        string createGroup(string groupName, string creator);
+        string joinGroup(string groupName, string username);
+        string leaveGroup(string groupName, string username);
+        GroupSeq listUserGroups(string username);
+        StringSeq getGroupMembers(string groupName);
+    };
+    
+    interface NotificationService {
+        void subscribe(string username, NotificationCallback* callback);
+        void unsubscribe(string username);
+        MessageSeq getNewMessages(string username);
+        void markAsRead(string username);
+    };
+    
+    interface VoiceService {
+        string saveVoiceNote(string sender, string target, string audioDataBase64, bool isGroup);
+        string getVoiceNote(string audioFileRef);
+        VoiceNoteSeq getVoiceNotesHistory(string user1, string user2);
+        VoiceNoteSeq getGroupVoiceNotes(string groupName);
+    };
+    
     interface CallService {
-        /**
-         * Inicia una llamada a otro usuario
-         * @param caller Usuario que llama
-         * @param callee Usuario que recibe
-         * @param callType Tipo de llamada (audio/video)
-         * @param sdp Session Description Protocol
-         * @return ID de la llamada o mensaje de error
-         */
-        string initiateCall(string caller, string callee, CallType callType, string sdp);
-        
-        /**
-         * Responde a una llamada entrante
-         * @param callId ID de la llamada
-         * @param callee Usuario que responde
-         * @param status Estado de respuesta
-         * @param sdp Session Description Protocol
-         * @return Resultado de la operación
-         */
+        // Señalización (mantener)
+        string initiateCall(string caller, string callee, CallType type, string sdp);
         string answerCall(string callId, string callee, CallStatus status, string sdp);
-        
-        /**
-         * Finaliza una llamada activa
-         * @param callId ID de la llamada
-         * @param username Usuario que finaliza
-         */
         void endCall(string callId, string username);
-        
-        /**
-         * Envía un candidato ICE para establecer conexión
-         * @param callId ID de la llamada
-         * @param username Usuario que envía
-         * @param candidate Candidato ICE
-         * @param sdpMid Media stream ID
-         * @param sdpMLineIndex Índice de línea SDP
-         */
         void sendRtcCandidate(string callId, string username, string candidate, string sdpMid, int sdpMLineIndex);
         
-        /**
-         * Suscribe un cliente para recibir eventos de llamadas
-         * @param username Usuario que se suscribe
-         * @param callback Objeto callback del cliente
-         */
+        // Suscripción
         void subscribe(string username, CallCallback* callback);
-        
-        /**
-         * Desuscribe un cliente de eventos de llamadas
-         * @param username Usuario que se desuscribe
-         */
         void unsubscribe(string username);
         
-        // ============================================================
-        // MÉTODOS DE POLLING (fallback para JavaScript)
-        // ============================================================
-        
-        /**
-         * Obtiene llamadas entrantes pendientes
-         * @param username Usuario que consulta
-         * @return Array de ofertas pendientes
-         */
+        // Polling
         CallOfferSeq getPendingIncomingCalls(string username);
-        
-        /**
-         * Obtiene respuestas de llamadas pendientes
-         * @param username Usuario que consulta
-         * @return Array de respuestas pendientes
-         */
         CallAnswerSeq getPendingCallAnswers(string username);
-        
-        /**
-         * Obtiene candidatos ICE pendientes
-         * @param username Usuario que consulta
-         * @return Array de candidatos pendientes
-         */
         RtcCandidateSeq getPendingRtcCandidates(string username);
+        
+        //  NUEVO: Streaming de audio directo
+        void sendAudioChunk(string username, Bytes audioData);
     };
 };

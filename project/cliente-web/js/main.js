@@ -1,5 +1,5 @@
 // ============================================
-// js/main.js - Punto de entrada principal
+// js/main.js - Punto de entrada principal (sin WebRTC)
 // ============================================
 
 // ⚡ IMPORTAR CSS
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   // ========================================
-  // AUDIO
+  // AUDIO (NOTAS DE VOZ)
   // ========================================
   const recordButton = document.getElementById('recordButton');
   const cancelButton = document.getElementById('cancelButton');

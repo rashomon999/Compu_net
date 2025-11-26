@@ -20,6 +20,9 @@ public class CallServiceI implements CallService {
     private final Map<String, List<CallAnswer>> pendingAnswers = new ConcurrentHashMap<>();
     private final Map<String, List<RtcCandidate>> pendingCandidates = new ConcurrentHashMap<>();
 
+    // ⚡ NUEVO: Para streaming de audio directo
+    private final Map<String, String> activeAudioStreams = new ConcurrentHashMap<>(); // username -> otherUser
+    
     @Override
     public String initiateCall(String caller, String callee, CallType type, String sdp, Current current) {
         System.out.println("[CALL] 📞 Nueva llamada: " + caller + " → " + callee + " (" + type + ")");
@@ -37,7 +40,7 @@ public class CallServiceI implements CallService {
         activeCalls.put(callId, offer);
         callParticipants.put(callId, new String[]{caller, callee});
         
-        // ✅ MÉTODO 1: Intentar callback (si está soportado)
+        // Intentar callback directo
         CallCallbackPrx calleeCallback = subscribers.get(callee);
         if (calleeCallback != null) {
             try {
@@ -45,7 +48,6 @@ public class CallServiceI implements CallService {
                 calleeCallback.ice_oneway().onIncomingCallAsync(offer).whenComplete((result, ex) -> {
                     if (ex != null) {
                         System.err.println("   ❌ Callback falló: " + ex.getMessage());
-                        // Agregar a queue de polling
                         addPendingCall(callee, offer);
                     } else {
                         System.out.println("   ✅ Callback exitoso");
@@ -78,16 +80,14 @@ public class CallServiceI implements CallService {
             return "ERROR: No autorizado";
         }
         
-        // ✅ CRÍTICO: Crear respuesta con el status REAL que envió el cliente
         CallAnswer answer = new CallAnswer();
         answer.callId = callId;
         answer.sdp = sdp;
-        answer.status = status; // ⚡ Usar el status recibido, NO cambiarlo
+        answer.status = status;
         
         System.out.println("   📝 Creando respuesta con status: " + status);
-        System.out.println("   📝 Status enum value: " + status.value());
         
-        // ✅ Enviar al caller (quien inició la llamada)
+        // Enviar al caller
         CallCallbackPrx callerCallback = subscribers.get(offer.caller);
         if (callerCallback != null) {
             try {
@@ -109,12 +109,43 @@ public class CallServiceI implements CallService {
             addPendingAnswer(offer.caller, answer);
         }
         
-        if (status == CallStatus.Rejected || status == CallStatus.NoAnswer) {
+        // ⚡ NUEVO: Si acepta, habilitar streaming de audio
+        if (status == CallStatus.Accepted) {
+            activeAudioStreams.put(offer.caller, callee);
+            activeAudioStreams.put(callee, offer.caller);
+            System.out.println("   🎵 Audio streaming habilitado: " + offer.caller + " ↔ " + callee);
+        } else if (status == CallStatus.Rejected || status == CallStatus.NoAnswer) {
             activeCalls.remove(callId);
             callParticipants.remove(callId);
         }
         
         return "SUCCESS";
+    }
+
+    // ⚡ NUEVO: Streaming de audio directo (sin WebRTC)
+    public void sendAudioChunk(String username, byte[] audioData, Current current) {
+        String targetUser = activeAudioStreams.get(username);
+        
+        if (targetUser == null) {
+            // No hay llamada activa
+            return;
+        }
+        
+        CallCallbackPrx targetCallback = subscribers.get(targetUser);
+        if (targetCallback != null) {
+            try {
+                // Crear estructura de audio chunk usando la clase generada
+                ChatSystem.AudioChunk chunk = new ChatSystem.AudioChunk(
+                    audioData,                    // data
+                    System.currentTimeMillis()    // timestamp
+                );
+                
+                // Enviar de forma asíncrona
+                targetCallback.ice_oneway().onAudioChunkAsync(chunk);
+            } catch (Exception e) {
+                System.err.println("   ❌ Error enviando audio chunk: " + e.getMessage());
+            }
+        }
     }
 
     @Override
@@ -127,6 +158,11 @@ public class CallServiceI implements CallService {
         }
         
         String otherUser = participants[0].equals(username) ? participants[1] : participants[0];
+        
+        // ⚡ NUEVO: Limpiar streaming de audio
+        activeAudioStreams.remove(username);
+        activeAudioStreams.remove(otherUser);
+        System.out.println("   🔇 Audio streaming deshabilitado");
         
         CallCallbackPrx callback = subscribers.get(otherUser);
         if (callback != null) {
@@ -144,31 +180,8 @@ public class CallServiceI implements CallService {
     @Override
     public void sendRtcCandidate(String callId, String username, String candidate, 
                                   String sdpMid, int sdpMLineIndex, Current current) {
-        System.out.println("[CALL] 🧊 RTC candidate de " + username);
-        
-        String[] participants = callParticipants.get(callId);
-        if (participants == null) {
-            return;
-        }
-        
-        String otherUser = participants[0].equals(username) ? participants[1] : participants[0];
-        
-        RtcCandidate rtcCandidate = new RtcCandidate();
-        rtcCandidate.callId = callId;
-        rtcCandidate.candidate = candidate;
-        rtcCandidate.sdpMid = sdpMid;
-        rtcCandidate.sdpMLineIndex = sdpMLineIndex;
-        
-        CallCallbackPrx callback = subscribers.get(otherUser);
-        if (callback != null) {
-            try {
-                callback.ice_oneway().onRtcCandidateAsync(rtcCandidate);
-            } catch (Exception e) {
-                addPendingCandidate(otherUser, rtcCandidate);
-            }
-        } else {
-            addPendingCandidate(otherUser, rtcCandidate);
-        }
+        // Mantener para compatibilidad pero ya no se usa
+        System.out.println("[CALL] ⚠️ sendRtcCandidate llamado pero no necesario con streaming directo");
     }
 
     @Override
@@ -181,6 +194,7 @@ public class CallServiceI implements CallService {
     @Override
     public void unsubscribe(String username, Current current) {
         subscribers.remove(username);
+        activeAudioStreams.remove(username);
         System.out.println("[CALL] 📞 Usuario desuscrito: " + username);
         
         activeCalls.entrySet().removeIf(entry -> {
@@ -194,12 +208,9 @@ public class CallServiceI implements CallService {
     }
 
     // ========================================================================
-    // ✅ MÉTODOS PARA POLLING
+    // MÉTODOS PARA POLLING (mantener los existentes)
     // ========================================================================
 
-    /**
-     * Obtener llamadas pendientes (para polling del cliente)
-     */
     public CallOffer[] getPendingIncomingCalls(String username, Current current) {
         List<CallOffer> calls = pendingCalls.remove(username);
         if (calls == null || calls.isEmpty()) {
@@ -209,22 +220,15 @@ public class CallServiceI implements CallService {
         return calls.toArray(new CallOffer[0]);
     }
 
-    /**
-     * Obtener respuestas pendientes (para polling del cliente)
-     */
     public CallAnswer[] getPendingCallAnswers(String username, Current current) {
         List<CallAnswer> answers = pendingAnswers.remove(username);
         if (answers == null || answers.isEmpty()) {
             return new CallAnswer[0];
         }
         System.out.println("[CALL] 📬 Entregando " + answers.size() + " respuestas pendientes a " + username);
-        System.out.println("   Respuesta status: " + (answers.get(0).status));
         return answers.toArray(new CallAnswer[0]);
     }
 
-    /**
-     * Obtener candidates pendientes (para polling del cliente)
-     */
     public RtcCandidate[] getPendingRtcCandidates(String username, Current current) {
         List<RtcCandidate> candidates = pendingCandidates.remove(username);
         if (candidates == null || candidates.isEmpty()) {
@@ -232,10 +236,6 @@ public class CallServiceI implements CallService {
         }
         return candidates.toArray(new RtcCandidate[0]);
     }
-
-    // ========================================================================
-    // MÉTODOS AUXILIARES
-    // ========================================================================
 
     private void addPendingCall(String username, CallOffer offer) {
         pendingCalls.computeIfAbsent(username, k -> new ArrayList<>()).add(offer);
