@@ -1,6 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación con Audio Streaming
-// SIN WebRTC - Solo streaming directo por ICE
+// js/auth.js - Autenticación CORREGIDA
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -40,7 +39,7 @@ export async function login() {
   }
 
   try {
-    console.log(`🔌 Intentando conectar a ${serverHost}:${serverPort}`);
+    console.log(`🔌 Conectando a ${serverHost}:${serverPort}`);
     await iceClient.connect(username, serverHost, serverPort);
     
     state.currentUsername = username;
@@ -48,8 +47,11 @@ export async function login() {
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
     }
+    
+    // Suscribirse a notificaciones
     await subscribeToRealTimeNotifications(username);
     
+    // ✅ SUSCRIBIRSE A EVENTOS DE LLAMADA
     try {
       await subscribeToCallEvents(username);
       console.log('✅ Eventos de llamadas habilitados');
@@ -62,6 +64,7 @@ export async function login() {
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
     }
+    
     showChatInterface();
     
     await loadRecentChatsFromICE();
@@ -75,9 +78,9 @@ export async function login() {
     let errorMsg = 'No se pudo conectar al servidor ICE';
     
     if (err.message.includes('ChatService')) {
-      errorMsg = `No se pudo conectar a ${serverHost}:${serverPort}\n\nVerifica que:\n• El servidor esté corriendo\n• La dirección IP sea correcta\n• El firewall permita conexiones al puerto ${serverPort}`;
+      errorMsg = `No se pudo conectar a ${serverHost}:${serverPort}\n\nVerifica que:\n• El servidor esté corriendo\n• La dirección IP sea correcta\n• El firewall permita conexiones`;
     } else if (err.message.includes('timeout')) {
-      errorMsg = `Timeout conectando a ${serverHost}:${serverPort}\n\n¿El servidor está corriendo?`;
+      errorMsg = `Timeout conectando a ${serverHost}:${serverPort}`;
     } else {
       errorMsg = err.message;
     }
@@ -114,146 +117,69 @@ export async function logout() {
 }
 
 // ========================================
-// SUSCRIPCIÓN A EVENTOS DE LLAMADAS
+// SUSCRIPCIÓN A EVENTOS DE LLAMADA
 // ========================================
 
 async function subscribeToCallEvents(username) {
   try {
+    console.log('📞 Suscribiendo a eventos de llamadas...');
+    
     await iceClient.subscribeToCallEvents(username, {
       
-      // Llamada entrante
+      // ✅ LLAMADA ENTRANTE
       onIncomingCall: async (offer) => {
-        console.log('📞 [AUTH] Llamada entrante de', offer.caller);
-        
-        const { showIncomingCallUI } = await import('./callUI.js');
-        await showIncomingCallUI(offer);
-      },
-      
-      // ⚡ Respuesta de llamada (con normalización robusta)
-      onCallAnswer: async (answer) => {
-        console.log('📞 [AUTH] Respuesta de llamada recibida');
-        console.log('   📋 Datos completos del answer:', answer);
-        console.log('   📋 Status RAW:', answer.status);
-        console.log('   📋 Status type:', typeof answer.status);
-        
-        // ⚡ NORMALIZACIÓN ULTRA-ROBUSTA
-        let normalizedStatus = null;
-        
-        if (typeof answer.status === 'string') {
-          normalizedStatus = answer.status;
-          console.log('   ✅ Status es string:', normalizedStatus);
-          
-        } else if (typeof answer.status === 'number') {
-          const statusMap = {
-            0: 'Ringing',
-            1: 'Accepted',
-            2: 'Rejected',
-            3: 'Ended',
-            4: 'Busy',
-            5: 'NoAnswer'
-          };
-          normalizedStatus = statusMap[answer.status] || 'Unknown';
-          console.log('   ✅ Status convertido de número', answer.status, '→', normalizedStatus);
-          
-        } else if (answer.status && typeof answer.status === 'object') {
-          if (answer.status._name) {
-            normalizedStatus = answer.status._name;
-            console.log('   ✅ Status extraído de enum._name:', normalizedStatus);
-          } else if (answer.status.name) {
-            normalizedStatus = answer.status.name;
-            console.log('   ✅ Status extraído de enum.name:', normalizedStatus);
-          } else if (answer.status._value !== undefined) {
-            const statusMap = {
-              0: 'Ringing',
-              1: 'Accepted',
-              2: 'Rejected',
-              3: 'Ended',
-              4: 'Busy',
-              5: 'NoAnswer'
-            };
-            normalizedStatus = statusMap[answer.status._value] || 'Unknown';
-            console.log('   ✅ Status convertido desde _value:', normalizedStatus);
-          } else {
-            normalizedStatus = String(answer.status);
-            console.log('   ⚠️ Status convertido a string:', normalizedStatus);
-          }
-        }
-        
-        // ⚡ CRÍTICO: Convertir a MAYÚSCULAS para comparación
-        if (normalizedStatus) {
-          normalizedStatus = normalizedStatus.toUpperCase();
-        } else {
-          console.error('❌ No se pudo normalizar el status');
-          normalizedStatus = 'UNKNOWN';
-        }
-        
-        console.log('   🎯 Status FINAL normalizado:', normalizedStatus);
-        
-        // ⚡ IGNORAR "Ringing" (estado transitorio)
-        if (normalizedStatus === 'RINGING') {
-          console.log('ℹ️ [AUTH] Estado Ringing ignorado (esperando respuesta final)');
-          return;
-        }
+        console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!');
+        console.log('   De:', offer.caller);
+        console.log('   CallID:', offer.callId);
         
         try {
-          const { showActiveCallUI, hideCallUI } = await import('./callUI.js');
+          const { showIncomingCallUI } = await import('./callUI.js');
+          await showIncomingCallUI(offer);
+        } catch (error) {
+          console.error('❌ [AUTH] Error mostrando UI de llamada:', error);
+        }
+      },
+      
+      // ✅ RESPUESTA DE LLAMADA (MUY IMPORTANTE)
+      onCallAnswer: async (answer) => {
+        console.log('📞 [AUTH] RESPUESTA DE LLAMADA RECIBIDA');
+        console.log('   CallID:', answer.callId);
+        console.log('   Status RAW:', answer.status);
+        console.log('   Tipo:', typeof answer.status);
+        
+        try {
+          // ✅ PROCESAR EN callManager (donde está la lógica)
+          await callManager.handleCallAnswer(answer);
           
-          if (normalizedStatus === 'ACCEPTED') {
-            console.log('✅ [AUTH] Llamada ACEPTADA - Procesando...');
+          // ✅ ACTUALIZAR UI SOLO SI ES LLAMADA SALIENTE
+          const activeCall = callManager.getActiveCall();
+          
+          if (activeCall && activeCall.type === 'OUTGOING') {
+            const status = callManager.normalizeStatus(answer.status);
             
-            // ⚡ CRÍTICO: Procesar en callManager (sin webrtcManager)
-            await callManager.handleCallAnswer(answer);
-            
-            // Mostrar UI solo para llamada saliente
-            const activeCall = callManager.getActiveCall();
-            console.log('   📋 activeCall después de handleAnswer:', activeCall);
-            
-            if (activeCall && activeCall.type === 'OUTGOING') {
-              console.log('   📱 Mostrando UI de llamada activa');
+            if (status === 'ACCEPTED') {
+              console.log('✅ [AUTH] Mostrando UI de llamada activa');
+              const { showActiveCallUI } = await import('./callUI.js');
               showActiveCallUI(activeCall.calleeId);
-            } else {
-              console.log('   ℹ️ No mostrar UI (es llamada entrante o no hay activeCall)');
             }
-            
-          } else if (normalizedStatus === 'REJECTED') {
-            console.log('❌ [AUTH] Llamada RECHAZADA');
-            hideCallUI();
-            showError(`${state.currentChat} rechazó la llamada`);
-            
-          } else if (normalizedStatus === 'BUSY') {
-            console.log('📵 [AUTH] Usuario ocupado');
-            hideCallUI();
-            showError(`${state.currentChat} está ocupado en otra llamada`);
-            
-          } else if (normalizedStatus === 'NOANSWER') {
-            console.log('⏱️ [AUTH] Sin respuesta');
-            hideCallUI();
-            showError(`${state.currentChat} no respondió la llamada`);
-            
-          } else if (normalizedStatus === 'ENDED') {
-            console.log('📞 [AUTH] Llamada finalizada');
-            hideCallUI();
-            
-          } else {
-            console.warn('⚠️ [AUTH] Estado no manejado:', {
-              original: answer.status,
-              normalized: normalizedStatus
-            });
           }
           
         } catch (error) {
           console.error('❌ [AUTH] Error procesando respuesta:', error);
-          console.error('   Stack trace:', error.stack);
+          console.error('   Stack:', error.stack);
           
           const { hideCallUI } = await import('./callUI.js');
           hideCallUI();
-          showError('Error procesando respuesta de llamada');
+          showError('Error en la llamada');
         }
       },
       
-      // ⚡ NUEVO: Audio chunks (en lugar de RTC candidates)
+      // ✅ AUDIO CHUNKS (NUEVO)
       onAudioChunk: async (chunk) => {
-        console.log('🎵 [AUTH] Audio chunk recibido:', chunk.data.length, 'bytes');
+        if (!chunk || !chunk.data) {
+          console.warn('⚠️ [AUTH] Chunk de audio inválido');
+          return;
+        }
         
         try {
           const { audioStreamManager } = await import('./audioStreamManager.js');
@@ -265,27 +191,31 @@ async function subscribeToCallEvents(username) {
           
           await audioStreamManager.receiveAudioChunk(audioData);
         } catch (error) {
-          console.error('❌ [AUTH] Error procesando audio chunk:', error);
+          console.error('❌ [AUTH] Error procesando audio:', error);
         }
       },
       
-      // ⚠️ RTC Candidate - Ya no se usa pero mantener para compatibilidad
+      // RTC Candidate (ya no se usa pero mantener)
       onRtcCandidate: async (candidate) => {
-        console.log('⚠️ [AUTH] RTC candidate recibido pero ya no se usa con streaming directo');
+        console.log('⚠️ [AUTH] RTC candidate (ignorado)');
       },
       
-      // Llamada finalizada
+      // ✅ LLAMADA FINALIZADA
       onCallEnded: async (callId, reason) => {
         console.log('📞 [AUTH] Llamada finalizada:', reason);
         
-        const { hideCallUI } = await import('./callUI.js');
-        const { audioStreamManager } = await import('./audioStreamManager.js');
-        
-        audioStreamManager.cleanup();
-        await callManager.endCall();
-        hideCallUI();
-        
-        showError(`Llamada finalizada: ${reason}`);
+        try {
+          const { hideCallUI } = await import('./callUI.js');
+          const { audioStreamManager } = await import('./audioStreamManager.js');
+          
+          audioStreamManager.cleanup();
+          await callManager.endCall();
+          hideCallUI();
+          
+          showError(`Llamada finalizada: ${reason}`);
+        } catch (error) {
+          console.error('Error limpiando llamada:', error);
+        }
       }
     });
     

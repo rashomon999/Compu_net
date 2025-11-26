@@ -1,170 +1,18 @@
 // ============================================
-// js/callUI.js - UI de Llamadas con Audio Streaming
+// js/callUI.js - SECCIÓN CRÍTICA
+// Actualizar estos métodos en tu callUI.js existente
 // ============================================
 
-import { callManager } from './callManager.js';
-import { state } from './state.js';
-import { showError } from './ui.js';
-import { audioStreamManager } from './audioStreamManager.js'; // ⚡ NUEVO
-
-// ========================================
-// INICIAR LLAMADA
-// ========================================
-
-export async function initiateCall(targetUser) {
-  if (!targetUser) {
-    showError('⚠️ Selecciona un chat primero');
-    return;
-  }
-  
-  if (state.isGroup) {
-    showError('⚠️ Las llamadas solo están disponibles para chats privados');
-    return;
-  }
-  
-  if (state.callsAvailable === false) {
-    showError('❌ Las llamadas no están disponibles en el servidor');
-    return;
-  }
-  
-  let modalShown = false;
-  
-  try {
-    console.log('🎯 [CALL UI] Iniciando proceso de llamada a:', targetUser);
-    
-    // Mostrar UI inmediatamente
-    showOutgoingCallUI(targetUser);
-    modalShown = true;
-    updateCallStatus('Solicitando permisos de micrófono...');
-    
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    if (!document.getElementById('outgoingCallModal')) {
-      throw new Error('Modal de llamada fue cerrado prematuramente');
-    }
-    
-    updateCallStatus('Estableciendo conexión...');
-    
-    // ⚠️ Iniciar llamada SIN webrtcManager (ya no se usa)
-    await callManager.initiateOutgoingCall(targetUser);
-    
-    if (!document.getElementById('outgoingCallModal')) {
-      console.warn('⚠️ Modal desapareció durante iniciación');
-      return;
-    }
-    
-    updateCallStatus('Esperando respuesta...');
-    console.log('✅ [CALL UI] Llamada en progreso, esperando respuesta');
-    
-  } catch (error) {
-    console.error('❌ [CALL UI] Error:', error);
-    
-    if (modalShown) {
-      hideCallUI();
-    }
-    
-    if (error.name === 'NotAllowedError') {
-      showError('❌ Permiso de micrófono denegado');
-    } else if (error.name === 'NotFoundError') {
-      showError('❌ No se encontró ningún micrófono');
-    } else if (error.message.includes('CallService')) {
-      showError('❌ El servidor no soporta llamadas');
-      state.callsAvailable = false;
-    } else if (error.message.includes('User not found')) {
-      showError(`❌ ${targetUser} no está conectado`);
-    } else if (error.message.includes('Modal')) {
-      console.log('ℹ️ Usuario canceló la llamada');
-    } else {
-      showError('❌ Error al iniciar llamada: ' + error.message);
-    }
-  }
-}
-
-// ========================================
-// MOSTRAR LLAMADA SALIENTE
-// ========================================
-
-function showOutgoingCallUI(targetUser) {
-  console.log('🎨 [CALL UI] Mostrando modal de llamada saliente');
-  
-  const existingModal = document.getElementById('outgoingCallModal');
-  if (existingModal) {
-    existingModal.remove();
-  }
-  
-  const modal = document.createElement('div');
-  modal.id = 'outgoingCallModal';
-  modal.className = 'call-modal outgoing-call';
-  modal.setAttribute('data-call-active', 'true');
-  
-  modal.innerHTML = `
-    <div class="call-modal-content">
-      <div class="call-icon">📞</div>
-      <h3>Llamando a</h3>
-      <p class="caller-name">${targetUser}</p>
-      
-      <div class="call-status-container">
-        <div class="spinner"></div>
-        <p class="call-status" id="outgoingCallStatus">Iniciando llamada...</p>
-      </div>
-      
-      <p class="call-ring-timer" id="outgoingRingTimer" style="opacity: 0.7;">0 segundos</p>
-      
-      <div class="call-actions">
-        <button class="btn-end-call" id="cancelCallBtn">
-          ❌ Cancelar
-        </button>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(modal);
-  
-  const cancelBtn = document.getElementById('cancelCallBtn');
-  if (cancelBtn) {
-    cancelBtn.onclick = async () => {
-      console.log('🚫 [CALL UI] Usuario canceló la llamada');
-      try {
-        await callManager.endCall();
-      } catch (error) {
-        console.error('Error cancelando:', error);
-      } finally {
-        hideCallUI();
-      }
-    };
-  }
-}
-
-// ========================================
-// ACTUALIZAR ESTADO DE LLAMADA
-// ========================================
-
-function updateCallStatus(status) {
-  const statusEl = document.getElementById('outgoingCallStatus');
-  if (statusEl) {
-    statusEl.textContent = status;
-    console.log('📝 [CALL UI] Estado actualizado:', status);
-  }
-}
-
-function hideOutgoingCallUI() {
-  const modal = document.getElementById('outgoingCallModal');
-  if (modal) {
-    console.log('🧹 [CALL UI] Ocultando modal de llamada saliente');
-    modal.remove();
-  }
-}
-
-// ========================================
-// MOSTRAR LLAMADA ENTRANTE
-// ========================================
-
+// ⚠️ REEMPLAZAR tu showIncomingCallUI con esta:
 export async function showIncomingCallUI(offer) {
   try {
-    console.log('📞 [CALL UI] Mostrando llamada entrante de:', offer.caller);
+    console.log('📞 [UI] Mostrando llamada entrante de:', offer.caller);
     
+    // ✅ Primero: configurar la llamada en callManager
+    const { callManager } = await import('./callManager.js');
     await callManager.receiveIncomingCall(offer);
     
+    // ✅ Mostrar modal
     const modal = document.createElement('div');
     modal.id = 'incomingCallModal';
     modal.className = 'call-modal incoming-call';
@@ -190,26 +38,32 @@ export async function showIncomingCallUI(offer) {
     
     document.body.appendChild(modal);
     
+    // ✅ ACEPTAR
     document.getElementById('acceptCallBtn').onclick = async () => {
-      console.log('✅ [CALL UI] Usuario aceptó llamada');
+      console.log('✅ [UI] Usuario aceptó');
+      
       try {
+        // 1. Aceptar en callManager (inicia audio)
         await callManager.acceptCall();
+        
+        // 2. Ocultar modal entrante
         hideIncomingCallUI();
+        
+        // 3. Mostrar UI activa
         showActiveCallUI(offer.caller);
         
-        // ⚡ NUEVO: Iniciar streaming de audio
-        await audioStreamManager.startStreaming();
-        console.log('🎤 [CALL UI] Audio streaming iniciado');
-        
       } catch (error) {
-        console.error('❌ Error aceptando llamada:', error);
+        console.error('❌ Error aceptando:', error);
         hideCallUI();
+        const { showError } = await import('./ui.js');
         showError('Error al aceptar la llamada');
       }
     };
     
+    // ✅ RECHAZAR
     document.getElementById('rejectCallBtn').onclick = async () => {
-      console.log('❌ [CALL UI] Usuario rechazó llamada');
+      console.log('❌ [UI] Usuario rechazó');
+      
       try {
         await callManager.rejectCall('USER_REJECTED');
         hideIncomingCallUI();
@@ -222,34 +76,21 @@ export async function showIncomingCallUI(offer) {
     playRingtone();
     
   } catch (error) {
-    console.error('❌ Error mostrando llamada entrante:', error);
+    console.error('❌ Error mostrando llamada:', error);
+    const { showError } = await import('./ui.js');
     showError('Error al recibir llamada');
   }
 }
 
-function hideIncomingCallUI() {
-  const modal = document.getElementById('incomingCallModal');
-  if (modal) {
-    console.log('🧹 [CALL UI] Ocultando modal de llamada entrante');
-    modal.remove();
-  }
-  stopRingtone();
-}
-
-// ========================================
-// MOSTRAR LLAMADA ACTIVA
-// ========================================
-
+// ⚠️ REEMPLAZAR tu showActiveCallUI con esta:
 export function showActiveCallUI(otherUser) {
-  console.log('📞 [CALL UI] Mostrando UI de llamada activa con:', otherUser);
+  console.log('📞 [UI] Mostrando llamada activa con:', otherUser);
   
-  // Limpiar modales anteriores
   hideIncomingCallUI();
-  hideOutgoingCallUI();
   
-  // Verificar que realmente hay una llamada conectada
+  const { callManager } = require('./callManager.js');
   if (!callManager.isCallActive()) {
-    console.warn('⚠️ [CALL UI] Intentando mostrar UI activa sin llamada conectada');
+    console.warn('⚠️ Llamada no está realmente activa');
   }
   
   const modal = document.createElement('div');
@@ -278,57 +119,61 @@ export function showActiveCallUI(otherUser) {
   `;
   
   document.body.appendChild(modal);
-  console.log('✅ [CALL UI] Modal de llamada activa mostrado');
+  console.log('✅ [UI] Modal activo mostrado');
   
-  // Botón de mute
+  // MUTE
   const muteBtn = document.getElementById('muteBtn');
   let isMuted = false;
-  muteBtn.onclick = () => {
+  
+  muteBtn.onclick = async () => {
+    const { audioStreamManager } = await import('./audioStreamManager.js');
     isMuted = !isMuted;
-    audioStreamManager.toggleMute(isMuted); // ⚡ NUEVO
+    audioStreamManager.toggleMute(isMuted);
     muteBtn.textContent = isMuted ? '🔇 Silenciado' : '🎤 Micrófono';
   };
   
-  // Botón de finalizar
+  // END CALL
   document.getElementById('endCallBtn').onclick = async () => {
-    console.log('🔚 [CALL UI] Usuario finalizó llamada');
+    console.log('🔚 [UI] Finalizando llamada');
+    const { callManager } = await import('./callManager.js');
     await callManager.endCall();
     hideCallUI();
   };
 }
 
-// ========================================
-// OCULTAR TODAS LAS UI
-// ========================================
+// ⚠️ MANTENER igual:
+function hideIncomingCallUI() {
+  const modal = document.getElementById('incomingCallModal');
+  if (modal) {
+    console.log('🧹 Ocultando modal entrante');
+    modal.remove();
+  }
+  stopRingtone();
+}
 
 export function hideCallUI() {
-  console.log('🧹 [CALL UI] Limpiando TODAS las UIs de llamada');
+  console.log('🧹 [UI] Limpiando todas las UIs');
   
   hideIncomingCallUI();
-  hideOutgoingCallUI();
   
   const activeModal = document.getElementById('activeCallModal');
   if (activeModal) {
-    console.log('🧹 [CALL UI] Eliminando modal de llamada activa');
     activeModal.remove();
   }
   
-  // ⚡ NUEVO: Detener streaming de audio
-  audioStreamManager.cleanup();
+  const outgoingModal = document.getElementById('outgoingCallModal');
+  if (outgoingModal) {
+    outgoingModal.remove();
+  }
   
   stopRingtone();
-  console.log('✅ [CALL UI] Todas las UIs limpiadas');
+  console.log('✅ [UI] Limpieza completa');
 }
 
-// ========================================
-// SONIDO DE LLAMADA (mantener)
-// ========================================
-
+// ⚠️ MANTENER igual:
 let ringtoneAudio = null;
 
 function playRingtone() {
-  console.log('🔔 Reproduciendo tono de llamada');
-  
   try {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -357,9 +202,7 @@ function stopRingtone() {
     try {
       ringtoneAudio.oscillator.stop();
       ringtoneAudio.audioContext.close();
-    } catch (error) {
-      console.error('Error deteniendo ringtone:', error);
-    }
+    } catch (error) {}
     ringtoneAudio = null;
   }
   
@@ -368,22 +211,6 @@ function stopRingtone() {
   }
 }
 
-// ========================================
-// CALLBACKS GLOBALES (mantener)
-// ========================================
-
-window.onCallTimeout = (callInfo) => {
-  console.log('⏱️ Llamada sin respuesta:', callInfo);
-  hideCallUI();
-  showError(`❌ ${callInfo.callee} no respondió después de ${callInfo.ringDuration || 60} segundos`);
-};
-
-window.onIncomingCallTimeout = (callInfo) => {
-  console.log('⏱️ Llamada entrante sin respuesta:', callInfo);
-  hideCallUI();
-  showError(`❌ No respondiste la llamada de ${callInfo.caller}`);
-};
-
 window.updateCallDuration = (seconds) => {
   const timerEl = document.getElementById('callTimer');
   if (timerEl) {
@@ -391,9 +218,4 @@ window.updateCallDuration = (seconds) => {
     const secs = seconds % 60;
     timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
-};
-
-window.onCallEnded = () => {
-  console.log('📞 Evento de llamada finalizada recibido');
-  hideCallUI();
 };
