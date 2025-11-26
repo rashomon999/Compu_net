@@ -1,225 +1,250 @@
 // ============================================
-// js/auth.js - Autenticación con AudioSubject CORREGIDA
+// js/auth.js - CORREGIDO: Conectar AudioSubject
 // ============================================
 
 import { iceClient } from './iceClient.js';
 import { state } from './state.js';
-import { showError, showChatInterface } from './ui.js';
-import { loadRecentChatsFromICE } from './chats.js';
+import { showError } from './ui.js';
+import { loadRecentChats } from './chats.js';
 import { loadGroupsFromICE } from './groups.js';
-import { subscribeToRealTimeNotifications } from './notifications.js';
 import { simpleCallManager } from './simpleCallManager.js';
 import { simpleAudioStream } from './simpleAudioStream.js';
 
+// ========================================
+// LOGIN
+// ========================================
 export async function login() {
-  const username = document.getElementById('usernameInput').value.trim();
-  const serverHost = document.getElementById('serverHostInput')?.value.trim() || 'localhost';
-  const serverPort = parseInt(document.getElementById('serverPortInput')?.value) || 10000;
-  
-  if (!username) {
-    showError('Por favor ingresa un nombre de usuario');
-    return;
-  }
-  
-  if (serverPort < 1 || serverPort > 65535) {
-    showError('Puerto inválido (debe estar entre 1 y 65535)');
-    return;
-  }
-
-  const btn = document.getElementById('loginButton');
-  const statusEl = document.getElementById('connectionStatus');
-  const originalText = btn.textContent;
-  
-  btn.textContent = 'Conectando...';
-  btn.disabled = true;
-  
-  if (statusEl) {
-    statusEl.classList.remove('hidden', 'error');
-    statusEl.classList.add('connecting');
-    statusEl.querySelector('.status-text').textContent = `Conectando a ${serverHost}:${serverPort}...`;
-  }
-
   try {
-    console.log(`🔌 Conectando a ${serverHost}:${serverPort}`);
+    const usernameInput = document.getElementById('usernameInput');
+    const serverHostInput = document.getElementById('serverHost');
+    const serverPortInput = document.getElementById('serverPort');
     
-    // PASO 1: Conectar servicios básicos (Chat, Groups, etc.)
-    await iceClient.connect(username, serverHost, serverPort);
-    state.currentUsername = username;
+    const username = usernameInput?.value?.trim();
+    const serverHost = serverHostInput?.value?.trim() || 'localhost';
+    const serverPort = parseInt(serverPortInput?.value) || 10000;
     
-    if (statusEl) {
-      statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
+    if (!username) {
+      showError('⚠️ Ingresa tu nombre de usuario');
+      return;
     }
     
+    console.log('🔐 Intentando login:', username);
+    
+    // PASO 1: Conectar servicios principales (Chat, Groups, etc)
+    await iceClient.connect(username, serverHost, serverPort);
+    console.log('✅ Servicios principales conectados');
+    
     // PASO 2: Suscribirse a notificaciones
-    await subscribeToRealTimeNotifications(username);
+    try {
+      await iceClient.subscribeToNotifications(username, {
+        onNewMessage: handleNewMessage,
+        onGroupCreated: handleGroupCreated,
+        onUserJoinedGroup: handleUserJoinedGroup
+      });
+      console.log('✅ Notificaciones activas');
+    } catch (error) {
+      console.warn('⚠️ Notificaciones no disponibles');
+    }
     
     // ========================================
-    // PASO 3: CONECTAR AUDIOSUBJECT (LLAMADAS)
+    // PASO 3: CONECTAR AUDIOSUBJECT (CRÍTICO)
     // ========================================
     try {
-      console.log('📞 Conectando a AudioSubject...');
+      console.log('🎧 Conectando sistema de llamadas...');
       
-      if (statusEl) {
-        statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
-      }
+      // Callbacks del Observer de audio
+      const audioCallbacks = {
+        // ✅ RECIBE AUDIO (crítico)
+        receiveAudio: (audioData) => {
+          console.log('🎵 [AUTH] Audio recibido:', audioData.length, 'bytes');
+          // Enviar al reproductor
+          simpleAudioStream.receiveAudioChunk(audioData);
+        },
+        
+        // Llamada entrante
+        incomingCall: (fromUser) => {
+          console.log('📞 [AUTH] Llamada entrante de:', fromUser);
+          handleIncomingCall(fromUser);
+        },
+        
+        // Llamada aceptada
+        callAccepted: (fromUser) => {
+          console.log('✅ [AUTH] Llamada aceptada por:', fromUser);
+          handleCallAccepted(fromUser);
+        },
+        
+        // Llamada rechazada
+        callRejected: (fromUser) => {
+          console.log('❌ [AUTH] Llamada rechazada por:', fromUser);
+          handleCallRejected(fromUser);
+        },
+        
+        // Llamada finalizada
+        callEnded: (fromUser) => {
+          console.log('📞 [AUTH] Llamada finalizada por:', fromUser);
+          handleCallEnded(fromUser);
+        }
+      };
       
-      // ✅ CALLBACKS SIGUIENDO EL ENFOQUE DEL PROFESOR
+      // ✅ CONECTAR AL AUDIOSUBJECT
       const audioSubject = await iceClient.connectToAudioSubject(
         serverHost,
         serverPort,
         username,
-        {
-          // ✅ CALLBACK 1: Recibir audio en tiempo real
-          receiveAudio: (audioData) => {
-            console.log('[AUTH CALLBACK] receiveAudio:', audioData.length, 'bytes');
-            // ✅ CRÍTICO: Llamar al método correcto
-            simpleAudioStream.receiveAudioChunk(audioData);
-          },
-          
-          // ✅ CALLBACK 2: Llamada entrante
-          incomingCall: async (fromUser) => {
-            console.log('📞 [AUTH] Llamada entrante de:', fromUser);
-            
-            try {
-              // Crear oferта de llamada compatible
-              const offer = {
-                caller: fromUser,
-                callType: 'AudioOnly'
-              };
-              
-              const { showIncomingCallUI } = await import('./callUI.js');
-              showIncomingCallUI(offer);
-              
-            } catch (error) {
-              console.error('❌ Error mostrando llamada entrante:', error);
-            }
-          },
-          
-          // ✅ CALLBACK 3: Llamada aceptada
-          callAccepted: async (fromUser) => {
-            console.log('✅ [AUTH] Llamada aceptada por:', fromUser);
-            
-            try {
-              await simpleCallManager.handleCallAccepted(fromUser);
-              
-              const { showActiveCallUI } = await import('./callUI.js');
-              showActiveCallUI(fromUser);
-              
-            } catch (error) {
-              console.error('❌ Error en callAccepted:', error);
-            }
-          },
-          
-          // ✅ CALLBACK 4: Llamada rechazada
-          callRejected: async (fromUser) => {
-            console.log('❌ [AUTH] Llamada rechazada por:', fromUser);
-            
-            try {
-              const { hideCallUI } = await import('./callUI.js');
-              hideCallUI();
-              
-              showError(`${fromUser} rechazó la llamada`);
-              simpleCallManager.cleanup();
-              
-            } catch (error) {
-              console.error('❌ Error en callRejected:', error);
-            }
-          },
-          
-          // ✅ CALLBACK 5: Llamada finalizada
-          callEnded: async (fromUser) => {
-            console.log('📞 [AUTH] Llamada finalizada por:', fromUser);
-            
-            try {
-              // Limpiar audio
-              simpleAudioStream.cleanup();
-              simpleCallManager.cleanup();
-              
-              const { hideCallUI } = await import('./callUI.js');
-              hideCallUI();
-              
-              showError(`${fromUser} finalizó la llamada`);
-              
-            } catch (error) {
-              console.error('❌ Error en callEnded:', error);
-            }
-          }
-        }
+        audioCallbacks
       );
       
-      // Configurar managers con el AudioSubject
+      console.log('✅ AudioSubject conectado');
+      
+      // Configurar managers
       simpleCallManager.setAudioSubject(audioSubject, username);
       simpleAudioStream.setAudioSubject(audioSubject, username);
       
-      console.log('✅ Sistema de llamadas ACTIVO');
       state.callsAvailable = true;
+      console.log('✅ Sistema de llamadas ACTIVO');
       
-    } catch (err) {
-      console.warn('⚠️ AudioService no disponible:', err.message);
+    } catch (error) {
+      console.error('❌ Error conectando AudioSubject:', error);
+      console.warn('⚠️ Llamadas de audio NO disponibles');
       state.callsAvailable = false;
     }
     
-    // ========================================
-    // PASO 4: FINALIZAR LOGIN
-    // ========================================
-    if (statusEl) {
-      statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
+    // PASO 4: Actualizar estado
+    state.username = username;
+    
+    // PASO 5: Cargar datos
+    try {
+      await loadRecentChats();
+      await loadGroupsFromICE();
+    } catch (error) {
+      console.warn('⚠️ Error cargando datos iniciales:', error);
     }
     
-    showChatInterface();
-    
-    await loadRecentChatsFromICE();
-    await loadGroupsFromICE();
+    // PASO 6: Actualizar UI
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('mainScreen').classList.remove('hidden');
+    document.getElementById('currentUsername').textContent = username;
     
     console.log('✅ Login exitoso:', username);
     
-  } catch (err) {
-    console.error('❌ Error en login:', err);
-    
-    let errorMsg = 'No se pudo conectar al servidor ICE';
-    
-    if (err.message.includes('ChatService')) {
-      errorMsg = `No se pudo conectar a ${serverHost}:${serverPort}\n\nVerifica que:\n• El servidor esté corriendo\n• La dirección IP sea correcta\n• El firewall permita conexiones`;
-    } else if (err.message.includes('timeout')) {
-      errorMsg = `Timeout conectando a ${serverHost}:${serverPort}`;
-    } else {
-      errorMsg = err.message;
-    }
-    
-    showError(errorMsg);
-    
-    if (statusEl) {
-      statusEl.classList.remove('connecting');
-      statusEl.classList.add('error');
-      statusEl.querySelector('.status-icon').textContent = '❌';
-      statusEl.querySelector('.status-text').textContent = 'Error de conexión';
-    }
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-    
-    if (statusEl && iceClient.isClientConnected()) {
-      statusEl.classList.add('hidden');
-    }
+  } catch (error) {
+    console.error('❌ Error en login:', error);
+    showError(`Error: ${error.message}`);
   }
 }
 
+// ========================================
+// LOGOUT
+// ========================================
 export async function logout() {
   try {
-    // Limpiar llamada activa si existe
-    if (simpleCallManager.isCallActive()) {
-      await simpleCallManager.endCall();
-    }
+    console.log('👋 Cerrando sesión...');
     
-    // Desconectar AudioSubject
-    await iceClient.disconnectFromAudioSubject(state.currentUsername);
+    // Limpiar managers
+    simpleCallManager.cleanup();
+    simpleAudioStream.cleanup();
     
-    // Desconectar Ice
+    // Desconectar de Ice
     await iceClient.disconnect();
     
-    console.log('👋 Logout exitoso');
+    // Limpiar estado
+    state.username = null;
+    state.currentChat = null;
+    state.isGroup = false;
     
-  } catch (err) {
-    console.error('Error en logout:', err);
+    // Actualizar UI
+    document.getElementById('mainScreen').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    
+    console.log('✅ Sesión cerrada');
+    
+  } catch (error) {
+    console.error('❌ Error en logout:', error);
   }
+}
+
+// ========================================
+// HANDLERS DE NOTIFICACIONES
+// ========================================
+function handleNewMessage(message) {
+  console.log('📬 Nuevo mensaje:', message);
+  
+  // Si es para el chat actual, refrescar
+  if (state.currentChat) {
+    const isChatMessage = 
+      (message.recipient === state.currentChat && message.sender === state.username) ||
+      (message.sender === state.currentChat && message.recipient === state.username) ||
+      (message.isGroup && message.recipient === state.currentChat);
+    
+    if (isChatMessage) {
+      import('./messages.js').then(({ loadMessages }) => loadMessages());
+    }
+  }
+  
+  // Actualizar lista de conversaciones
+  loadRecentChats();
+}
+
+function handleGroupCreated(groupName, creator) {
+  console.log('📢 Grupo creado:', groupName, 'por', creator);
+  loadGroupsFromICE();
+}
+
+function handleUserJoinedGroup(groupName, user) {
+  console.log('👥 Usuario se unió a grupo:', user, '→', groupName);
+}
+
+// ========================================
+// HANDLERS DE LLAMADAS
+// ========================================
+function handleIncomingCall(fromUser) {
+  console.log('📞 [AUTH] Llamada entrante de:', fromUser);
+  
+  // Mostrar UI de llamada entrante
+  import('./callUI.js').then(({ showIncomingCall }) => {
+    showIncomingCall(fromUser);
+  });
+  
+  // Recibir llamada en el manager
+  simpleCallManager.receiveIncomingCall(fromUser);
+}
+
+function handleCallAccepted(fromUser) {
+  console.log('✅ [AUTH] Llamada aceptada por:', fromUser);
+  
+  // Procesar aceptación en el manager
+  simpleCallManager.handleCallAccepted(fromUser);
+  
+  // Actualizar UI
+  import('./callUI.js').then(({ showActiveCall }) => {
+    showActiveCall(fromUser);
+  });
+}
+
+function handleCallRejected(fromUser) {
+  console.log('❌ [AUTH] Llamada rechazada por:', fromUser);
+  
+  // Limpiar estado
+  simpleCallManager.cleanup();
+  simpleAudioStream.cleanup();
+  
+  // Limpiar UI
+  import('./callUI.js').then(({ cleanupCallUI }) => {
+    cleanupCallUI();
+  });
+  
+  showError(`${fromUser} rechazó la llamada`);
+}
+
+function handleCallEnded(fromUser) {
+  console.log('📞 [AUTH] Llamada finalizada por:', fromUser);
+  
+  // Limpiar managers
+  simpleCallManager.cleanup();
+  simpleAudioStream.cleanup();
+  
+  // Limpiar UI
+  import('./callUI.js').then(({ cleanupCallUI }) => {
+    cleanupCallUI();
+  });
 }

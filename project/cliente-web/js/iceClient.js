@@ -220,12 +220,21 @@ class IceClientManager {
       // 🔥 PASO 4: CREAR OBSERVER (CRÍTICO)
       // ========================================
       const observerObj = {
-        // ✅ RECIBE AUDIO (como el profesor)
+        // ✅ RECIBE AUDIO (EXACTO como el profesor)
         receiveAudio: (data, current) => {
-          console.log('🎵 [OBSERVER] Audio recibido:', data.length, 'bytes');
-          const audioData = data instanceof Uint8Array ? data : new Uint8Array(data);
-          if (observerCallbacks.receiveAudio) {
-            observerCallbacks.receiveAudio(audioData);
+          console.log('🎵 [OBSERVER] Audio recibido:', data ? data.length : 0, 'bytes');
+          try {
+            // Convertir a Uint8Array si no lo es
+            const audioData = data instanceof Uint8Array ? data : new Uint8Array(data);
+            console.log('   Converted to Uint8Array:', audioData.length, 'bytes');
+            
+            if (observerCallbacks.receiveAudio) {
+              observerCallbacks.receiveAudio(audioData);
+            } else {
+              console.warn('   ⚠️ No hay callback receiveAudio');
+            }
+          } catch (error) {
+            console.error('   ❌ Error procesando audio:', error);
           }
         },
         
