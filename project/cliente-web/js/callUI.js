@@ -1,5 +1,6 @@
 // ============================================
-// js/callUI.js - UI de Llamadas CORREGIDO
+// js/callUI.js - UI de Llamadas CORREGIDA
+// ✅ SIN DUPLICAR MODALES
 // ============================================
 
 export async function initiateCall(targetUser) {
@@ -26,6 +27,9 @@ export async function initiateCall(targetUser) {
   
   try {
     console.log('🎯 [CALL UI] Iniciando proceso de llamada a:', targetUser);
+    
+    // ✅ CRÍTICO: Limpiar modales previos
+    hideAllCallModals();
     
     showOutgoingCallUI(targetUser);
     modalShown = true;
@@ -54,7 +58,7 @@ export async function initiateCall(targetUser) {
     console.error('❌ [CALL UI] Error:', error);
     
     if (modalShown) {
-      hideCallUI();
+      hideAllCallModals();
     }
     
     const { showError } = await import('./ui.js');
@@ -79,6 +83,9 @@ export async function initiateCall(targetUser) {
 export async function showIncomingCallUI(offer) {
   try {
     console.log('📞 [UI] Mostrando llamada entrante de:', offer.caller);
+    
+    // ✅ CRÍTICO: NO duplicar modales
+    hideAllCallModals();
     
     const { simpleCallManager } = await import('./simpleCallManager.js');
     await simpleCallManager.receiveIncomingCall(offer.caller);
@@ -108,16 +115,19 @@ export async function showIncomingCallUI(offer) {
     
     document.body.appendChild(modal);
     
+    // ✅ USAR: Variables finales para evitar closure issues
+    const caller = offer.caller;
+    
     document.getElementById('acceptCallBtn').onclick = async () => {
       console.log('✅ [UI] Usuario aceptó');
       
       try {
         await simpleCallManager.acceptCall();
-        hideIncomingCallUI();
-        showActiveCallUI(offer.caller);
+        hideAllCallModals();
+        showActiveCallUI(caller);
       } catch (error) {
         console.error('❌ Error aceptando:', error);
-        hideCallUI();
+        hideAllCallModals();
         const { showError } = await import('./ui.js');
         showError('Error al aceptar la llamada');
       }
@@ -128,10 +138,10 @@ export async function showIncomingCallUI(offer) {
       
       try {
         await simpleCallManager.rejectCall();
-        hideIncomingCallUI();
+        hideAllCallModals();
       } catch (error) {
         console.error('Error rechazando:', error);
-        hideIncomingCallUI();
+        hideAllCallModals();
       }
     };
     
@@ -147,8 +157,8 @@ export async function showIncomingCallUI(offer) {
 export function showActiveCallUI(otherUser) {
   console.log('📞 [UI] Mostrando llamada activa con:', otherUser);
   
-  hideIncomingCallUI();
-  hideOutgoingCallUI();
+  // ✅ CRÍTICO: Limpiar otros modales
+  hideAllCallModals();
   
   const modal = document.createElement('div');
   modal.id = 'activeCallModal';
@@ -181,7 +191,6 @@ export function showActiveCallUI(otherUser) {
   const muteBtn = document.getElementById('muteBtn');
   let isMuted = false;
   
-  // ✅ CORREGIDO: Usar simpleAudioStream
   muteBtn.onclick = async () => {
     const { simpleAudioStream } = await import('./simpleAudioStream.js');
     isMuted = !isMuted;
@@ -193,28 +202,39 @@ export function showActiveCallUI(otherUser) {
     console.log('🔚 [UI] Finalizando llamada');
     const { simpleCallManager } = await import('./simpleCallManager.js');
     await simpleCallManager.endCall();
-    hideCallUI();
+    hideAllCallModals();
   };
 }
 
-export function hideCallUI() {
-  console.log('🧹 [UI] Limpiando todas las UIs');
+// ✅ NUEVA FUNCIÓN: Eliminar TODOS los modales de llamadas
+function hideAllCallModals() {
+  console.log('🧹 [UI] Limpiando todas las UIs de llamadas');
   
-  hideIncomingCallUI();
-  hideOutgoingCallUI();
+  const modals = [
+    document.getElementById('incomingCallModal'),
+    document.getElementById('outgoingCallModal'),
+    document.getElementById('activeCallModal')
+  ];
   
-  const activeModal = document.getElementById('activeCallModal');
-  if (activeModal) {
-    activeModal.remove();
-  }
+  modals.forEach(modal => {
+    if (modal) {
+      console.log('   Removiendo:', modal.id);
+      modal.remove();
+    }
+  });
   
   stopRingtone();
-  console.log('✅ [UI] Limpieza completa');
+}
+
+export function hideCallUI() {
+  console.log('🧹 [UI] Limpiando UI de llamadas');
+  hideAllCallModals();
 }
 
 function showOutgoingCallUI(targetUser) {
   console.log('🎨 [CALL UI] Mostrando modal de llamada saliente');
   
+  // ✅ CRÍTICO: Remover cualquier modal existente primero
   const existingModal = document.getElementById('outgoingCallModal');
   if (existingModal) {
     existingModal.remove();
@@ -258,7 +278,7 @@ function showOutgoingCallUI(targetUser) {
       } catch (error) {
         console.error('Error cancelando:', error);
       } finally {
-        hideCallUI();
+        hideAllCallModals();
       }
     };
   }
@@ -272,27 +292,15 @@ function updateCallStatus(status) {
   }
 }
 
-function hideOutgoingCallUI() {
-  const modal = document.getElementById('outgoingCallModal');
-  if (modal) {
-    console.log('🧹 [CALL UI] Ocultando modal de llamada saliente');
-    modal.remove();
-  }
-}
-
-function hideIncomingCallUI() {
-  const modal = document.getElementById('incomingCallModal');
-  if (modal) {
-    console.log('🧹 [CALL UI] Ocultando modal de llamada entrante');
-    modal.remove();
-  }
-  stopRingtone();
-}
-
 let ringtoneAudio = null;
 
 function playRingtone() {
   try {
+    // Detener ringtone anterior si existe
+    if (ringtoneAudio) {
+      stopRingtone();
+    }
+    
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();

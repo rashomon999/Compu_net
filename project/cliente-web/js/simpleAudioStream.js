@@ -1,6 +1,6 @@
 // ============================================
-// js/simpleAudioStream.js - Audio Streaming SIMPLIFICADO
-// Filosofía del Profesor: PCM16 directo, sin WebRTC
+// js/simpleAudioStream.js - Audio Streaming CORREGIDO
+// ✅ SIGUIENDO EXACTAMENTE EL ENFOQUE DEL PROFESOR
 // ============================================
 
 class SimpleAudioStreamManager {
@@ -17,12 +17,12 @@ class SimpleAudioStreamManager {
     this.audioSubject = null;
     this.username = null;
     
+    // ✅ CRÍTICO: REPRODUCTOR DEDICADO (como el profesor)
+    this.playerThread = null;
+    this.speakerSource = null;
+    
     console.log('🎵 [SIMPLE AUDIO] Inicializado');
   }
-  
-  // ========================================
-  // CONFIGURACIÓN INICIAL
-  // ========================================
   
   setAudioSubject(audioSubject, username) {
     this.audioSubject = audioSubject;
@@ -31,7 +31,41 @@ class SimpleAudioStreamManager {
   }
   
   // ========================================
-  // INICIAR CAPTURA DE AUDIO
+  // ✅ PASO 1: INICIALIZAR REPRODUCTOR (COMO EL PROFESOR)
+  // ========================================
+  
+  async initializePlayerThread() {
+    try {
+      if (!this.audioContext) {
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: 44100
+        });
+      }
+      
+      // Resume si está suspendido
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      
+      // ✅ Crear SourceDataLine equivalente (speakers)
+      // En el navegador es directamente el AudioContext destination
+      this.playerThread = {
+        isPlaying: true,
+        queue: [],
+        isProcessing: false
+      };
+      
+      console.log('   ✅ PlayerThread inicializado');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error inicializando PlayerThread:', error);
+      throw error;
+    }
+  }
+  
+  // ========================================
+  // ✅ PASO 2: INICIAR CAPTURA (COMO EL PROFESOR)
   // ========================================
   
   async startStreaming() {
@@ -42,18 +76,22 @@ class SimpleAudioStreamManager {
         throw new Error('AudioSubject no configurado');
       }
       
+      // Inicializar reproductor primero
+      await this.initializePlayerThread();
+      
       // Crear AudioContext
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
           sampleRate: 44100
         });
-        console.log('   AudioContext creado: 44.1kHz');
       }
       
       // Resume si está suspendido
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
+      
+      console.log('   AudioContext creado: 44.1kHz');
       
       // Solicitar micrófono
       console.log('   Solicitando micrófono...');
@@ -68,20 +106,29 @@ class SimpleAudioStreamManager {
       
       console.log('   ✅ Micrófono accedido');
       
-      // Crear pipeline de audio (IGUAL QUE EL PROFESOR)
+      // ========================================
+      // ✅ PIPELINE DE AUDIO (EXACTO DEL PROFESOR)
+      // ========================================
+      
+      // PASO 1: Input desde micrófono
       const audioInput = this.audioContext.createMediaStreamSource(this.mediaStream);
       
+      // PASO 2: Ganancia (volumen)
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = 0.5;
+      this.gainNode.gain.value = 0.5; // 50% volumen (como el profesor)
       
-      // ScriptProcessor (2048 samples = ~46ms de latencia)
+      // PASO 3: ScriptProcessor (2048 = ~46ms latencia)
       this.scriptProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
       
+      // PASO 4: Conectar
       audioInput.connect(this.gainNode);
       this.gainNode.connect(this.scriptProcessor);
       this.scriptProcessor.connect(this.audioContext.destination);
       
-      // Handler de procesamiento (CRÍTICO)
+      // ========================================
+      // ✅ HANDLER DE PROCESAMIENTO (EXACTO DEL PROFESOR)
+      // ========================================
+      
       this.scriptProcessor.onaudioprocess = (e) => {
         if (!this.isStreaming) return;
         
@@ -97,12 +144,12 @@ class SimpleAudioStreamManager {
         // PASO 4: Acumular en buffer
         this.sendBuffer.push(pcm16);
         
-        // PASO 5: Enviar cuando hay suficientes chunks
+        // PASO 5: Enviar cuando hay suficientes chunks (8 chunks)
         if (this.sendBuffer.length >= 8) {
           const merged = this.mergePCM(this.sendBuffer);
           this.sendBuffer = [];
           
-          // Enviar al servidor
+          // Enviar al servidor SIN BLOQUEAR
           this.sendAudioToServer(new Uint8Array(merged.buffer));
         }
       };
@@ -119,37 +166,14 @@ class SimpleAudioStreamManager {
   }
   
   // ========================================
-  // DETENER CAPTURA
-  // ========================================
-  
-  stopStreaming() {
-    console.log('🛑 [SIMPLE AUDIO] Deteniendo captura...');
-    
-    this.isStreaming = false;
-    
-    if (this.scriptProcessor) {
-      this.scriptProcessor.disconnect();
-      this.scriptProcessor = null;
-    }
-    
-    if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach(track => track.stop());
-      this.mediaStream = null;
-    }
-    
-    this.sendBuffer = [];
-    console.log('✅ [SIMPLE AUDIO] Captura detenida');
-  }
-  
-  // ========================================
-  // ENVIAR AUDIO AL SERVIDOR
+  // ✅ ENVIAR AUDIO AL SERVIDOR
   // ========================================
   
   async sendAudioToServer(audioData) {
     try {
       if (!this.isStreaming || !this.audioSubject) return;
       
-      // Enviar via Ice (método del profesor)
+      // Enviar via Ice (ASÍNCRONO, NO BLOQUEA)
       await this.audioSubject.sendAudio(this.username, audioData);
       
     } catch (error) {
@@ -161,7 +185,7 @@ class SimpleAudioStreamManager {
   }
   
   // ========================================
-  // RECIBIR Y REPRODUCIR AUDIO
+  // ✅ RECIBIR Y REPRODUCIR (COMO EL PROFESOR)
   // ========================================
   
   async receiveAudioChunk(audioData) {
@@ -182,10 +206,12 @@ class SimpleAudioStreamManager {
       const floatArray = this.convertPCM16ToFloat32(audioData);
       
       // Agregar a la cola
-      this.receiveQueue.push(floatArray);
+      if (this.playerThread) {
+        this.playerThread.queue.push(floatArray);
+      }
       
       // Iniciar reproducción si no está corriendo
-      if (!this.isPlaying) {
+      if (!this.isPlaying && this.playerThread && this.playerThread.isPlaying) {
         this.processReceiveQueue();
       }
       
@@ -194,8 +220,12 @@ class SimpleAudioStreamManager {
     }
   }
   
+  // ========================================
+  // ✅ PROCESAR COLA DE REPRODUCCIÓN (COMO PLAYERTHREAD)
+  // ========================================
+  
   processReceiveQueue() {
-    if (this.receiveQueue.length === 0) {
+    if (!this.playerThread || this.playerThread.queue.length === 0) {
       this.isPlaying = false;
       return;
     }
@@ -203,7 +233,12 @@ class SimpleAudioStreamManager {
     this.isPlaying = true;
     
     // Extraer siguiente buffer
-    const data = this.receiveQueue.shift();
+    const data = this.playerThread.queue.shift();
+    
+    if (!data) {
+      this.isPlaying = false;
+      return;
+    }
     
     // Crear AudioBuffer
     const audioBuffer = this.audioContext.createBuffer(1, data.length, 44100);
@@ -216,12 +251,12 @@ class SimpleAudioStreamManager {
     
     source.start();
     
-    // Cuando termina, procesar el siguiente
+    // Cuando termina, procesar el siguiente (recursivo como PlayerThread)
     source.onended = () => this.processReceiveQueue();
   }
   
   // ========================================
-  // PROCESAMIENTO DE AUDIO (DEL PROFESOR)
+  // ✅ PROCESAMIENTO DE AUDIO (DEL PROFESOR)
   // ========================================
   
   applySoftCompression(buffer) {
@@ -279,6 +314,25 @@ class SimpleAudioStreamManager {
   // CONTROLES
   // ========================================
   
+  stopStreaming() {
+    console.log('🛑 [SIMPLE AUDIO] Deteniendo captura...');
+    
+    this.isStreaming = false;
+    
+    if (this.scriptProcessor) {
+      this.scriptProcessor.disconnect();
+      this.scriptProcessor = null;
+    }
+    
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+    
+    this.sendBuffer = [];
+    console.log('✅ [SIMPLE AUDIO] Captura detenida');
+  }
+  
   toggleMute(muted) {
     this.isMuted = muted;
     if (this.gainNode) {
@@ -287,14 +341,16 @@ class SimpleAudioStreamManager {
     }
   }
   
-  // ========================================
-  // LIMPIAR
-  // ========================================
-  
   cleanup() {
     console.log('🧹 [SIMPLE AUDIO] Limpiando...');
     
     this.stopStreaming();
+    
+    if (this.playerThread) {
+      this.playerThread.isPlaying = false;
+      this.playerThread.queue = [];
+    }
+    
     this.receiveQueue = [];
     this.isPlaying = false;
     this.isMuted = false;

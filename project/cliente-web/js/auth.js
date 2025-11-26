@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación con AudioSubject
+// js/auth.js - Autenticación con AudioSubject CORREGIDA
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -63,56 +63,91 @@ export async function login() {
         statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
       }
       
-      // 3.1: Conectar al servidor AudioService
+      // ✅ CALLBACKS SIGUIENDO EL ENFOQUE DEL PROFESOR
       const audioSubject = await iceClient.connectToAudioSubject(
         serverHost,
         serverPort,
         username,
         {
-          // Callbacks del Observer
+          // ✅ CALLBACK 1: Recibir audio en tiempo real
           receiveAudio: (audioData) => {
+            console.log('[AUTH CALLBACK] receiveAudio:', audioData.length, 'bytes');
+            // ✅ CRÍTICO: Llamar al método correcto
             simpleAudioStream.receiveAudioChunk(audioData);
           },
           
+          // ✅ CALLBACK 2: Llamada entrante
           incomingCall: async (fromUser) => {
             console.log('📞 [AUTH] Llamada entrante de:', fromUser);
-            await simpleCallManager.receiveIncomingCall(fromUser);
             
-            const { showIncomingCallUI } = await import('./callUI.js');
-            showIncomingCallUI({ caller: fromUser });
+            try {
+              // Crear oferта de llamada compatible
+              const offer = {
+                caller: fromUser,
+                callType: 'AudioOnly'
+              };
+              
+              const { showIncomingCallUI } = await import('./callUI.js');
+              showIncomingCallUI(offer);
+              
+            } catch (error) {
+              console.error('❌ Error mostrando llamada entrante:', error);
+            }
           },
           
+          // ✅ CALLBACK 3: Llamada aceptada
           callAccepted: async (fromUser) => {
             console.log('✅ [AUTH] Llamada aceptada por:', fromUser);
-            await simpleCallManager.handleCallAccepted(fromUser);
             
-            const { showActiveCallUI } = await import('./callUI.js');
-            showActiveCallUI(fromUser);
+            try {
+              await simpleCallManager.handleCallAccepted(fromUser);
+              
+              const { showActiveCallUI } = await import('./callUI.js');
+              showActiveCallUI(fromUser);
+              
+            } catch (error) {
+              console.error('❌ Error en callAccepted:', error);
+            }
           },
           
+          // ✅ CALLBACK 4: Llamada rechazada
           callRejected: async (fromUser) => {
             console.log('❌ [AUTH] Llamada rechazada por:', fromUser);
             
-            const { hideCallUI } = await import('./callUI.js');
-            hideCallUI();
-            showError(`${fromUser} rechazó la llamada`);
-            simpleCallManager.cleanup();
+            try {
+              const { hideCallUI } = await import('./callUI.js');
+              hideCallUI();
+              
+              showError(`${fromUser} rechazó la llamada`);
+              simpleCallManager.cleanup();
+              
+            } catch (error) {
+              console.error('❌ Error en callRejected:', error);
+            }
           },
           
+          // ✅ CALLBACK 5: Llamada finalizada
           callEnded: async (fromUser) => {
             console.log('📞 [AUTH] Llamada finalizada por:', fromUser);
             
-            simpleAudioStream.cleanup();
-            simpleCallManager.cleanup();
-            
-            const { hideCallUI } = await import('./callUI.js');
-            hideCallUI();
-            showError(`${fromUser} finalizó la llamada`);
+            try {
+              // Limpiar audio
+              simpleAudioStream.cleanup();
+              simpleCallManager.cleanup();
+              
+              const { hideCallUI } = await import('./callUI.js');
+              hideCallUI();
+              
+              showError(`${fromUser} finalizó la llamada`);
+              
+            } catch (error) {
+              console.error('❌ Error en callEnded:', error);
+            }
           }
         }
       );
       
-      // 3.2: Configurar managers
+      // Configurar managers con el AudioSubject
       simpleCallManager.setAudioSubject(audioSubject, username);
       simpleAudioStream.setAudioSubject(audioSubject, username);
       
