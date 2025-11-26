@@ -1,6 +1,7 @@
 // ============================================
-// js/simpleAudioStream.js - Audio Streaming CORREGIDO
-// ✅ SIGUIENDO EXACTAMENTE EL ENFOQUE DEL PROFESOR
+// js/simpleAudioStream.js - Audio Streaming COMPLETO
+// ✅ Control de estado para evitar duplicados
+// ✅ Audio bidireccional
 // ============================================
 
 class SimpleAudioStreamManager {
@@ -17,7 +18,7 @@ class SimpleAudioStreamManager {
     this.audioSubject = null;
     this.username = null;
     
-    // ✅ CRÍTICO: REPRODUCTOR DEDICADO (como el profesor)
+    // ✅ CRÍTICO: REPRODUCTOR DEDICADO
     this.playerThread = null;
     this.speakerSource = null;
     
@@ -31,7 +32,7 @@ class SimpleAudioStreamManager {
   }
   
   // ========================================
-  // ✅ PASO 1: INICIALIZAR REPRODUCTOR (COMO EL PROFESOR)
+  // ✅ PASO 1: INICIALIZAR REPRODUCTOR
   // ========================================
   
   async initializePlayerThread() {
@@ -47,8 +48,7 @@ class SimpleAudioStreamManager {
         await this.audioContext.resume();
       }
       
-      // ✅ Crear SourceDataLine equivalente (speakers)
-      // En el navegador es directamente el AudioContext destination
+      // ✅ Crear PlayerThread
       this.playerThread = {
         isPlaying: true,
         queue: [],
@@ -65,11 +65,17 @@ class SimpleAudioStreamManager {
   }
   
   // ========================================
-  // ✅ PASO 2: INICIAR CAPTURA (COMO EL PROFESOR)
+  // ✅ PASO 2: INICIAR CAPTURA
   // ========================================
   
   async startStreaming() {
     try {
+      // ✅ CRÍTICO: Evitar duplicar streams
+      if (this.isStreaming && this.mediaStream) {
+        console.log('⚠️ [SIMPLE AUDIO] Stream ya activo, reutilizando');
+        return true;
+      }
+      
       console.log('🎤 [SIMPLE AUDIO] Iniciando captura...');
       
       if (!this.audioSubject || !this.username) {
@@ -107,7 +113,7 @@ class SimpleAudioStreamManager {
       console.log('   ✅ Micrófono accedido');
       
       // ========================================
-      // ✅ PIPELINE DE AUDIO (EXACTO DEL PROFESOR)
+      // ✅ PIPELINE DE AUDIO
       // ========================================
       
       // PASO 1: Input desde micrófono
@@ -115,7 +121,7 @@ class SimpleAudioStreamManager {
       
       // PASO 2: Ganancia (volumen)
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = 0.5; // 50% volumen (como el profesor)
+      this.gainNode.gain.value = 0.5; // 50% volumen
       
       // PASO 3: ScriptProcessor (2048 = ~46ms latencia)
       this.scriptProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
@@ -126,7 +132,7 @@ class SimpleAudioStreamManager {
       this.scriptProcessor.connect(this.audioContext.destination);
       
       // ========================================
-      // ✅ HANDLER DE PROCESAMIENTO (EXACTO DEL PROFESOR)
+      // ✅ HANDLER DE PROCESAMIENTO
       // ========================================
       
       this.scriptProcessor.onaudioprocess = (e) => {
@@ -169,26 +175,22 @@ class SimpleAudioStreamManager {
   // ✅ ENVIAR AUDIO AL SERVIDOR
   // ========================================
   
-// En simpleAudioStream.js
-async sendAudioToServer(audioData) {
+  async sendAudioToServer(audioData) {
     try {
-        if (!this.isStreaming || !this.audioSubject) {
-            console.warn('⚠️ [SIMPLE AUDIO] No streaming:', {
-                isStreaming: this.isStreaming,
-                hasSubject: !!this.audioSubject
-            });
-            return;
-        }
-        
-        console.log('📤 [SIMPLE AUDIO] Enviando:', audioData.length, 'bytes');
-        await this.audioSubject.sendAudio(this.username, audioData);
-        
+      if (!this.isStreaming || !this.audioSubject) {
+        return;
+      }
+      
+      console.log('📤 [SIMPLE AUDIO] Enviando:', audioData.length, 'bytes');
+      await this.audioSubject.sendAudio(this.username, audioData);
+      
     } catch (error) {
-        console.error('❌ [SIMPLE AUDIO] Error enviando:', error);
+      console.error('❌ [SIMPLE AUDIO] Error enviando:', error);
     }
-}
+  }
+  
   // ========================================
-  // ✅ RECIBIR Y REPRODUCIR (COMO EL PROFESOR)
+  // ✅ RECIBIR Y REPRODUCIR
   // ========================================
   
   async receiveAudioChunk(audioData) {
@@ -224,7 +226,7 @@ async sendAudioToServer(audioData) {
   }
   
   // ========================================
-  // ✅ PROCESAR COLA DE REPRODUCCIÓN (COMO PLAYERTHREAD)
+  // ✅ PROCESAR COLA DE REPRODUCCIÓN
   // ========================================
   
   processReceiveQueue() {
@@ -259,7 +261,7 @@ async sendAudioToServer(audioData) {
   }
   
   // ========================================
-  // ✅ PROCESAMIENTO DE AUDIO (DEL PROFESOR)
+  // ✅ PROCESAMIENTO DE AUDIO
   // ========================================
   
   applySoftCompression(buffer) {
@@ -361,8 +363,12 @@ async sendAudioToServer(audioData) {
     console.log('✅ [SIMPLE AUDIO] Limpieza completada');
   }
   
+  // ========================================
+  // ✅ GETTER DE ESTADO
+  // ========================================
+  
   isActive() {
-    return this.isStreaming;
+    return this.isStreaming && this.mediaStream !== null;
   }
 }
 

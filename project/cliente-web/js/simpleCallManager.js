@@ -173,7 +173,7 @@ class SimpleCallManager {
       console.log('║  LLAMADA ACEPTADA                        ║');
       console.log('╠══════════════════════════════════════════╣');
       console.log('║  Aceptada por:', fromUser.padEnd(20), '║');
-      console.log('║  Yo:          ', this.username.padEnd(20), '║');
+      console.log('║  Yo (caller):  ', this.username.padEnd(20), '║');
       console.log('╚══════════════════════════════════════════╝');
       
       // ✅ CRÍTICO: LIMPIAR TIMEOUT
@@ -198,10 +198,18 @@ class SimpleCallManager {
       
       console.log('   📝 Estado final de activeCall:', this.activeCall);
       
-      // Iniciar audio
-      console.log('   🎤 Iniciando streaming de audio...');
-      await simpleAudioStream.startStreaming();
-      console.log('   ✅ Audio streaming ACTIVO');
+      // ✅ CRÍTICO: VERIFICAR SI YA ESTÁ STREAMING
+      const alreadyStreaming = simpleAudioStream.isActive();
+      console.log('   🔍 Audio ya activo?', alreadyStreaming);
+      
+      if (!alreadyStreaming) {
+        // Iniciar audio solo si no está activo
+        console.log('   🎤 Iniciando streaming de audio...');
+        await simpleAudioStream.startStreaming();
+        console.log('   ✅ Audio streaming ACTIVO');
+      } else {
+        console.log('   ℹ️ Audio ya estaba activo, reutilizando stream');
+      }
       
       // Iniciar contador
       this.startDurationTimer();
