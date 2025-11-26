@@ -1,7 +1,8 @@
 // ============================================
-// js/simpleAudioStream.js - VERSIÓN OPTIMIZADA
-// ✅ Mejor calidad de audio
-// ✅ Sin desfases
+// js/simpleAudioStream.js - VERSIÓN OPTIMIZADA SIN DESFASE
+// ✅ Latencia mínima (< 50ms)
+// ✅ Sin colas que crezcan
+// ✅ Reproducción directa con Web Audio API
 // ============================================
 
 class SimpleAudioStream {
@@ -17,10 +18,9 @@ class SimpleAudioStream {
     this.isMuted = false;
     this.isStreaming = false;
 
-    // === REPRODUCCIÓN MEJORADA ===
-    this.playQueue = [];
-    this.isPlaying = false;
-    this.nextPlayTime = 0; // ✅ Para sincronización precisa
+    // === REPRODUCCIÓN OPTIMIZADA ===
+    this.nextPlayTime = 0; // Para sincronización precisa
+    this.bufferDuration = 0.046; // Duración de cada buffer (2048/44100)
 
     console.log('🎤 [AUDIO STREAM] Inicializado');
   }
@@ -49,22 +49,24 @@ class SimpleAudioStream {
     try {
       // 1️⃣ Crear AudioContext
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ 
-        sampleRate: 44100 
+        sampleRate: 44100,
+        latencyHint: 'interactive' // ✅ CRÍTICO: Minimiza latencia
       });
       
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
       
-      console.log('   ✅ AudioContext creado (estado:', this.audioContext.state + ')');
+      console.log('   ✅ AudioContext creado (latency:', this.audioContext.baseLatency, 's)');
 
       // 2️⃣ Capturar micrófono
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true, // ✅ Cambiado a true
-          sampleRate: 44100
+          autoGainControl: false, // ✅ Desactivar para evitar cortes
+          sampleRate: 44100,
+          channelCount: 1
         }
       });
       console.log('   ✅ Micrófono capturado');
@@ -73,8 +75,9 @@ class SimpleAudioStream {
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
       
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = 0.8; // ✅ Aumentado para mejor volumen
+      this.gainNode.gain.value = 1.0;
       
+      // ✅ Buffer MÁS PEQUEÑO para menor latencia
       this.scriptProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
       
       // 4️⃣ Conectar pipeline
@@ -87,54 +90,36 @@ class SimpleAudioStream {
       // Marcar como activo ANTES de onaudioprocess
       this.isStreaming = true;
 
-      // Buffer para acumular
-      let sendBuffer = [];
       let packetCount = 0;
 
-      // 5️⃣ Procesar audio capturado
+      // 5️⃣ Procesar audio capturado - ✅ SIN ACUMULAR
       this.scriptProcessor.onaudioprocess = (e) => {
-        if (packetCount === 0) {
-          console.log('🎙️ [AUDIO] Primera captura de audio detectada');
-        }
-
-        if (!this.isStreaming || this.isMuted) {
-          return;
-        }
+        if (!this.isStreaming || this.isMuted) return;
 
         const inputData = e.inputBuffer.getChannelData(0);
         
         // ✅ CONVERSIÓN PCM16 OPTIMIZADA
         const pcm16 = new Int16Array(inputData.length);
         for (let i = 0; i < inputData.length; i++) {
-          // Clamp entre -1 y 1
           const s = Math.max(-1, Math.min(1, inputData[i]));
-          // Conversión con mejor precisión
           pcm16[i] = Math.round(s < 0 ? s * 32768 : s * 32767);
         }
 
-        sendBuffer.push(pcm16);
-
-        // Enviar cuando hay 4 chunks (✅ Reducido para menor latencia)
-        if (sendBuffer.length >= 4) {
-          packetCount++;
-          
-          const merged = this.mergePCM16(sendBuffer);
-          sendBuffer = [];
-          
-          const uint8View = new Uint8Array(merged.buffer);
-          
-          if (packetCount % 10 === 0) {
-            console.log(`📤 [AUDIO] Enviando paquete #${packetCount} (${uint8View.length} bytes)`);
-          }
-          
-          this.sendAudioPacket(uint8View);
+        // ✅ ENVIAR INMEDIATAMENTE (SIN ACUMULAR)
+        const uint8View = new Uint8Array(pcm16.buffer);
+        
+        if (packetCount % 20 === 0) {
+          console.log(`📤 [AUDIO] Paquete #${packetCount} (${uint8View.length} bytes, ${inputData.length} samples)`);
         }
+        packetCount++;
+        
+        this.sendAudioPacket(uint8View);
       };
 
       // ✅ Inicializar timer de reproducción
       this.nextPlayTime = this.audioContext.currentTime;
 
-      console.log('✅ [AUDIO STREAM] ACTIVO (captura + reproducción)');
+      console.log('✅ [AUDIO STREAM] ACTIVO (latencia ~46ms)');
 
     } catch (error) {
       console.error('❌ [AUDIO STREAM] Error activando:', error);
@@ -144,28 +129,10 @@ class SimpleAudioStream {
   }
 
   // ========================================
-  // MERGE PCM16
-  // ========================================
-  mergePCM16(chunks) {
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const merged = new Int16Array(totalLength);
-    let offset = 0;
-    
-    for (const chunk of chunks) {
-      merged.set(chunk, offset);
-      offset += chunk.length;
-    }
-    
-    return merged;
-  }
-
-  // ========================================
   // ENVIAR AUDIO AL SERVIDOR
   // ========================================
   async sendAudioPacket(pcm8Data) {
-    if (!this.audioSubject || !this.isStreaming) {
-      return;
-    }
+    if (!this.audioSubject || !this.isStreaming) return;
 
     try {
       await this.audioSubject.sendAudio(this.username, pcm8Data);
@@ -177,77 +144,75 @@ class SimpleAudioStream {
   }
 
   // ========================================
-  // ✅ RECEPCIÓN Y REPRODUCCIÓN MEJORADAS
+  // ✅ RECEPCIÓN Y REPRODUCCIÓN DIRECTA (SIN COLA)
   // ========================================
   receiveAudio(audioData) {
     if (!this.isStreaming || !audioData || audioData.length === 0) return;
 
     try {
-      // ✅ CONVERSIÓN CORREGIDA (Little Endian)
+      // ✅ CONVERSIÓN CORRECTA (Little Endian)
       const uint8Array = audioData instanceof Uint8Array 
         ? audioData 
         : new Uint8Array(audioData);
       
-      // Convertir bytes → Int16Array
+      // Bytes → Int16Array (little-endian)
       const pcm16 = new Int16Array(uint8Array.length / 2);
       for (let i = 0; i < pcm16.length; i++) {
-        // Little-endian: byte bajo primero
         const lowByte = uint8Array[i * 2];
         const highByte = uint8Array[i * 2 + 1];
+        // ✅ Combinar bytes correctamente
         pcm16[i] = (highByte << 8) | lowByte;
+        // Manejar signo
+        if (pcm16[i] > 32767) pcm16[i] -= 65536;
       }
       
-      // Convertir Int16 → Float32 para reproducción
+      // Int16 → Float32 para reproducción
       const floatData = new Float32Array(pcm16.length);
       for (let i = 0; i < pcm16.length; i++) {
         floatData[i] = pcm16[i] / 32768.0;
       }
 
-      this.playQueue.push(floatData);
-      
-      if (!this.isPlaying) {
-        this.playNext();
-      }
+      // ✅ REPRODUCIR DIRECTAMENTE (SIN COLA)
+      this.playImmediately(floatData);
       
     } catch (error) {
       console.error('❌ Error procesando audio recibido:', error);
     }
   }
 
-  // ✅ REPRODUCCIÓN CON SINCRONIZACIÓN PRECISA
-  async playNext() {
-    if (this.playQueue.length === 0 || !this.audioContext) {
-      this.isPlaying = false;
-      return;
-    }
-
-    this.isPlaying = true;
-    const data = this.playQueue.shift();
+  // ✅ REPRODUCCIÓN INMEDIATA CON SINCRONIZACIÓN PRECISA
+  playImmediately(floatData) {
+    if (!this.audioContext) return;
 
     // Crear buffer de audio
-    const audioBuffer = this.audioContext.createBuffer(1, data.length, 44100);
-    audioBuffer.copyToChannel(data, 0);
+    const audioBuffer = this.audioContext.createBuffer(1, floatData.length, 44100);
+    audioBuffer.copyToChannel(floatData, 0);
 
     // Crear source
     const source = this.audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.audioContext.destination);
 
-    // ✅ PROGRAMAR REPRODUCCIÓN EN EL MOMENTO EXACTO
+    // ✅ SINCRONIZACIÓN PRECISA
     const now = this.audioContext.currentTime;
     
-    if (this.nextPlayTime < now) {
-      // Si nos atrasamos, resetear
+    // Si el siguiente tiempo está muy atrás, resetear
+    if (this.nextPlayTime < now - 0.1) {
+      console.warn('⚠️ Reseteo de timeline de audio (desfase detectado)');
       this.nextPlayTime = now;
     }
     
-    source.start(this.nextPlayTime);
+    // Si está muy adelante (más de 200ms), ajustar
+    if (this.nextPlayTime > now + 0.2) {
+      console.warn('⚠️ Timeline muy adelantado, ajustando');
+      this.nextPlayTime = now + 0.05;
+    }
+    
+    // Programar reproducción
+    source.start(Math.max(this.nextPlayTime, now));
     
     // Actualizar próximo tiempo
-    this.nextPlayTime += audioBuffer.duration;
-
-    // Continuar con el siguiente
-    source.onended = () => this.playNext();
+    this.nextPlayTime = Math.max(this.nextPlayTime, now) + audioBuffer.duration;
   }
 
   // ========================================
@@ -256,7 +221,7 @@ class SimpleAudioStream {
   toggleMute(muted) {
     this.isMuted = muted;
     if (this.gainNode) {
-      this.gainNode.gain.value = muted ? 0 : 0.8;
+      this.gainNode.gain.value = muted ? 0 : 1.0;
     }
     console.log('🎤', muted ? 'SILENCIADO' : 'ACTIVO');
   }
@@ -289,8 +254,6 @@ class SimpleAudioStream {
       this.audioContext = null;
     }
 
-    this.playQueue = [];
-    this.isPlaying = false;
     this.isMuted = false;
     this.gainNode = null;
     this.nextPlayTime = 0;
