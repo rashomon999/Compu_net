@@ -60,7 +60,7 @@ class SimpleAudioStream {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
+          autoGainControl: false, // ✅ Desactivar AGC
           sampleRate: 44100
         }
       });
@@ -70,10 +70,10 @@ class SimpleAudioStream {
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
       
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = 0.5;
+      this.gainNode.gain.value = 0.5; // 50% volumen
       
-      // ✅ CRÍTICO: Buffer pequeño para baja latencia
-      this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      // ✅ USAR BUFFER DE 2048 (como tu versión funcional)
+      this.scriptProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
       
       // 4️⃣ Conectar pipeline
       source.connect(this.gainNode);
@@ -82,21 +82,34 @@ class SimpleAudioStream {
       
       console.log('   ✅ Captura de audio conectada');
 
+      // Buffer para acumular (como tu versión funcional)
+      let sendBuffer = [];
+
       // 5️⃣ Procesar audio capturado
       this.scriptProcessor.onaudioprocess = (e) => {
         if (!this.isStreaming || this.isMuted) return;
 
         const inputData = e.inputBuffer.getChannelData(0); // Float32Array
         
-        // ✅ CONVERSIÓN CORRECTA: Float32 → Uint8 (PCM 8 bits)
-        const pcm8 = new Uint8Array(inputData.length);
+        // ✅ USAR TU CONVERSIÓN: Float32 → PCM16 (como funcionaba)
+        const pcm16 = new Int16Array(inputData.length);
         for (let i = 0; i < inputData.length; i++) {
-          const sample = Math.max(-1, Math.min(1, inputData[i]));
-          pcm8[i] = Math.floor((sample + 1) * 127.5);
+          const s = Math.max(-1, Math.min(1, inputData[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
 
-        // Enviar inmediatamente (sin acumular)
-        this.sendAudioPacket(pcm8);
+        // Acumular en buffer
+        sendBuffer.push(pcm16);
+
+        // Enviar cuando hay 8 chunks (como tu versión)
+        if (sendBuffer.length >= 8) {
+          const merged = this.mergePCM16(sendBuffer);
+          sendBuffer = [];
+          
+          // ✅ Convertir a Uint8Array para Ice
+          const uint8View = new Uint8Array(merged.buffer);
+          this.sendAudioPacket(uint8View);
+        }
       };
 
       this.isStreaming = true;
@@ -107,6 +120,22 @@ class SimpleAudioStream {
       this.cleanup();
       throw error;
     }
+  }
+
+  // ========================================
+  // MERGE PCM16 (de tu versión funcional)
+  // ========================================
+  mergePCM16(chunks) {
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const merged = new Int16Array(totalLength);
+    let offset = 0;
+    
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    
+    return merged;
   }
 
   // ========================================
@@ -133,10 +162,18 @@ class SimpleAudioStream {
     if (!this.isStreaming || !audioData || audioData.length === 0) return;
 
     try {
-      // Convertir Uint8Array → Float32Array
-      const floatData = new Float32Array(audioData.length);
-      for (let i = 0; i < audioData.length; i++) {
-        floatData[i] = (audioData[i] / 127.5) - 1.0;
+      // ✅ Convertir bytes a Int16Array primero
+      const view = new DataView(audioData.buffer || audioData);
+      const pcm16 = new Int16Array(view.byteLength / 2);
+      
+      for (let i = 0; i < pcm16.length; i++) {
+        pcm16[i] = view.getInt16(i * 2, true); // little-endian
+      }
+      
+      // Convertir Int16 → Float32 para reproducción
+      const floatData = new Float32Array(pcm16.length);
+      for (let i = 0; i < pcm16.length; i++) {
+        floatData[i] = pcm16[i] / 32768.0;
       }
 
       this.playQueue.push(floatData);
