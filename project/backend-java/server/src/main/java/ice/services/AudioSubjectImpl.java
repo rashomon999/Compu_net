@@ -98,49 +98,49 @@ public class AudioSubjectImpl implements AudioSubject {
     // ============================================
     // ENRUTAMIENTO DE AUDIO (como el profesor)
     // ============================================
-    
     @Override
-    public synchronized void sendAudio(String fromUser, byte[] data, Current current) {
-        // PASO 1: Buscar con quién está hablando
-        String target = activeCalls.get(fromUser);
-        
-        // Incrementar contador (para debug)
-        long count = audioPacketCount.merge(fromUser, 1L, Long::sum);
-        
-        // Log cada 100 paquetes
-        if (count % 100 == 0) {
-            System.out.println("[AUDIO] sendAudio: " + fromUser + " → " + target 
-                + " | Paquete #" + count + " | " + (data != null ? data.length : 0) + " bytes");
+public synchronized void sendAudio(String fromUser, byte[] data, Current current) {
+    // PASO 1: Buscar con quién está hablando
+    String target = activeCalls.get(fromUser);
+    
+    // Incrementar contador (para debug)
+    long count = audioPacketCount.merge(fromUser, 1L, Long::sum);
+    
+    // Log cada 100 paquetes
+    if (count % 100 == 0) {
+        System.out.println("[AUDIO] sendAudio #" + count + ": " + fromUser + " → " + target 
+            + " | " + (data != null ? data.length : 0) + " bytes");
+    }
+    
+    // PASO 2: Validar que haya llamada activa
+    if (target == null) {
+        if (count <= 5) {
+            System.out.println("   ⚠️ No hay llamada activa para " + fromUser);
+            System.out.println("   📋 activeCalls actual: " + activeCalls);
         }
-        
-        // PASO 2: Validar que haya llamada activa
-        if (target == null) {
-            if (count <= 5) {
-                System.out.println("   ⚠️ No hay llamada activa para " + fromUser);
+        return;
+    }
+    
+    // PASO 3: Obtener el proxy del destinatario
+    AudioObserverPrx prx = observers.get(target);
+    
+    if (prx != null) {
+        try {
+            // PASO 4: Enviar el audio de forma asíncrona
+            prx.receiveAudioAsync(data);
+            
+            if (count % 100 == 0) {
+                System.out.println("   ✅ Audio enviado correctamente");
             }
-            return;
+        } catch (Exception e) {
+            System.err.println("   ❌ Error enviando audio: " + e);
         }
-        
-        // PASO 3: Obtener el proxy del destinatario
-        AudioObserverPrx prx = observers.get(target);
-        
-        if (prx != null) {
-            try {
-                // PASO 4: Enviar el audio de forma asíncrona
-                prx.receiveAudioAsync(data);
-                
-                if (count % 100 == 0) {
-                    System.out.println("   ✅ Audio enviado correctamente a " + target);
-                }
-            } catch (Exception e) {
-                System.err.println("   ❌ Error enviando audio a " + target + ": " + e);
-            }
-        } else {
-            if (count <= 5) {
-                System.out.println("   ❌ No se encontró proxy para " + target);
-            }
+    } else {
+        if (count <= 5) {
+            System.out.println("   ❌ No se encontró proxy para " + target);
         }
     }
+}
     
     // ============================================
     // GESTIÓN DE LLAMADAS (EXACTO como el profesor)
@@ -165,34 +165,43 @@ public class AudioSubjectImpl implements AudioSubject {
         }
     }
     
-    @Override
+   @Override
 public synchronized void acceptCall(String fromUser, String toUser, Current current) {
-    System.out.println("[AUDIO] acceptCall: " + fromUser + " (acepta) → " + toUser + " (llamante)");
+    System.out.println("[AUDIO] acceptCall: " + fromUser + " → " + toUser);
+    System.out.println("   fromUser (caller): " + fromUser);
+    System.out.println("   toUser (acceptor): " + toUser);
     
-    // ✅ CORRECTO: fromUser es quien ACEPTA, toUser es quien LLAMÓ
-    // Debemos notificar al LLAMANTE (toUser) que su llamada fue aceptada
-    AudioObserverPrx llamante = observers.get(toUser);
+    // ✅ EXACTO DEL PROFESOR:
+    // fromUser = quien LLAMÓ originalmente (Maria)
+    // toUser = quien está ACEPTANDO ahora (Luis)
     
-    if (llamante != null) {
+    // Buscar el Observer del LLAMANTE original
+    AudioObserverPrx caller = observers.get(fromUser);
+    
+    if (caller != null) {
         // Notificar al llamante que la llamada fue aceptada
-        // Le pasamos el nombre de quien aceptó (fromUser)
-        llamante.callAcceptedAsync(fromUser);
-        System.out.println("   ✅ Notificación enviada a " + toUser + " (llamante)");
+        // Le pasamos el nombre de quien aceptó (toUser)
+        caller.callAcceptedAsync(toUser);
+        System.out.println("   ✅ Notificación 'callAccepted' enviada a " + fromUser + " (llamante)");
         
         // CRÍTICO: Marca la llamada como activa (BIDIRECCIONAL)
-        activeCalls.put(fromUser, toUser);  // quien acepta → llamante
-        activeCalls.put(toUser, fromUser);  // llamante → quien acepta
+        activeCalls.put(fromUser, toUser);  // Maria → Luis
+        activeCalls.put(toUser, fromUser);  // Luis → Maria
         
-        System.out.println("   📞 Llamada activa: " + fromUser + " ↔ " + toUser);
+        System.out.println("   📞 Llamada BIDIRECCIONAL activa:");
+        System.out.println("      " + fromUser + " ↔ " + toUser);
+        System.out.println("   🔊 Enrutamiento de audio configurado:");
+        System.out.println("      Audio de " + fromUser + " → " + toUser);
+        System.out.println("      Audio de " + toUser + " → " + fromUser);
         
         // Inicializar contadores
         audioPacketCount.put(fromUser, 0L);
         audioPacketCount.put(toUser, 0L);
         
         // También agregar a cola de polling (fallback)
-        addPendingAcceptedCall(toUser, fromUser);  // Notificar al LLAMANTE
+        addPendingAcceptedCall(fromUser, toUser);
     } else {
-        System.out.println("   ❌ No se encontró al llamante: " + toUser);
+        System.out.println("   ❌ No se encontró al llamante: " + fromUser);
     }
 }
     

@@ -122,19 +122,18 @@ class SimpleCallManager {
     
     this.clearRingTimer();
     
-    // ✅ CORREGIDO: Parámetros en el orden del profesor
-    // acceptCall(fromUser, toUser) donde:
-    // - fromUser = quien ACEPTA (yo)
-    // - toUser = quien LLAMÓ originalmente
+    // ✅ ORDEN EXACTO DEL PROFESOR:
+    // acceptCall(fromUser, toUser)
+    // fromUser = quien LLAMÓ (el caller original)
+    // toUser = quien ACEPTA (yo)
     await this.audioSubject.acceptCall(
-      this.username,                // YO (quien acepta)
-      this.activeCall.callerId      // Quien me llamó
+      this.activeCall.callerId,    // Maria (quien LLAMÓ) - PRIMERO
+      this.username                // Luis (quien ACEPTA) - SEGUNDO
     );
     
-    console.log('   ✅ Aceptación enviada al servidor');
-    console.log('   📝 Parámetros: acceptCall(' + this.username + ', ' + this.activeCall.callerId + ')');
+    console.log('   ✅ Llamada: acceptCall("' + this.activeCall.callerId + '", "' + this.username + '")');
     
-    // ✅ Actualizar estado
+    // Actualizar estado
     this.activeCall.status = 'CONNECTED';
     this.activeCall.answerTime = Date.now();
     
@@ -158,12 +157,18 @@ class SimpleCallManager {
   // ========================================
  async handleCallAccepted(fromUser) {
   try {
-    console.log('📥 [SIMPLE CALL] Llamada ACEPTADA por:', fromUser);
+    console.log('╔══════════════════════════════════════════╗');
+    console.log('║  LLAMADA ACEPTADA                        ║');
+    console.log('╠══════════════════════════════════════════╣');
+    console.log('║  Aceptada por:', fromUser.padEnd(20), '║');
+    console.log('║  Yo:          ', this.username.padEnd(20), '║');
+    console.log('╚══════════════════════════════════════════╝');
     
     this.clearRingTimer();
     
-    // ✅ Crear activeCall si no existe (por si llegó antes que startCall complete)
+    // ✅ Asegurar que activeCall existe
     if (!this.activeCall) {
+      console.warn('   ⚠️ activeCall no existe, creando...');
       this.activeCall = {
         type: 'OUTGOING',
         callerId: this.username,
@@ -173,23 +178,25 @@ class SimpleCallManager {
         answerTime: Date.now()
       };
     } else {
-      // Actualizar estado existente
+      // Actualizar estado
       this.activeCall.status = 'CONNECTED';
       this.activeCall.answerTime = Date.now();
     }
     
-    console.log('   📝 Estado de llamada:', this.activeCall);
+    console.log('   📝 Estado final de activeCall:', this.activeCall);
     
     // Iniciar audio
-    console.log('   🎤 Iniciando audio...');
+    console.log('   🎤 Iniciando streaming de audio...');
     await simpleAudioStream.startStreaming();
-    console.log('   ✅ Audio streaming activo');
+    console.log('   ✅ Audio streaming ACTIVO');
     
     // Iniciar contador
     this.startDurationTimer();
     
+    console.log('   🔊 Llamada completamente establecida');
+    
   } catch (error) {
-    console.error('❌ [SIMPLE CALL] Error:', error);
+    console.error('❌ [SIMPLE CALL] Error en handleCallAccepted:', error);
     throw error;
   }
 }
