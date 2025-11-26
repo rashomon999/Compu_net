@@ -26,12 +26,10 @@ class AudioStreamManager {
   // ========================================
   
   async startStreaming() {
-    console.log('🔍 [DEBUG] Estado al iniciar:');
-console.log('   activeCall:', callManager.getActiveCall());
-console.log('   isStreaming:', this.isStreaming);
-console.log('   currentUsername:', state.currentUsername);
     try {
       console.log('🎤 [STREAM] Iniciando captura de audio...');
+      console.log('   Usuario:', state.currentUsername);
+      console.log('   isStreaming actual:', this.isStreaming);
       
       // Crear AudioContext si no existe
       if (!this.audioContext) {
@@ -107,8 +105,6 @@ console.log('   currentUsername:', state.currentUsername);
       console.error('❌ [STREAM] Error:', error);
       throw error;
     }
-
-    
   }
 
   // ========================================
@@ -142,6 +138,16 @@ console.log('   currentUsername:', state.currentUsername);
     try {
       if (!this.isStreaming) return;
       
+      // ✅ DEBUG: Log cada 50 paquetes
+      if (!this._audioPacketCount) this._audioPacketCount = 0;
+      this._audioPacketCount++;
+      
+      if (this._audioPacketCount % 50 === 0) {
+        console.log(`📤 [STREAM] Enviados ${this._audioPacketCount} paquetes de audio`);
+        console.log(`   Último paquete: ${audioData.byteLength} bytes`);
+        console.log(`   Usuario: ${state.currentUsername}`);
+      }
+      
       // ✅ Enviar via Ice (igual que el profesor en sendAudio)
       await iceClient.sendAudioChunk(state.currentUsername, audioData);
       
@@ -159,7 +165,14 @@ console.log('   currentUsername:', state.currentUsername);
   
   async receiveAudioChunk(audioData) {
     try {
-      console.log('🔊 [STREAM] Audio recibido:', audioData.byteLength, 'bytes');
+      // ✅ DEBUG: Contar paquetes recibidos
+      if (!this._receivePacketCount) this._receivePacketCount = 0;
+      this._receivePacketCount++;
+      
+      if (this._receivePacketCount % 50 === 0) {
+        console.log(`📥 [STREAM] Recibidos ${this._receivePacketCount} paquetes de audio`);
+        console.log(`   Último paquete: ${audioData.byteLength} bytes`);
+      }
       
       // Validar AudioContext
       if (!this.audioContext) {
