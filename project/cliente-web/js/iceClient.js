@@ -184,34 +184,45 @@ class IceClientManager {
 
   async connectToAudioSubject(host, port, username, observerCallbacks) {
     try {
-      console.log('📞 Conectando a AudioSubject...');
+      console.log('📞 [AUDIO] Conectando a AudioSubject...');
+      console.log('   Host:', host);
+      console.log('   Port:', port);
+      console.log('   Username:', username);
       
       const Ice = window.Ice;
+      
+      if (!Ice) {
+        throw new Error('Ice no está disponible');
+      }
       
       if (!Ice.AudioSystem) {
         throw new Error('AudioSystem no está inicializado');
       }
       
-      console.log('   ✅ AudioSystem encontrado:', Object.keys(Ice.AudioSystem).length, 'elementos');
+      console.log('   ✅ AudioSystem encontrado');
       
       // PASO 1: Conectar al AudioSubject (servidor)
-      const audioProxy = this.communicator.stringToProxy(
-        `AudioService:ws -h ${host} -p ${port}`
-      );
+      const audioProxyString = `AudioService:ws -h ${host} -p ${port}`;
+      console.log('   Proxy string:', audioProxyString);
+      
+      const audioProxy = this.communicator.stringToProxy(audioProxyString);
+      console.log('   ✅ Proxy creado');
       
       this.audioSubject = await Ice.AudioSystem.AudioSubjectPrx.checkedCast(audioProxy);
       
       if (!this.audioSubject) {
-        throw new Error('No se pudo conectar a AudioService');
+        throw new Error('No se pudo conectar a AudioService - checkedCast retornó null');
       }
       
       console.log('   ✅ AudioSubject conectado');
       
       // PASO 2: Guardar callbacks
       this.audioCallbacks = observerCallbacks;
+      console.log('   ✅ Callbacks guardados');
       
       // PASO 3: Crear adaptador
       if (!this.audioAdapter) {
+        console.log('   Creando adaptador...');
         this.audioAdapter = await this.communicator.createObjectAdapter("");
         console.log('   ✅ Adaptador creado');
       }
@@ -219,6 +230,8 @@ class IceClientManager {
       // ========================================
       // 🔥 PASO 4: CREAR OBSERVER (CRÍTICO)
       // ========================================
+      console.log('   Creando Observer...');
+      
       const observerObj = {
         // ✅ RECIBE AUDIO (EXACTO como el profesor)
         receiveAudio: (data, current) => {
@@ -267,26 +280,29 @@ class IceClientManager {
         }
       };
       
-      console.log('   ✅ Observer creado con receiveAudio');
+      console.log('   ✅ Observer object creado');
       
       // PASO 5: Crear proxy del Observer
+      console.log('   Creando proxy del Observer...');
       const observerProxy = this.audioAdapter.add(
         new Ice.AudioSystem.AudioObserver(observerObj),
         new Ice.Identity(Ice.generateUUID(), "")
       );
       
-      console.log('   ✅ Proxy creado');
+      console.log('   ✅ Proxy del Observer creado');
       
       // PASO 6: Activar adaptador
+      console.log('   Activando adaptador...');
       await this.audioAdapter.activate();
       console.log('   ✅ Adaptador activado');
       
       // PASO 7: Registrarse en el servidor
+      console.log('   Registrándose en servidor...');
       await this.audioSubject.attach(username, observerProxy);
       console.log('   ✅ Registrado en servidor');
       
       // PASO 8: Iniciar polling (fallback)
-      console.log('   🔄 Iniciando polling para llamadas...');
+      console.log('   🔄 Iniciando polling...');
       this.startAudioPolling(username);
       
       console.log('✅ Sistema de llamadas ACTIVO (callbacks + polling)');
@@ -295,7 +311,8 @@ class IceClientManager {
       return this.audioSubject;
       
     } catch (error) {
-      console.error('❌ Error conectando AudioSubject:', error);
+      console.error('❌ [AUDIO] Error conectando AudioSubject:', error);
+      console.error('   Stack:', error.stack);
       throw error;
     }
   }
