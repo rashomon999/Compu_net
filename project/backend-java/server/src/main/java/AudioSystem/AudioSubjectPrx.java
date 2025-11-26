@@ -129,43 +129,6 @@ public interface AudioSubjectPrx extends com.zeroc.Ice.ObjectPrx
         return f;
     }
 
-    default String[] getConnectedUsers()
-    {
-        return getConnectedUsers(com.zeroc.Ice.ObjectPrx.noExplicitContext);
-    }
-
-    default String[] getConnectedUsers(java.util.Map<String, String> context)
-    {
-        return _iceI_getConnectedUsersAsync(context, true).waitForResponse();
-    }
-
-    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync()
-    {
-        return _iceI_getConnectedUsersAsync(com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
-    }
-
-    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync(java.util.Map<String, String> context)
-    {
-        return _iceI_getConnectedUsersAsync(context, false);
-    }
-
-    /**
-     * @hidden
-     * @param context -
-     * @param sync -
-     * @return -
-     **/
-    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getConnectedUsersAsync(java.util.Map<String, String> context, boolean sync)
-    {
-        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getConnectedUsers", null, sync, null);
-        f.invoke(true, context, null, null, istr -> {
-                     String[] ret;
-                     ret = istr.readStringSeq();
-                     return ret;
-                 });
-        return f;
-    }
-
     default void startCall(String fromUser, String toUser)
     {
         startCall(fromUser, toUser, com.zeroc.Ice.ObjectPrx.noExplicitContext);
@@ -315,6 +278,203 @@ public interface AudioSubjectPrx extends com.zeroc.Ice.ObjectPrx
                      ostr.writeString(iceP_fromUser);
                      ostr.writeString(iceP_toUser);
                  }, null);
+        return f;
+    }
+
+    default String[] getPendingIncomingCalls(String userId)
+    {
+        return getPendingIncomingCalls(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getPendingIncomingCalls(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingIncomingCallsAsync(userId, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingIncomingCallsAsync(String userId)
+    {
+        return _iceI_getPendingIncomingCallsAsync(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingIncomingCallsAsync(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingIncomingCallsAsync(userId, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_userId -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getPendingIncomingCallsAsync(String iceP_userId, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getPendingIncomingCalls", null, sync, null);
+        f.invoke(true, context, null, ostr -> {
+                     ostr.writeString(iceP_userId);
+                 }, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
+        return f;
+    }
+
+    default String[] getPendingAcceptedCalls(String userId)
+    {
+        return getPendingAcceptedCalls(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getPendingAcceptedCalls(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingAcceptedCallsAsync(userId, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingAcceptedCallsAsync(String userId)
+    {
+        return _iceI_getPendingAcceptedCallsAsync(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingAcceptedCallsAsync(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingAcceptedCallsAsync(userId, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_userId -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getPendingAcceptedCallsAsync(String iceP_userId, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getPendingAcceptedCalls", null, sync, null);
+        f.invoke(true, context, null, ostr -> {
+                     ostr.writeString(iceP_userId);
+                 }, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
+        return f;
+    }
+
+    default String[] getPendingRejectedCalls(String userId)
+    {
+        return getPendingRejectedCalls(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getPendingRejectedCalls(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingRejectedCallsAsync(userId, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingRejectedCallsAsync(String userId)
+    {
+        return _iceI_getPendingRejectedCallsAsync(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingRejectedCallsAsync(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingRejectedCallsAsync(userId, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_userId -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getPendingRejectedCallsAsync(String iceP_userId, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getPendingRejectedCalls", null, sync, null);
+        f.invoke(true, context, null, ostr -> {
+                     ostr.writeString(iceP_userId);
+                 }, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
+        return f;
+    }
+
+    default String[] getPendingEndedCalls(String userId)
+    {
+        return getPendingEndedCalls(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getPendingEndedCalls(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingEndedCallsAsync(userId, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingEndedCallsAsync(String userId)
+    {
+        return _iceI_getPendingEndedCallsAsync(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingEndedCallsAsync(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingEndedCallsAsync(userId, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_userId -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getPendingEndedCallsAsync(String iceP_userId, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getPendingEndedCalls", null, sync, null);
+        f.invoke(true, context, null, ostr -> {
+                     ostr.writeString(iceP_userId);
+                 }, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
+        return f;
+    }
+
+    default String[] getConnectedUsers()
+    {
+        return getConnectedUsers(com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getConnectedUsers(java.util.Map<String, String> context)
+    {
+        return _iceI_getConnectedUsersAsync(context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync()
+    {
+        return _iceI_getConnectedUsersAsync(com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync(java.util.Map<String, String> context)
+    {
+        return _iceI_getConnectedUsersAsync(context, false);
+    }
+
+    /**
+     * @hidden
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getConnectedUsersAsync(java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getConnectedUsers", null, sync, null);
+        f.invoke(true, context, null, null, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
         return f;
     }
 

@@ -3,12 +3,14 @@ package main.java.ice.services;
 import AudioSystem.*;
 import com.zeroc.Ice.Current;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implementación del Subject para llamadas de audio
- * Filosofía del Profesor: Enrutamiento directo, sin WebRTC
+ * ✅ MEJORADO: Con sistema de colas para polling (fallback de callbacks)
  */
 public class AudioSubjectImpl implements AudioSubject {
     
@@ -20,11 +22,16 @@ public class AudioSubjectImpl implements AudioSubject {
     private final Map<String, AudioObserverPrx> observers = new ConcurrentHashMap<>();
     
     // Mapea userId → userId (llamada activa BIDIRECCIONAL)
-    // Ejemplo: {"Alice": "Bob", "Bob": "Alice"}
     private final Map<String, String> activeCalls = new ConcurrentHashMap<>();
     
     // Contador de paquetes para debug
     private final Map<String, Long> audioPacketCount = new ConcurrentHashMap<>();
+    
+    // ✅ NUEVO: Colas para polling (fallback)
+    private final Map<String, List<String>> pendingIncomingCalls = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> pendingAcceptedCalls = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> pendingRejectedCalls = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> pendingEndedCalls = new ConcurrentHashMap<>();
     
     // ============================================
     // GESTIÓN DE CONEXIONES
@@ -70,16 +77,14 @@ public class AudioSubjectImpl implements AudioSubject {
             activeCalls.remove(target);
             
             // Notificar al otro usuario
-            AudioObserverPrx targetPrx = observers.get(target);
-            if (targetPrx != null) {
-                try {
-                    targetPrx.callEndedAsync(userId);
-                    System.out.println("   ✅ Notificado a " + target);
-                } catch (Exception e) {
-                    System.err.println("   ❌ Error notificando: " + e.getMessage());
-                }
-            }
+            notifyCallEnded(target, userId);
         }
+        
+        // Limpiar colas pendientes
+        pendingIncomingCalls.remove(userId);
+        pendingAcceptedCalls.remove(userId);
+        pendingRejectedCalls.remove(userId);
+        pendingEndedCalls.remove(userId);
         
         System.out.println("   ✅ Recursos liberados");
     }
@@ -96,9 +101,7 @@ public class AudioSubjectImpl implements AudioSubject {
         // Log solo cada 100 paquetes para no saturar
         long count = audioPacketCount.merge(fromUser, 1L, Long::sum);
         if (count % 100 == 0) {
-            System.out.println("[AUDIO] 📤 " + fromUser + " ha enviado " + count + " paquetes");
-            System.out.println("   Enviando a: " + target);
-            System.out.println("   Tamaño: " + data.length + " bytes");
+            System.out.println("[AUDIO] 📤 " + fromUser + " → " + target + " (paquete #" + count + ", " + data.length + " bytes)");
         }
         
         // PASO 2: Validar que haya llamada activa
@@ -142,40 +145,33 @@ public class AudioSubjectImpl implements AudioSubject {
         
         if (destPrx == null) {
             System.out.println("   ❌ Usuario no encontrado: " + toUser);
-            
-            // Notificar al llamante que el usuario no existe
-            AudioObserverPrx callerPrx = observers.get(fromUser);
-            if (callerPrx != null) {
-                try {
-                    callerPrx.callRejectedAsync(toUser);
-                } catch (Exception e) {
-                    System.err.println("   ❌ Error notificando rechazo: " + e.getMessage());
-                }
-            }
+            notifyCallRejected(fromUser, toUser);
             return;
         }
         
         // Verificar si el destinatario ya está en otra llamada
         if (activeCalls.containsKey(toUser)) {
             System.out.println("   ⚠️ Usuario ocupado: " + toUser);
-            
-            AudioObserverPrx callerPrx = observers.get(fromUser);
-            if (callerPrx != null) {
-                try {
-                    callerPrx.callRejectedAsync(toUser);
-                } catch (Exception e) {
-                    System.err.println("   ❌ Error notificando ocupado: " + e.getMessage());
-                }
-            }
+            notifyCallRejected(fromUser, toUser);
             return;
         }
         
-        // Notificar llamada entrante
+        // ✅ MÉTODO 1: Intentar callback directo
         try {
-            destPrx.incomingCallAsync(fromUser);
-            System.out.println("   ✅ Notificación enviada a " + toUser);
+            System.out.println("   📤 Intentando callback directo...");
+            destPrx.ice_oneway().incomingCallAsync(fromUser).whenComplete((result, ex) -> {
+                if (ex != null) {
+                    System.err.println("   ❌ Callback falló: " + ex.getMessage());
+                    System.out.println("   📥 Usando polling como fallback");
+                    addPendingIncomingCall(toUser, fromUser);
+                } else {
+                    System.out.println("   ✅ Callback exitoso");
+                }
+            });
         } catch (Exception e) {
-            System.err.println("   ❌ Error notificando llamada: " + e.getMessage());
+            System.err.println("   ❌ Excepción en callback: " + e.getMessage());
+            System.out.println("   📥 Usando polling como fallback");
+            addPendingIncomingCall(toUser, fromUser);
         }
     }
     
@@ -185,28 +181,14 @@ public class AudioSubjectImpl implements AudioSubject {
         System.out.println("   De: " + fromUser);
         System.out.println("   Por: " + toUser);
         
-        // Buscar el Observer del llamante original
-        AudioObserverPrx callerPrx = observers.get(fromUser);
-        
-        if (callerPrx == null) {
-            System.out.println("   ⚠️ Llamante ya no está conectado");
-            return;
-        }
-        
         // CRÍTICO: Establecer llamada BIDIRECCIONAL
         activeCalls.put(fromUser, toUser);
         activeCalls.put(toUser, fromUser);
         
         System.out.println("   📞 Llamada ACTIVA: " + fromUser + " ↔ " + toUser);
-        System.out.println("   activeCalls: " + activeCalls);
         
-        // Notificar al llamante que la llamada fue aceptada
-        try {
-            callerPrx.callAcceptedAsync(toUser);
-            System.out.println("   ✅ Notificación enviada a " + fromUser);
-        } catch (Exception e) {
-            System.err.println("   ❌ Error notificando aceptación: " + e.getMessage());
-        }
+        // Notificar al llamante
+        notifyCallAccepted(fromUser, toUser);
         
         // Resetear contadores de audio
         audioPacketCount.put(fromUser, 0L);
@@ -219,16 +201,7 @@ public class AudioSubjectImpl implements AudioSubject {
         System.out.println("   De: " + fromUser);
         System.out.println("   Por: " + toUser);
         
-        AudioObserverPrx callerPrx = observers.get(fromUser);
-        
-        if (callerPrx != null) {
-            try {
-                callerPrx.callRejectedAsync(toUser);
-                System.out.println("   ✅ Notificación enviada");
-            } catch (Exception e) {
-                System.err.println("   ❌ Error notificando rechazo: " + e.getMessage());
-            }
-        }
+        notifyCallRejected(fromUser, toUser);
     }
     
     @Override
@@ -237,28 +210,11 @@ public class AudioSubjectImpl implements AudioSubject {
         System.out.println("   Por: " + fromUser);
         System.out.println("   Con: " + toUser);
         
-        // PASO 1: Notificar al que colgó (para UI local)
-        AudioObserverPrx callerPrx = observers.get(fromUser);
-        if (callerPrx != null) {
-            try {
-                callerPrx.callEndedAsync(fromUser);
-            } catch (Exception e) {
-                System.err.println("   ❌ Error notificando a caller: " + e.getMessage());
-            }
-        }
+        // Notificar a ambos usuarios
+        notifyCallEnded(fromUser, fromUser);
+        notifyCallEnded(toUser, fromUser);
         
-        // PASO 2: Notificar al otro usuario
-        AudioObserverPrx receiverPrx = observers.get(toUser);
-        if (receiverPrx != null) {
-            try {
-                receiverPrx.callEndedAsync(fromUser);
-                System.out.println("   ✅ Notificado a " + toUser);
-            } catch (Exception e) {
-                System.err.println("   ❌ Error notificando a receiver: " + e.getMessage());
-            }
-        }
-        
-        // PASO 3: Limpiar estado de llamada
+        // Limpiar estado de llamada
         activeCalls.remove(fromUser);
         activeCalls.remove(toUser);
         
@@ -277,12 +233,124 @@ public class AudioSubjectImpl implements AudioSubject {
     }
     
     // ============================================
+    // ✅ MÉTODOS DE NOTIFICACIÓN (CON FALLBACK)
+    // ============================================
+    
+    private void notifyCallRejected(String userId, String fromUser) {
+        AudioObserverPrx prx = observers.get(userId);
+        if (prx != null) {
+            try {
+                prx.ice_oneway().callRejectedAsync(fromUser).whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        addPendingRejectedCall(userId, fromUser);
+                    }
+                });
+            } catch (Exception e) {
+                addPendingRejectedCall(userId, fromUser);
+            }
+        }
+    }
+    
+    private void notifyCallAccepted(String userId, String fromUser) {
+        AudioObserverPrx prx = observers.get(userId);
+        if (prx != null) {
+            try {
+                prx.ice_oneway().callAcceptedAsync(fromUser).whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        addPendingAcceptedCall(userId, fromUser);
+                    }
+                });
+            } catch (Exception e) {
+                addPendingAcceptedCall(userId, fromUser);
+            }
+        }
+    }
+    
+    private void notifyCallEnded(String userId, String fromUser) {
+        AudioObserverPrx prx = observers.get(userId);
+        if (prx != null) {
+            try {
+                prx.ice_oneway().callEndedAsync(fromUser).whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        addPendingEndedCall(userId, fromUser);
+                    }
+                });
+            } catch (Exception e) {
+                addPendingEndedCall(userId, fromUser);
+            }
+        }
+    }
+    
+    // ============================================
+    // ✅ MÉTODOS PARA POLLING (FALLBACK)
+    // ============================================
+    
+    @Override
+    public synchronized String[] getPendingIncomingCalls(String userId, Current current) {
+        List<String> calls = pendingIncomingCalls.remove(userId);
+        if (calls == null || calls.isEmpty()) {
+            return new String[0];
+        }
+        System.out.println("[AUDIO] 📬 Entregando " + calls.size() + " llamadas pendientes a " + userId);
+        return calls.toArray(new String[0]);
+    }
+    
+    @Override
+    public synchronized String[] getPendingAcceptedCalls(String userId, Current current) {
+        List<String> calls = pendingAcceptedCalls.remove(userId);
+        if (calls == null || calls.isEmpty()) {
+            return new String[0];
+        }
+        System.out.println("[AUDIO] 📬 Entregando " + calls.size() + " aceptaciones pendientes a " + userId);
+        return calls.toArray(new String[0]);
+    }
+    
+    @Override
+    public synchronized String[] getPendingRejectedCalls(String userId, Current current) {
+        List<String> calls = pendingRejectedCalls.remove(userId);
+        if (calls == null || calls.isEmpty()) {
+            return new String[0];
+        }
+        return calls.toArray(new String[0]);
+    }
+    
+    @Override
+    public synchronized String[] getPendingEndedCalls(String userId, Current current) {
+        List<String> calls = pendingEndedCalls.remove(userId);
+        if (calls == null || calls.isEmpty()) {
+            return new String[0];
+        }
+        return calls.toArray(new String[0]);
+    }
+    
+    // ============================================
+    // MÉTODOS AUXILIARES PARA COLAS
+    // ============================================
+    
+    private void addPendingIncomingCall(String userId, String fromUser) {
+        pendingIncomingCalls.computeIfAbsent(userId, k -> new ArrayList<>()).add(fromUser);
+        System.out.println("   📥 Llamada agregada a queue de " + userId);
+    }
+    
+    private void addPendingAcceptedCall(String userId, String fromUser) {
+        pendingAcceptedCalls.computeIfAbsent(userId, k -> new ArrayList<>()).add(fromUser);
+        System.out.println("   📥 Aceptación agregada a queue de " + userId);
+    }
+    
+    private void addPendingRejectedCall(String userId, String fromUser) {
+        pendingRejectedCalls.computeIfAbsent(userId, k -> new ArrayList<>()).add(fromUser);
+    }
+    
+    private void addPendingEndedCall(String userId, String fromUser) {
+        pendingEndedCalls.computeIfAbsent(userId, k -> new ArrayList<>()).add(fromUser);
+    }
+    
+    // ============================================
     // UTILIDADES
     // ============================================
     
     @Override
     public String[] getConnectedUsers(Current current) {
-        System.out.println("[AUDIO] 👥 Usuarios conectados: " + observers.size());
         return observers.keySet().toArray(new String[0]);
     }
 }

@@ -1,5 +1,5 @@
 // ============================================
-// AudioSubject.js - Compatible con Webpack
+// AudioSubject.js - Compatible con Webpack + Polling
 // ============================================
 
 /* eslint-disable */
@@ -17,6 +17,20 @@ const initAudioSystem = () => {
     const Slice = Ice.Slice;
 
     let AudioSystem = _ModuleRegistry.module("AudioSystem");
+
+// ✅ Verificar si ya está inicializado (evitar redefiniciones en hot reload)
+if (AudioSystem.AudioObserver) {
+    console.log('⚠️ AudioSystem ya estaba inicializado, reutilizando...');
+    window.Ice.AudioSystem = AudioSystem;
+    return AudioSystem;
+}
+
+    // ✅ Verificar si ya está inicializado (evitar redefiniciones en hot reload)
+    if (AudioSystem.AudioObserver) {
+        console.log('⚠️ AudioSystem ya estaba inicializado, reutilizando...');
+        window.Ice.AudioSystem = AudioSystem;
+        return AudioSystem;
+    }
 
     // Definir AudioData (sequence<byte>)
     if (!AudioSystem.AudioDataHelper) {
@@ -68,7 +82,12 @@ const initAudioSystem = () => {
         "startCall": [, , , , , [[7], [7]], , , ,],
         "acceptCall": [, , , , , [[7], [7]], , , ,],
         "rejectCall": [, , , , , [[7], [7]], , , ,],
-        "hangup": [, , , , , [[7], [7]], , , ,]
+        "hangup": [, , , , , [[7], [7]], , , ,],
+        // ✅ NUEVO: Métodos de polling
+        "getPendingIncomingCalls": [, , , , ["AudioSystem.StringSeqHelper"], [[7]], , , ,],
+        "getPendingAcceptedCalls": [, , , , ["AudioSystem.StringSeqHelper"], [[7]], , , ,],
+        "getPendingRejectedCalls": [, , , , ["AudioSystem.StringSeqHelper"], [[7]], , , ,],
+        "getPendingEndedCalls": [, , , , ["AudioSystem.StringSeqHelper"], [[7]], , , ,]
     });
 
     // Exportar a window.Ice

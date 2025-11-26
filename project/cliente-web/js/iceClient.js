@@ -1,5 +1,5 @@
 // ============================================
-// js/iceClient.js - Cliente ICE SIMPLIFICADO
+// js/iceClient.js - Con Polling de Audio
 // ============================================
 
 class IceClientManager {
@@ -19,6 +19,8 @@ class IceClientManager {
 
     this.audioSubject = null;
     this.audioAdapter = null;
+    this.audioPollingInterval = null; // ✅ NUEVO
+    this.audioCallbacks = null; // ✅ NUEVO
   }
 
   getServerConfig() {
@@ -44,24 +46,21 @@ class IceClientManager {
       
       console.log(`🔌 Conectando a ICE: ws://${this.serverHost}:${this.serverPort}`);
       
-      // ✅ VERIFICAR que Ice.js esté disponible
       const Ice = window.Ice;
       if (!Ice) {
-        throw new Error('Ice.js no está disponible. Verifica que se cargue desde el CDN.');
+        throw new Error('Ice.js no está disponible');
       }
       
       console.log('✅ Ice.js detectado, versión:', Ice.stringVersion());
       
-      // ✅ VERIFICAR que ChatSystem esté disponible
       if (!Ice.ChatSystem) {
-        throw new Error('ChatSystem no está inicializado. Verifica que main.js lo haya inicializado.');
+        throw new Error('ChatSystem no está inicializado');
       }
       
       console.log('✅ ChatSystem disponible:', Object.keys(Ice.ChatSystem).length, 'elementos');
       
-      // ✅ VERIFICAR que AudioSystem esté disponible (opcional)
       if (!Ice.AudioSystem) {
-        console.warn('⚠️ AudioSystem no está disponible (las llamadas no funcionarán)');
+        console.warn('⚠️ AudioSystem no está disponible');
       } else {
         console.log('✅ AudioSystem disponible:', Object.keys(Ice.AudioSystem).length, 'elementos');
       }
@@ -125,7 +124,7 @@ class IceClientManager {
         }
         console.log('  ✅ ChatService conectado');
       } catch (err) {
-        throw new Error(`No se pudo conectar a ChatService en ${host}:${port}\n\nVerifica que:\n1. El servidor ICE esté corriendo\n2. El firewall permita conexiones en el puerto ${port}\n3. Ambos dispositivos estén en la misma red`);
+        throw new Error(`No se pudo conectar a ChatService en ${host}:${port}`);
       }
       
       // GroupService (OBLIGATORIO)
@@ -189,9 +188,8 @@ class IceClientManager {
       
       const Ice = window.Ice;
       
-      // Verificar que AudioSystem esté disponible
       if (!Ice.AudioSystem) {
-        throw new Error('AudioSystem no está inicializado. Verifica que main.js lo haya cargado.');
+        throw new Error('AudioSystem no está inicializado');
       }
       
       console.log('   ✅ AudioSystem encontrado:', Object.keys(Ice.AudioSystem).length, 'elementos');
@@ -209,47 +207,47 @@ class IceClientManager {
       
       console.log('   ✅ AudioSubject conectado');
       
-      // PASO 2: Crear adaptador para callbacks
+      // PASO 2: Guardar callbacks para polling
+      this.audioCallbacks = observerCallbacks;
+      
+      // PASO 3: Crear adaptador para callbacks (intentar primero)
       if (!this.audioAdapter) {
         this.audioAdapter = await this.communicator.createObjectAdapter("");
         console.log('   ✅ Adaptador creado');
       }
       
-      // PASO 3: Crear el Observer (callbacks del cliente)
+      // PASO 4: Crear el Observer
       const observerObj = {
         receiveAudio: (data) => {
-          const audioData = data instanceof Uint8Array 
-            ? data 
-            : new Uint8Array(data);
-          
+          const audioData = data instanceof Uint8Array ? data : new Uint8Array(data);
           if (observerCallbacks.receiveAudio) {
             observerCallbacks.receiveAudio(audioData);
           }
         },
         
         incomingCall: (fromUser) => {
-          console.log('📞 [ICE] Llamada entrante de:', fromUser);
+          console.log('📞 [ICE CALLBACK] Llamada entrante de:', fromUser);
           if (observerCallbacks.incomingCall) {
             observerCallbacks.incomingCall(fromUser);
           }
         },
         
         callAccepted: (fromUser) => {
-          console.log('✅ [ICE] Llamada aceptada por:', fromUser);
+          console.log('✅ [ICE CALLBACK] Llamada aceptada por:', fromUser);
           if (observerCallbacks.callAccepted) {
             observerCallbacks.callAccepted(fromUser);
           }
         },
         
         callRejected: (fromUser) => {
-          console.log('❌ [ICE] Llamada rechazada por:', fromUser);
+          console.log('❌ [ICE CALLBACK] Llamada rechazada por:', fromUser);
           if (observerCallbacks.callRejected) {
             observerCallbacks.callRejected(fromUser);
           }
         },
         
         callEnded: (fromUser) => {
-          console.log('📞 [ICE] Llamada finalizada por:', fromUser);
+          console.log('📞 [ICE CALLBACK] Llamada finalizada por:', fromUser);
           if (observerCallbacks.callEnded) {
             observerCallbacks.callEnded(fromUser);
           }
@@ -258,7 +256,7 @@ class IceClientManager {
       
       console.log('   ✅ Observer creado');
       
-      // PASO 4: Crear proxy del Observer
+      // PASO 5: Crear proxy del Observer
       const observerProxy = this.audioAdapter.add(
         new Ice.AudioSystem.AudioObserver(observerObj),
         new Ice.Identity(Ice.generateUUID(), "")
@@ -266,15 +264,19 @@ class IceClientManager {
       
       console.log('   ✅ Proxy creado');
       
-      // PASO 5: Activar adaptador
+      // PASO 6: Activar adaptador
       await this.audioAdapter.activate();
       console.log('   ✅ Adaptador activado');
       
-      // PASO 6: Registrarse en el servidor
+      // PASO 7: Registrarse en el servidor
       await this.audioSubject.attach(username, observerProxy);
       console.log('   ✅ Registrado en servidor');
       
-      console.log('✅ Sistema de llamadas ACTIVO');
+      // ✅ PASO 8: Iniciar polling como fallback
+      console.log('   🔄 Iniciando polling para llamadas...');
+      this.startAudioPolling(username);
+      
+      console.log('✅ Sistema de llamadas ACTIVO (callbacks + polling)');
       return this.audioSubject;
       
     } catch (error) {
@@ -283,8 +285,75 @@ class IceClientManager {
     }
   }
 
+  // ✅ NUEVO: Polling para llamadas de audio
+  startAudioPolling(username) {
+    if (this.audioPollingInterval) {
+      clearInterval(this.audioPollingInterval);
+    }
+    
+    console.log('🔄 [AUDIO POLLING] Iniciando para:', username);
+    
+    this.audioPollingInterval = setInterval(async () => {
+      try {
+        // Consultar llamadas entrantes
+        const incomingCalls = await this.audioSubject.getPendingIncomingCalls(username);
+        if (incomingCalls && incomingCalls.length > 0) {
+          console.log('📞 [AUDIO POLLING] Llamadas entrantes:', incomingCalls);
+          for (const fromUser of incomingCalls) {
+            if (this.audioCallbacks.incomingCall) {
+              this.audioCallbacks.incomingCall(fromUser);
+            }
+          }
+        }
+        
+        // Consultar llamadas aceptadas
+        const acceptedCalls = await this.audioSubject.getPendingAcceptedCalls(username);
+        if (acceptedCalls && acceptedCalls.length > 0) {
+          console.log('✅ [AUDIO POLLING] Llamadas aceptadas:', acceptedCalls);
+          for (const fromUser of acceptedCalls) {
+            if (this.audioCallbacks.callAccepted) {
+              this.audioCallbacks.callAccepted(fromUser);
+            }
+          }
+        }
+        
+        // Consultar llamadas rechazadas
+        const rejectedCalls = await this.audioSubject.getPendingRejectedCalls(username);
+        if (rejectedCalls && rejectedCalls.length > 0) {
+          for (const fromUser of rejectedCalls) {
+            if (this.audioCallbacks.callRejected) {
+              this.audioCallbacks.callRejected(fromUser);
+            }
+          }
+        }
+        
+        // Consultar llamadas finalizadas
+        const endedCalls = await this.audioSubject.getPendingEndedCalls(username);
+        if (endedCalls && endedCalls.length > 0) {
+          for (const fromUser of endedCalls) {
+            if (this.audioCallbacks.callEnded) {
+              this.audioCallbacks.callEnded(fromUser);
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ [AUDIO POLLING] Error:', error);
+      }
+    }, 1000); // Cada 1 segundo
+    
+    console.log('✅ [AUDIO POLLING] Polling activo');
+  }
+
   async disconnectFromAudioSubject(username) {
     try {
+      // Detener polling
+      if (this.audioPollingInterval) {
+        clearInterval(this.audioPollingInterval);
+        this.audioPollingInterval = null;
+        console.log('🔄 Audio polling detenido');
+      }
+      
       if (this.audioSubject && username) {
         await this.audioSubject.detach(username);
         console.log('👋 Desconectado de AudioSubject');
@@ -296,6 +365,7 @@ class IceClientManager {
       }
       
       this.audioSubject = null;
+      this.audioCallbacks = null;
       
     } catch (error) {
       console.warn('⚠️ Error desconectando AudioSubject:', error);
