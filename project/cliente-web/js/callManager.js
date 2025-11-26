@@ -405,3 +405,16 @@ class CallManager {
 }
 
 export const callManager = new CallManager();
+
+// ✅ CRÍTICO: Exponer globalmente para evitar múltiples instancias
+if (typeof window !== 'undefined') {
+  window._callManager = callManager;
+  
+  // Debug helper
+  window._debugCallManager = () => {
+    console.log('📞 [DEBUG] Estado de callManager:');
+    console.log('   activeCall:', callManager.activeCall);
+    console.log('   isCallActive:', callManager.isCallActive());
+    console.log('   callDuration:', callManager.callDuration);
+  };
+}

@@ -142,37 +142,51 @@ async function subscribeToCallEvents(username) {
       
       // ✅ RESPUESTA DE LLAMADA (MUY IMPORTANTE)
       onCallAnswer: async (answer) => {
-        console.log('📞 [AUTH] RESPUESTA DE LLAMADA RECIBIDA');
-        console.log('   CallID:', answer.callId);
-        console.log('   Status RAW:', answer.status);
-        console.log('   Tipo:', typeof answer.status);
-        
-        try {
-          // ✅ PROCESAR EN callManager (donde está la lógica)
-          await callManager.handleCallAnswer(answer);
-          
-          // ✅ ACTUALIZAR UI SOLO SI ES LLAMADA SALIENTE
-          const activeCall = callManager.getActiveCall();
-          
-          if (activeCall && activeCall.type === 'OUTGOING') {
-            const status = callManager.normalizeStatus(answer.status);
-            
-            if (status === 'ACCEPTED') {
-              console.log('✅ [AUTH] Mostrando UI de llamada activa');
-              const { showActiveCallUI } = await import('./callUI.js');
-              showActiveCallUI(activeCall.calleeId);
-            }
-          }
-          
-        } catch (error) {
-          console.error('❌ [AUTH] Error procesando respuesta:', error);
-          console.error('   Stack:', error.stack);
-          
-          const { hideCallUI } = await import('./callUI.js');
-          hideCallUI();
-          showError('Error en la llamada');
-        }
-      },
+  console.log('📞 [AUTH] RESPUESTA DE LLAMADA RECIBIDA');
+  console.log('   CallID:', answer.callId);
+  console.log('   Status RAW:', answer.status);
+  
+  try {
+    // ✅ Usar instancia global
+    const callManager = window._callManager;
+    
+    if (!callManager) {
+      console.error('❌ [AUTH] callManager no está inicializado');
+      return;
+    }
+    
+    // ✅ Verificar activeCall
+    const activeCall = callManager.getActiveCall();
+    
+    if (!activeCall) {
+      console.warn('⚠️ [AUTH] No hay activeCall - La llamada se canceló o finalizó');
+      return;
+    }
+    
+    if (activeCall.id !== answer.callId) {
+      console.warn('⚠️ [AUTH] CallID no coincide:', activeCall.id, '!==', answer.callId);
+      return;
+    }
+    
+    console.log('   ✅ activeCall válido:', activeCall);
+    
+    // Procesar respuesta
+    await callManager.handleCallAnswer(answer);
+    
+    // ✅ ACTUALIZAR UI
+    if (activeCall.type === 'OUTGOING' && activeCall.status === 'CONNECTED') {
+      console.log('✅ [AUTH] Mostrando UI de llamada activa');
+      const { showActiveCallUI } = await import('./callUI.js');
+      showActiveCallUI(activeCall.calleeId);
+    }
+    
+  } catch (error) {
+    console.error('❌ [AUTH] Error:', error);
+    const { hideCallUI } = await import('./callUI.js');
+    hideCallUI();
+    showError('Error en la llamada');
+  }
+},
       
       // ✅ AUDIO CHUNKS (NUEVO)
       onAudioChunk: async (chunk) => {
