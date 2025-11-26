@@ -1,8 +1,8 @@
 // ============================================
-// js/simpleCallManager.js - Gestor de Llamadas SIMPLIFICADO
-// Sin WebRTC, solo Subject/Observer
+// js/simpleCallManager.js - CORREGIDO
+// ✅ SIN timeout que corta llamadas activas
+// ✅ Solo timeout para llamadas SIN respuesta
 // ============================================
-//project\cliente-web\js\subscriber.js
 
 import { simpleAudioStream } from './simpleAudioStream.js';
 
@@ -33,7 +33,7 @@ class SimpleCallManager {
   // ========================================
   // INICIAR LLAMADA SALIENTE
   // ========================================
-    async initiateOutgoingCall(targetUser) {
+  async initiateOutgoingCall(targetUser) {
     try {
       console.log('📞 [SIMPLE CALL] Iniciando llamada a:', targetUser);
       
@@ -67,7 +67,7 @@ class SimpleCallManager {
       
       console.log('   ✅ Llamada enviada al servidor');
       
-      // Setup timer de 60 segundos
+      // ✅ Setup timer SOLO para esperar respuesta (no para llamada activa)
       this.setupRingTimer();
       
       return true;
@@ -78,6 +78,7 @@ class SimpleCallManager {
       throw error;
     }
   }
+
   // ========================================
   // RECIBIR LLAMADA ENTRANTE
   // ========================================
@@ -97,7 +98,7 @@ class SimpleCallManager {
       
       console.log('   ✅ activeCall creado');
       
-      // Setup timer de 60 segundos
+      // ✅ Timer para auto-rechazar si no responde en 60s
       this.setupRingTimer();
       
       return this.activeCall;
@@ -113,93 +114,91 @@ class SimpleCallManager {
   // ACEPTAR LLAMADA
   // ========================================
   async acceptCall() {
-  try {
-    if (!this.activeCall || this.activeCall.type !== 'INCOMING') {
-      throw new Error('No hay llamada entrante para aceptar');
-    }
-    
-    console.log('✅ [SIMPLE CALL] Aceptando llamada de:', this.activeCall.callerId);
-    
-    this.clearRingTimer();
-    
-    // ✅ ORDEN EXACTO DEL PROFESOR:
-    // acceptCall(fromUser, toUser)
-    // fromUser = quien LLAMÓ (el caller original)
-    // toUser = quien ACEPTA (yo)
-    await this.audioSubject.acceptCall(
-      this.activeCall.callerId,    // Maria (quien LLAMÓ) - PRIMERO
-      this.username                // Luis (quien ACEPTA) - SEGUNDO
-    );
-    
-    console.log('   ✅ Llamada: acceptCall("' + this.activeCall.callerId + '", "' + this.username + '")');
-    
-    // Actualizar estado
-    this.activeCall.status = 'CONNECTED';
-    this.activeCall.answerTime = Date.now();
-    
-    // Iniciar audio
-    console.log('   🎤 Iniciando audio...');
-    await simpleAudioStream.startStreaming();
-    console.log('   ✅ Audio streaming activo');
-    
-    // Iniciar contador
-    this.startDurationTimer();
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ [SIMPLE CALL] Error aceptando:', error);
-    throw error;
-  }
-}
-  // ========================================
-  // MANEJAR RESPUESTA DE LLAMADA
-  // ========================================
- async handleCallAccepted(fromUser) {
-  try {
-    console.log('╔══════════════════════════════════════════╗');
-    console.log('║  LLAMADA ACEPTADA                        ║');
-    console.log('╠══════════════════════════════════════════╣');
-    console.log('║  Aceptada por:', fromUser.padEnd(20), '║');
-    console.log('║  Yo:          ', this.username.padEnd(20), '║');
-    console.log('╚══════════════════════════════════════════╝');
-    
-    this.clearRingTimer();
-    
-    // ✅ Asegurar que activeCall existe
-    if (!this.activeCall) {
-      console.warn('   ⚠️ activeCall no existe, creando...');
-      this.activeCall = {
-        type: 'OUTGOING',
-        callerId: this.username,
-        calleeId: fromUser,
-        startTime: Date.now(),
-        status: 'CONNECTED',
-        answerTime: Date.now()
-      };
-    } else {
+    try {
+      if (!this.activeCall || this.activeCall.type !== 'INCOMING') {
+        throw new Error('No hay llamada entrante para aceptar');
+      }
+      
+      console.log('✅ [SIMPLE CALL] Aceptando llamada de:', this.activeCall.callerId);
+      
+      // ✅ CRÍTICO: Detener timer de ring ANTES de continuar
+      this.clearRingTimer();
+      
+      await this.audioSubject.acceptCall(
+        this.activeCall.callerId,
+        this.username
+      );
+      
+      console.log('   ✅ acceptCall enviado al servidor');
+      
       // Actualizar estado
       this.activeCall.status = 'CONNECTED';
       this.activeCall.answerTime = Date.now();
+      
+      // Iniciar audio
+      console.log('   🎤 Iniciando audio...');
+      await simpleAudioStream.startStreaming();
+      console.log('   ✅ Audio streaming activo');
+      
+      // ✅ Iniciar contador de duración (SIN timeout)
+      this.startDurationTimer();
+      
+      return true;
+      
+    } catch (error) {
+      console.error('❌ [SIMPLE CALL] Error aceptando:', error);
+      throw error;
     }
-    
-    console.log('   📝 Estado final de activeCall:', this.activeCall);
-    
-    // Iniciar audio
-    console.log('   🎤 Iniciando streaming de audio...');
-    await simpleAudioStream.startStreaming();
-    console.log('   ✅ Audio streaming ACTIVO');
-    
-    // Iniciar contador
-    this.startDurationTimer();
-    
-    console.log('   🔊 Llamada completamente establecida');
-    
-  } catch (error) {
-    console.error('❌ [SIMPLE CALL] Error en handleCallAccepted:', error);
-    throw error;
   }
-}
+
+  // ========================================
+  // MANEJAR RESPUESTA DE LLAMADA
+  // ========================================
+  async handleCallAccepted(fromUser) {
+    try {
+      console.log('╔═══════════════════════════════════════╗');
+      console.log('║  LLAMADA ACEPTADA                     ║');
+      console.log('╠═══════════════════════════════════════╣');
+      console.log('║  Aceptada por:', fromUser.padEnd(20), '║');
+      console.log('║  Yo:          ', this.username.padEnd(20), '║');
+      console.log('╚═══════════════════════════════════════╝');
+      
+      // ✅ CRÍTICO: Detener timer de ring
+      this.clearRingTimer();
+      
+      // Asegurar que activeCall existe
+      if (!this.activeCall) {
+        console.warn('   ⚠️ activeCall no existe, creando...');
+        this.activeCall = {
+          type: 'OUTGOING',
+          callerId: this.username,
+          calleeId: fromUser,
+          startTime: Date.now(),
+          status: 'CONNECTED',
+          answerTime: Date.now()
+        };
+      } else {
+        this.activeCall.status = 'CONNECTED';
+        this.activeCall.answerTime = Date.now();
+      }
+      
+      console.log('   📝 Estado final de activeCall:', this.activeCall);
+      
+      // Iniciar audio
+      console.log('   🎤 Iniciando streaming de audio...');
+      await simpleAudioStream.startStreaming();
+      console.log('   ✅ Audio streaming ACTIVO');
+      
+      // ✅ Iniciar contador (sin timeout)
+      this.startDurationTimer();
+      
+      console.log('   📊 Llamada completamente establecida');
+      
+    } catch (error) {
+      console.error('❌ [SIMPLE CALL] Error en handleCallAccepted:', error);
+      throw error;
+    }
+  }
   
   // ========================================
   // RECHAZAR LLAMADA
@@ -214,11 +213,10 @@ class SimpleCallManager {
       this.clearRingTimer();
       
       if (this.activeCall.type === 'INCOMING') {
-        // ✅ CORRECTO (como debe ser)
-await this.audioSubject.rejectCall(
-  this.username,              // quien rechaza
-  this.activeCall.callerId    // quien llamó
-);
+        await this.audioSubject.rejectCall(
+          this.username,
+          this.activeCall.callerId
+        );
       }
       
       this.cleanup();
@@ -270,22 +268,27 @@ await this.audioSubject.rejectCall(
   // ========================================
   
   setupRingTimer() {
+    // ✅ Solo para llamadas SIN respuesta (RINGING)
     this.ringTimer = setTimeout(async () => {
-      console.log('❌ Timeout: Sin respuesta después de 60s');
+      console.log('⏰ Timeout: Sin respuesta después de 60s');
       
-      if (this.activeCall && this.activeCall.type === 'OUTGOING') {
-        await this.endCall();
-      } else if (this.activeCall && this.activeCall.type === 'INCOMING') {
-        await this.rejectCall();
+      // ✅ SOLO cortar si sigue en RINGING
+      if (this.activeCall && this.activeCall.status === 'RINGING') {
+        if (this.activeCall.type === 'OUTGOING') {
+          await this.endCall();
+        } else if (this.activeCall.type === 'INCOMING') {
+          await this.rejectCall();
+        }
       }
       
-    }, 60000);
+    }, 60000); // 60 segundos
   }
   
   startDurationTimer() {
     this.callStartTime = Date.now();
     this.callDuration = 0;
     
+    // ✅ Este timer NO corta la llamada, solo actualiza el contador
     this.callTimer = setInterval(() => {
       this.callDuration = Math.floor((Date.now() - this.callStartTime) / 1000);
       
@@ -300,6 +303,7 @@ await this.audioSubject.rejectCall(
     if (this.ringTimer) {
       clearTimeout(this.ringTimer);
       this.ringTimer = null;
+      console.log('   ✅ Ring timer cancelado');
     }
   }
   
@@ -342,7 +346,6 @@ await this.audioSubject.rejectCall(
 
 export const simpleCallManager = new SimpleCallManager();
 
-// Exponer globalmente
 if (typeof window !== 'undefined') {
   window._simpleCallManager = simpleCallManager;
 }
