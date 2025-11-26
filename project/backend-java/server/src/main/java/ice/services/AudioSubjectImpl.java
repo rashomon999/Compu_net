@@ -178,24 +178,24 @@ public class AudioSubjectImpl implements AudioSubject {
 }
     
     @Override
-    public synchronized void acceptCall(String fromUser, String toUser, Current current) {
-        System.out.println("[AUDIO] ✅ Llamada aceptada:");
-        System.out.println("   De: " + fromUser);
-        System.out.println("   Por: " + toUser);
-        
-        // CRÍTICO: Establecer llamada BIDIRECCIONAL
-        activeCalls.put(fromUser, toUser);
-        activeCalls.put(toUser, fromUser);
-        
-        System.out.println("   📞 Llamada ACTIVA: " + fromUser + " ↔ " + toUser);
-        
-        // Notificar al llamante
-        notifyCallAccepted(fromUser, toUser);
-        
-        // Resetear contadores de audio
-        audioPacketCount.put(fromUser, 0L);
-        audioPacketCount.put(toUser, 0L);
-    }
+public synchronized void acceptCall(String fromUser, String toUser, Current current) {
+    System.out.println("[AUDIO] ✅ Llamada aceptada:");
+    System.out.println("   Llamante original: " + fromUser);  // Maria
+    System.out.println("   Quien acepta: " + toUser);         // Luis
+    
+    // CRÍTICO: Establecer llamada BIDIRECCIONAL
+    activeCalls.put(fromUser, toUser);  // Maria → Luis
+    activeCalls.put(toUser, fromUser);  // Luis → Maria
+    
+    System.out.println("   📞 Llamada ACTIVA: " + fromUser + " ↔ " + toUser);
+    
+    // ✅ CORRECTO: Notificar a Maria (quien llamó) que Luis aceptó
+    notifyCallAccepted(fromUser, toUser);
+    //                 ^^^^^^^^^ Maria debe recibir notificación
+    
+    audioPacketCount.put(fromUser, 0L);
+    audioPacketCount.put(toUser, 0L);
+}
     
     @Override
     public synchronized void rejectCall(String fromUser, String toUser, Current current) {
@@ -253,19 +253,20 @@ public class AudioSubjectImpl implements AudioSubject {
     }
 }
     
-    private void notifyCallAccepted(String userId, String fromUser) {
-    // SIEMPRE agregar a cola
-    addPendingAcceptedCall(userId, fromUser);
-    System.out.println("   ✅ Aceptación en cola para polling");
+  private void notifyCallAccepted(String userId, String fromUser) {
+    // ✅ userId = quien recibe la notificación (Maria)
+    // ✅ fromUser = quien aceptó (Luis)
     
-    // Intentar callback también
+    addPendingAcceptedCall(userId, fromUser);
+    System.out.println("   ✅ Aceptación en cola para " + userId);
+    
     AudioObserverPrx prx = observers.get(userId);
     if (prx != null) {
         try {
             prx.ice_oneway().callAcceptedAsync(fromUser);
-            System.out.println("   📤 Callback de aceptación enviado");
+            System.out.println("   📤 Callback enviado a " + userId);
         } catch (Exception e) {
-            System.err.println("   ⚠️ Callback falló (OK, usará polling)");
+            System.err.println("   ⚠️ Callback falló");
         }
     }
 }
