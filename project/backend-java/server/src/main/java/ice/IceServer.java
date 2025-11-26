@@ -45,6 +45,10 @@ public class IceServer {
             
             System.out.println("\n[3/4] Registrando servicios ICE...");
             
+            // ========================================
+            // SERVICIOS PRINCIPALES
+            // ========================================
+            
             ChatServiceI chatServiceImpl = new ChatServiceI(messageService, historyService);
             adapter.add(chatServiceImpl, Util.stringToIdentity("ChatService"));
             System.out.println("   ✓ ChatService registrado");
@@ -57,19 +61,20 @@ public class IceServer {
             adapter.add(notificationServiceImpl, Util.stringToIdentity("NotificationService"));
             System.out.println("   ✓ NotificationService registrado");
             
+            // Vincular ChatService con NotificationService para push notifications
             chatServiceImpl.setNotificationService(notificationServiceImpl);
             
             VoiceServiceI voiceServiceImpl = new VoiceServiceI(historyManager, notificationServiceImpl);
             adapter.add(voiceServiceImpl, Util.stringToIdentity("VoiceService"));
             System.out.println("   ✓ VoiceService registrado");
             
-            CallServiceI callServiceImpl = new CallServiceI();
-            adapter.add(callServiceImpl, Util.stringToIdentity("CallService"));
-            System.out.println("   ✓ CallService registrado");
+            // ========================================
+            // SERVICIO DE LLAMADAS VoIP (Patrón Observer/Subject)
+            // ========================================
             
             AudioSubjectImpl audioSubjectImpl = new AudioSubjectImpl();
             adapter.add(audioSubjectImpl, Util.stringToIdentity("AudioService"));
-            System.out.println("   ✓ AudioService registrado");
+            System.out.println("   ✓ AudioService registrado (llamadas VoIP)");
             
             System.out.println("\n[4/4] Activando servidor...");
             
@@ -81,11 +86,11 @@ public class IceServer {
             System.out.println();
             System.out.println("📡 WebSocket: ws://localhost:10000");
             System.out.println("📋 Servicios disponibles:");
-            System.out.println("   • ChatService");
-            System.out.println("   • GroupService");
-            System.out.println("   • NotificationService");
-            System.out.println("   • VoiceService");
-            System.out.println("   • CallService 📞");
+            System.out.println("   • ChatService          (mensajes de texto)");
+            System.out.println("   • GroupService         (gestión de grupos)");
+            System.out.println("   • NotificationService  (notificaciones push)");
+            System.out.println("   • VoiceService         (notas de voz)");
+            System.out.println("   • AudioService         (llamadas VoIP P2P) 📞");
             System.out.println();
             System.out.println("🌐 Cliente web: http://localhost:3000");
             System.out.println();
@@ -94,7 +99,12 @@ public class IceServer {
             
             communicator.waitForShutdown();
             
-        }  
+        } catch (java.lang.Exception e) {
+            System.err.println("\n❌ Error fatal en el servidor:");
+            e.printStackTrace();
+            returnValue = 1;
+        }
+        
         System.out.println("\n👋 Servidor ICE detenido");
         System.exit(returnValue);
     }
