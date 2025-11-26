@@ -1,6 +1,5 @@
 // ============================================
 // js/audioStreamManager.js - Audio Streaming Directo por ICE
-// SIMPLIFICADO: Enfoque del profesor (Sin complejidad innecesaria)
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -30,10 +29,10 @@ class AudioStreamManager {
     try {
       console.log('🎤 [STREAM] Iniciando captura de audio...');
       
-      // ✅ CRÍTICO: Crear AudioContext si no existe
+      // Crear AudioContext si no existe
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-          sampleRate: 16000 // 16kHz como el profesor (mejor eficiencia)
+          sampleRate: 16000
         });
         console.log('   AudioContext creado: ' + this.audioContext.sampleRate + ' Hz');
       }
@@ -44,55 +43,43 @@ class AudioStreamManager {
         await this.audioContext.resume();
       }
       
-      // ✅ SOLICITAR ACCESO AL MICRÓFONO
+      // Solicitar acceso al micrófono
       console.log('   Solicitando acceso al micrófono...');
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false // ⚠️ El profesor lo deja en false
+          autoGainControl: false
         } 
       });
       
       console.log('   ✅ Micrófono accedido');
       
-      // ✅ CREAR PIPELINE DE AUDIO (como el profesor)
+      // Crear pipeline de audio
       const audioInput = this.audioContext.createMediaStreamSource(this.mediaStream);
       
-      // Nodo de ganancia
       this.gainNode = this.audioContext.createGain();
       this.gainNode.gain.value = 0.8;
       
-      // Procesador de script (2048 samples como el profesor)
       this.scriptProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
       
-      // Conectar: micrófono → ganancia → procesador → salida
       audioInput.connect(this.gainNode);
       this.gainNode.connect(this.scriptProcessor);
       this.scriptProcessor.connect(this.audioContext.destination);
       
-      // ✅ HANDLER DE PROCESAMIENTO (EXACTAMENTE COMO EL PROFESOR)
+      // Handler de procesamiento
       this.scriptProcessor.onaudioprocess = (e) => {
         if (!this.isStreaming) return;
         
-        // 1. Obtener datos de entrada (Float32)
         const input = e.inputBuffer.getChannelData(0);
-        
-        // 2. Aplicar compresión suave
         const compressed = this.applySoftCompression(input);
-        
-        // 3. Convertir a PCM16
         const pcm16 = this.floatToPCM16(compressed);
         
-        // 4. Acumular en buffer
         this.sendBuffer.push(pcm16);
         
-        // 5. Enviar cuando hay suficientes chunks (como el profesor)
-        if (this.sendBuffer.length >= 4) { // ~185ms de audio
+        if (this.sendBuffer.length >= 4) {
           const merged = this.mergePCM(this.sendBuffer);
           this.sendBuffer = [];
-          
-          // ✅ ENVIAR AL SERVIDOR
           this.sendAudioToServer(new Uint8Array(merged.buffer));
         }
       };
@@ -145,13 +132,10 @@ class AudioStreamManager {
   async sendAudioToServer(audioData) {
     try {
       if (!this.isStreaming) return;
-      
-      // Enviar via ICE (método nuevo)
       await iceClient.sendAudioChunk(state.currentUsername, audioData);
     } catch (error) {
-      // Silenciar errores de red para no saturar console
       if (!error.message.includes('timeout')) {
-        console.warn('⚠️ [STREAM] Error enviando audio (tempor):', error.message);
+        console.warn('⚠️ [STREAM] Error enviando audio:', error.message);
       }
     }
   }
@@ -162,11 +146,29 @@ class AudioStreamManager {
   
   async receiveAudioChunk(audioData) {
     try {
+      console.log('🔊 [STREAM] Audio recibido:', audioData.byteLength, 'bytes');
+      
+      // Validar que audioContext esté inicializado
+      if (!this.audioContext) {
+        console.warn('⚠️ [STREAM] AudioContext no inicializado, creando...');
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: 16000
+        });
+      }
+      
+      // Resume si está suspendido
+      if (this.audioContext.state === 'suspended') {
+        console.log('   Reanudando AudioContext para reproducción...');
+        await this.audioContext.resume();
+      }
+      
       // Convertir PCM16 a Float32
       const floatArray = this.convertPCM16ToFloat32(audioData);
       
       // Agregar a la cola
       this.receiveQueue.push(floatArray);
+      
+      console.log('   📥 Agregado a queue (total:', this.receiveQueue.length, ')');
       
       // Iniciar reproducción si no está corriendo
       if (!this.isPlaying) {
@@ -185,10 +187,8 @@ class AudioStreamManager {
     
     this.isPlaying = true;
     
-    // Extraer el siguiente buffer
     const data = this.receiveQueue.shift();
     
-    // Crear AudioBuffer
     const audioBuffer = this.audioContext.createBuffer(
       1, 
       data.length, 
@@ -196,20 +196,16 @@ class AudioStreamManager {
     );
     audioBuffer.getChannelData(0).set(data);
     
-    // Crear source node
     const source = this.audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.audioContext.destination);
     
-    // Reproducir
     source.start();
-    
-    // Cuando termina, procesar el siguiente
     source.onended = () => this.processReceiveQueue();
   }
 
   // ========================================
-  // PROCESAMIENTO DE AUDIO (EXACTO AL PROFESOR)
+  // PROCESAMIENTO DE AUDIO
   // ========================================
   
   applySoftCompression(buffer) {
@@ -219,7 +215,6 @@ class AudioStreamManager {
     
     for (let i = 0; i < buffer.length; i++) {
       let v = buffer[i];
-      // Si supera el umbral, comprime
       if (Math.abs(v) > threshold) {
         v = Math.sign(v) * (threshold + (Math.abs(v) - threshold) / ratio);
       }
@@ -246,7 +241,7 @@ class AudioStreamManager {
     const pcm16 = new Int16Array(float32.length);
     
     for (let i = 0; i < float32.length; i++) {
-      let s = Math.max(-1, Math.min(1, float32[i])); // Clamp
+      let s = Math.max(-1, Math.min(1, float32[i]));
       pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
     
