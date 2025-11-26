@@ -57,7 +57,10 @@ public class IceServer {
             adapter.add(groupServiceImpl, Util.stringToIdentity("GroupService"));
             System.out.println("   ✓ GroupService registrado");
             
-            NotificationServiceI notificationServiceImpl = new NotificationServiceI(historyService);
+            System.out.println("\n🔔 Inicializando NotificationService...");
+NotificationServiceI notificationServiceImpl = new NotificationServiceI(); // ✅ SIN PARÁMETROS
+System.out.println("   ✅ NotificationService creado");
+
             adapter.add(notificationServiceImpl, Util.stringToIdentity("NotificationService"));
             System.out.println("   ✓ NotificationService registrado");
             

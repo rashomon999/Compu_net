@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Servicio de notificaciones push en tiempo real
- * ✅ IMPLEMENTACIÓN COMPLETA CON CALLBACKS
+ * ✅ CORREGIDO: Sin errores de compilación
  */
 public class NotificationServiceI implements NotificationService {
     
@@ -28,7 +28,7 @@ public class NotificationServiceI implements NotificationService {
         System.out.println("\n╔════════════════════════════════════════╗");
         System.out.println("║  NUEVA SUSCRIPCIÓN                     ║");
         System.out.println("╠════════════════════════════════════════╣");
-        System.out.println("║  Usuario: " + username.padEnd(30) + "║");
+        System.out.println("║  Usuario: " + String.format("%-28s", username) + "║");
         System.out.println("╚════════════════════════════════════════╝");
         
         if (callback == null) {

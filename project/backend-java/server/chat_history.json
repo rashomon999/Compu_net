@@ -358,5 +358,13 @@
     "content": "kkk",
     "isGroup": false,
     "timestamp": "2025-11-26 18:31:45"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ссс",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:37:43"
   }
 ]
