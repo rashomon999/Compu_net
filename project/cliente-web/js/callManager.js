@@ -1,16 +1,11 @@
 // ============================================
-// js/callManager.js - Gestor de Llamadas CORREGIDO
-// Sincronización de estado clara y sin carreras
+// js/callManager.js - Gestor de Llamadas SIMPLIFICADO
+// Sin WebRTC, solo PCM directo por Ice
 // ============================================
 
 import { iceClient } from './iceClient.js';
 import { state } from './state.js';
 import { audioStreamManager } from './audioStreamManager.js';
-
-const CALL_CONFIG = {
-  RING_TIMEOUT: 60000,
-  CALL_TIMEOUT: 3600000
-};
 
 class CallManager {
   constructor() {
@@ -40,15 +35,15 @@ class CallManager {
         status: 'INITIATING'
       };
       
-      console.log('   ✅ activeCall creado:', this.activeCall);
+      console.log('   ✅ activeCall creado');
       
-      // Llamar al servidor
+      // Llamar al servidor (SIN SDP - no se usa WebRTC)
       const Ice = window.Ice;
       const callId = await iceClient.initiateCall(
         state.currentUsername,
         targetUser,
         Ice.ChatSystem.CallType.AudioOnly,
-        'dummy-sdp'
+        '' // SDP vacío - no se usa
       );
       
       // Extraer ID
@@ -79,7 +74,7 @@ class CallManager {
     try {
       console.log('📞 [CALL] Llamada entrante de:', offer.caller);
       
-      // ✅ CREAR activeCall ANTES de todo
+      // ✅ CREAR activeCall
       this.activeCall = {
         id: offer.callId,
         type: 'INCOMING',
@@ -90,7 +85,7 @@ class CallManager {
         offer: offer
       };
       
-      console.log('   ✅ activeCall creado:', this.activeCall);
+      console.log('   ✅ activeCall creado');
       
       this.setupIncomingRingTimer();
       
@@ -117,26 +112,24 @@ class CallManager {
       // Limpiar timers de ring
       this.clearRingTimers();
       
-      // ✅ ENVIAR RESPUESTA AL SERVIDOR
-      const Ice = window.Ice;
+      // ✅ ENVIAR RESPUESTA AL SERVIDOR (sin SDP)
       await iceClient.answerCall(
         this.activeCall.id,
         state.currentUsername,
         'ACCEPTED',
-        'dummy-sdp'
+        '' // SDP vacío
       );
       
-      // ✅ ACTUALIZAR ESTADO (CRÍTICO)
+      // ✅ ACTUALIZAR ESTADO
       this.activeCall.status = 'CONNECTED';
       this.activeCall.answerTime = Date.now();
       
-      console.log('   ✅ Estado actualizado a CONNECTED');
-      console.log('   ✅ activeCall:', this.activeCall);
+      console.log('   ✅ Estado: CONNECTED');
       
       // ✅ INICIAR AUDIO STREAMING
-      console.log('   🎤 Iniciando audio streaming...');
+      console.log('   🎤 Iniciando audio...');
       await audioStreamManager.startStreaming();
-      console.log('   ✅ Audio streaming iniciado');
+      console.log('   ✅ Audio streaming activo');
       
       // Iniciar contador
       this.startDurationTimer();
@@ -155,13 +148,13 @@ class CallManager {
       console.log('📥 [CALL] Procesando respuesta:', answer.status);
       
       if (!this.activeCall) {
-        throw new Error('No hay activeCall para procesar respuesta');
+        throw new Error('No hay activeCall');
       }
 
       // ✅ NORMALIZAR STATUS
       let status = this.normalizeStatus(answer.status);
       
-      console.log('   📝 Status normalizado:', status);
+      console.log('   📝 Status:', status);
 
       this.clearRingTimers();
       
@@ -172,12 +165,10 @@ class CallManager {
         this.activeCall.status = 'CONNECTED';
         this.activeCall.answerTime = Date.now();
         
-        console.log('   ✅ Estado actualizado a CONNECTED');
-        
-        // ✅ INICIAR AUDIO STREAMING
-        console.log('   🎤 Iniciando audio streaming...');
+        // ✅ INICIAR AUDIO
+        console.log('   🎤 Iniciando audio...');
         await audioStreamManager.startStreaming();
-        console.log('   ✅ Audio streaming iniciado');
+        console.log('   ✅ Audio streaming activo');
         
         // Iniciar contador
         this.startDurationTimer();
@@ -192,13 +183,13 @@ class CallManager {
       }
       
     } catch (error) {
-      console.error('❌ [CALL] Error procesando respuesta:', error);
+      console.error('❌ [CALL] Error:', error);
       throw error;
     }
   }
 
   // ========================================
-  // NORMALIZAR STATUS (ROBUSTO)
+  // NORMALIZAR STATUS
   // ========================================
   normalizeStatus(status) {
     if (typeof status === 'string') {
@@ -263,7 +254,7 @@ class CallManager {
   }
 
   // ========================================
-  // TIMERS VISUALES
+  // TIMERS
   // ========================================
   
   setupOutgoingRingTimer() {
@@ -285,7 +276,7 @@ class CallManager {
       
       this.cleanup();
       
-    }, CALL_CONFIG.RING_TIMEOUT);
+    }, 60000);
   }
 
   setupIncomingRingTimer() {
@@ -299,7 +290,6 @@ class CallManager {
       console.log('❌ Timeout: No contestaste en 60s');
       
       try {
-        const Ice = window.Ice;
         await iceClient.answerCall(
           this.activeCall.id,
           state.currentUsername,
@@ -312,7 +302,7 @@ class CallManager {
       
       this.cleanup();
       
-    }, CALL_CONFIG.RING_TIMEOUT);
+    }, 60000);
   }
 
   startDurationTimer() {
@@ -329,22 +319,12 @@ class CallManager {
     }, 1000);
   }
 
-  // ========================================
-// ENVÍO DE AUDIO AL SERVIDOR (FUNDAMENTAL)
-// ========================================
-async sendAudio(fromUser, audioData) {
-  try {
-    if (!iceClient || !iceClient.callService) {
-      console.warn('⚠️ CallService no disponible');
-      return;
+  updateRingUI(seconds) {
+    const el = document.getElementById('outgoingRingTimer');
+    if (el) {
+      el.textContent = `${seconds} segundo${seconds !== 1 ? 's' : ''}`;
     }
-
-    await iceClient.callService.sendAudio(fromUser, audioData);
-  } catch (error) {
-    console.error('❌ [CALL] Error enviando audio:', error);
   }
-}
-
 
   // ========================================
   // FINALIZAR LLAMADA
@@ -370,31 +350,13 @@ async sendAudio(fromUser, audioData) {
       
       this.activeCall.status = 'ENDED';
       
-      const callInfo = {
-        ...this.activeCall,
-        totalDuration: this.callDuration
-      };
-      
       console.log('✅ Llamada finalizada. Duración:', this.callDuration, 's');
       
       this.cleanup();
       
-      return callInfo;
-      
     } catch (error) {
       console.error('❌ Error finalizando:', error);
       this.cleanup();
-    }
-  }
-
-  // ========================================
-  // UI UPDATES
-  // ========================================
-  
-  updateRingUI(seconds) {
-    const el = document.getElementById('outgoingRingTimer');
-    if (el) {
-      el.textContent = `${seconds} segundo${seconds !== 1 ? 's' : ''}`;
     }
   }
 
@@ -439,14 +401,6 @@ async sendAudio(fromUser, audioData) {
 
   isCallActive() {
     return this.activeCall && this.activeCall.status === 'CONNECTED';
-  }
-
-  getCallDuration() {
-    return this.callDuration;
-  }
-
-  getCallStatus() {
-    return this.activeCall ? this.activeCall.status : 'IDLE';
   }
 }
 

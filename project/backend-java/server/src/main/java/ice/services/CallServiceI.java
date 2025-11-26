@@ -244,6 +244,11 @@ public class CallServiceI implements CallService {
         } catch (Exception e) {
             System.err.println("[CALL] ❌ Excepción enviando audio: " + e.getMessage());
         }
+
+        System.out.println("[DEBUG] sendAudioChunk recibido:");
+        System.out.println("   username: " + username);
+        System.out.println("   data length: " + data.length);
+        System.out.println("   callParticipants: " + callParticipants);
     }
 
     @Override
