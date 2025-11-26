@@ -1,6 +1,5 @@
 // ============================================
-// js/simpleAudioStream.js - VERSIÓN BIDIRECCIONAL
-// Captura del micrófono + Reproducción de audio
+// js/simpleAudioStream.js - VERSIÓN FUNCIONAL
 // ============================================
 
 class SimpleAudioStream {
@@ -8,17 +7,17 @@ class SimpleAudioStream {
     this.audioSubject = null;
     this.username = null;
 
-    // === REPRODUCCIÓN ===
-    this.audioContext = null;
-    this.playQueue = [];
-    this.isPlaying = false;
-
     // === CAPTURA ===
     this.mediaStream = null;
+    this.audioContext = null;
     this.scriptProcessor = null;
+    this.gainNode = null;
     this.isMuted = false;
+    this.isStreaming = false;
 
-    this.active = false;
+    // === REPRODUCCIÓN ===
+    this.playQueue = [];
+    this.isPlaying = false;
 
     console.log('🎤 [AUDIO STREAM] Inicializado');
   }
@@ -30,14 +29,14 @@ class SimpleAudioStream {
   }
 
   isActive() {
-    return this.active;
+    return this.isStreaming;
   }
 
   // ========================================
   // INICIAR STREAMING BIDIRECCIONAL
   // ========================================
   async startStreaming() {
-    if (this.active) {
+    if (this.isStreaming) {
       console.log('🎤 [AUDIO STREAM] Ya activo');
       return;
     }
@@ -46,7 +45,14 @@ class SimpleAudioStream {
 
     try {
       // 1️⃣ Crear AudioContext
-      this.audioContext = new AudioContext({ sampleRate: 48000 });
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ 
+        sampleRate: 44100 
+      });
+      
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      
       console.log('   ✅ AudioContext creado');
 
       // 2️⃣ Capturar micrófono
@@ -55,38 +61,45 @@ class SimpleAudioStream {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000
+          sampleRate: 44100
         }
       });
       console.log('   ✅ Micrófono capturado');
 
-      // 3️⃣ Conectar micrófono al AudioContext
+      // 3️⃣ Crear pipeline de audio
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-
-      // 4️⃣ Crear procesador de audio (captura PCM)
+      
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = 0.5;
+      
+      // ✅ CRÍTICO: Buffer pequeño para baja latencia
       this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
       
-      this.scriptProcessor.onaudioprocess = (e) => {
-        if (this.isMuted || !this.active) return;
+      // 4️⃣ Conectar pipeline
+      source.connect(this.gainNode);
+      this.gainNode.connect(this.scriptProcessor);
+      this.scriptProcessor.connect(this.audioContext.destination);
+      
+      console.log('   ✅ Captura de audio conectada');
 
-        const inputData = e.inputBuffer.getChannelData(0);
+      // 5️⃣ Procesar audio capturado
+      this.scriptProcessor.onaudioprocess = (e) => {
+        if (!this.isStreaming || this.isMuted) return;
+
+        const inputData = e.inputBuffer.getChannelData(0); // Float32Array
         
-        // Convertir Float32Array → Uint8Array (PCM 8 bits)
+        // ✅ CONVERSIÓN CORRECTA: Float32 → Uint8 (PCM 8 bits)
         const pcm8 = new Uint8Array(inputData.length);
         for (let i = 0; i < inputData.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputData[i]));
-          pcm8[i] = Math.floor((s + 1) * 127.5);
+          const sample = Math.max(-1, Math.min(1, inputData[i]));
+          pcm8[i] = Math.floor((sample + 1) * 127.5);
         }
 
-        // Enviar al servidor via Ice
+        // Enviar inmediatamente (sin acumular)
         this.sendAudioPacket(pcm8);
       };
 
-      source.connect(this.scriptProcessor);
-      this.scriptProcessor.connect(this.audioContext.destination);
-      console.log('   ✅ Captura de audio conectada');
-
-      this.active = true;
+      this.isStreaming = true;
       console.log('✅ [AUDIO STREAM] ACTIVO (captura + reproducción)');
 
     } catch (error) {
@@ -100,14 +113,13 @@ class SimpleAudioStream {
   // ENVIAR AUDIO AL SERVIDOR
   // ========================================
   async sendAudioPacket(pcm8Data) {
-    if (!this.audioSubject || !this.active) return;
+    if (!this.audioSubject || !this.isStreaming) return;
 
     try {
-      // ✅ Ice.js requiere Uint8Array NATIVO (no Array)
+      // ✅ Ice.js requiere Uint8Array DIRECTO
       await this.audioSubject.sendAudio(this.username, pcm8Data);
       
     } catch (error) {
-      // Silenciar errores de red frecuentes
       if (!error.message?.includes('timeout')) {
         console.error('❌ Error enviando audio:', error);
       }
@@ -117,17 +129,25 @@ class SimpleAudioStream {
   // ========================================
   // RECIBIR Y REPRODUCIR AUDIO
   // ========================================
-  receiveAudio(bytes) {
-    if (!this.active || !bytes || bytes.length === 0) return;
+  receiveAudio(audioData) {
+    if (!this.isStreaming || !audioData || audioData.length === 0) return;
 
-    // Convertir Ice.ByteSeq → Float32Array
-    const floatData = new Float32Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) {
-      floatData[i] = bytes[i] / 128.0 - 1.0;
+    try {
+      // Convertir Uint8Array → Float32Array
+      const floatData = new Float32Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        floatData[i] = (audioData[i] / 127.5) - 1.0;
+      }
+
+      this.playQueue.push(floatData);
+      
+      if (!this.isPlaying) {
+        this.playNext();
+      }
+      
+    } catch (error) {
+      console.error('❌ Error procesando audio recibido:', error);
     }
-
-    this.playQueue.push(floatData);
-    if (!this.isPlaying) this.playNext();
   }
 
   async playNext() {
@@ -139,14 +159,18 @@ class SimpleAudioStream {
     this.isPlaying = true;
 
     const data = this.playQueue.shift();
-    const buffer = this.audioContext.createBuffer(1, data.length, 48000);
-    buffer.copyToChannel(data, 0);
 
+    // Crear buffer de audio
+    const audioBuffer = this.audioContext.createBuffer(1, data.length, 44100);
+    audioBuffer.copyToChannel(data, 0);
+
+    // Reproducir
     const source = this.audioContext.createBufferSource();
-    source.buffer = buffer;
+    source.buffer = audioBuffer;
     source.connect(this.audioContext.destination);
     source.start();
 
+    // Continuar con el siguiente
     source.onended = () => this.playNext();
   }
 
@@ -155,6 +179,9 @@ class SimpleAudioStream {
   // ========================================
   toggleMute(muted) {
     this.isMuted = muted;
+    if (this.gainNode) {
+      this.gainNode.gain.value = muted ? 0 : 0.5;
+    }
     console.log('🎤', muted ? 'SILENCIADO' : 'ACTIVO');
   }
 
@@ -164,7 +191,7 @@ class SimpleAudioStream {
   cleanup() {
     console.log('🧹 [AUDIO STREAM] Cleanup');
 
-    this.active = false;
+    this.isStreaming = false;
 
     // Detener captura
     if (this.mediaStream) {
@@ -189,6 +216,7 @@ class SimpleAudioStream {
     this.playQueue = [];
     this.isPlaying = false;
     this.isMuted = false;
+    this.gainNode = null;
   }
 }
 
