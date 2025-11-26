@@ -32,13 +32,22 @@ class SimpleCallManager {
   // ========================================
   // INICIAR LLAMADA SALIENTE
   // ========================================
-  
-  async initiateOutgoingCall(targetUser) {
+    async initiateOutgoingCall(targetUser) {
     try {
       console.log('📞 [SIMPLE CALL] Iniciando llamada a:', targetUser);
       
       if (!this.audioSubject) {
         throw new Error('AudioSubject no configurado');
+      }
+      
+      // Verificar si el usuario está conectado
+      try {
+        const connectedUsers = await this.audioSubject.getConnectedUsers();
+        if (!connectedUsers.includes(targetUser)) {
+          throw new Error(`${targetUser} no está conectado`);
+        }
+      } catch (err) {
+        console.warn('⚠️ No se pudo verificar usuarios conectados:', err);
       }
       
       // Crear registro de llamada
@@ -68,7 +77,6 @@ class SimpleCallManager {
       throw error;
     }
   }
-  
   // ========================================
   // RECIBIR LLAMADA ENTRANTE
   // ========================================
@@ -115,11 +123,11 @@ class SimpleCallManager {
       // Limpiar timer de ring
       this.clearRingTimer();
       
-      // Enviar aceptación al servidor
-      await this.audioSubject.acceptCall(
-        this.activeCall.callerId, 
-        this.username
-      );
+    // ✅ CORRECTO (como debe ser)
+await this.audioSubject.acceptCall(
+  this.username,              // Luis (quien acepta)
+  this.activeCall.callerId    // Maria (quien llamó)
+);
       
       console.log('   ✅ Aceptación enviada al servidor');
       
@@ -190,10 +198,11 @@ class SimpleCallManager {
       this.clearRingTimer();
       
       if (this.activeCall.type === 'INCOMING') {
-        await this.audioSubject.rejectCall(
-          this.activeCall.callerId,
-          this.username
-        );
+        // ✅ CORRECTO (como debe ser)
+await this.audioSubject.rejectCall(
+  this.username,              // quien rechaza
+  this.activeCall.callerId    // quien llamó
+);
       }
       
       this.cleanup();
