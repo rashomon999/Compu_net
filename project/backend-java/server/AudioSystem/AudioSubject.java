@@ -33,6 +33,14 @@ public interface AudioSubject extends com.zeroc.Ice.Object
 
     void hangup(String fromUser, String toUser, com.zeroc.Ice.Current current);
 
+    String[] getPendingIncomingCalls(String userId, com.zeroc.Ice.Current current);
+
+    String[] getPendingAcceptedCalls(String userId, com.zeroc.Ice.Current current);
+
+    String[] getPendingRejectedCalls(String userId, com.zeroc.Ice.Current current);
+
+    String[] getPendingEndedCalls(String userId, com.zeroc.Ice.Current current);
+
     /** @hidden */
     static final String[] _iceIds =
     {
@@ -213,6 +221,90 @@ public interface AudioSubject extends com.zeroc.Ice.Object
         return inS.setResult(inS.writeEmptyParams());
     }
 
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getPendingIncomingCalls(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_userId;
+        iceP_userId = istr.readString();
+        inS.endReadParams();
+        String[] ret = obj.getPendingIncomingCalls(iceP_userId, current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeStringSeq(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getPendingAcceptedCalls(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_userId;
+        iceP_userId = istr.readString();
+        inS.endReadParams();
+        String[] ret = obj.getPendingAcceptedCalls(iceP_userId, current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeStringSeq(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getPendingRejectedCalls(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_userId;
+        iceP_userId = istr.readString();
+        inS.endReadParams();
+        String[] ret = obj.getPendingRejectedCalls(iceP_userId, current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeStringSeq(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getPendingEndedCalls(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_userId;
+        iceP_userId = istr.readString();
+        inS.endReadParams();
+        String[] ret = obj.getPendingEndedCalls(iceP_userId, current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeStringSeq(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
+    }
+
     /** @hidden */
     final static String[] _iceOps =
     {
@@ -220,6 +312,10 @@ public interface AudioSubject extends com.zeroc.Ice.Object
         "attach",
         "detach",
         "getConnectedUsers",
+        "getPendingAcceptedCalls",
+        "getPendingEndedCalls",
+        "getPendingIncomingCalls",
+        "getPendingRejectedCalls",
         "hangup",
         "ice_id",
         "ice_ids",
@@ -261,33 +357,49 @@ public interface AudioSubject extends com.zeroc.Ice.Object
             }
             case 4:
             {
-                return _iceD_hangup(this, in, current);
+                return _iceD_getPendingAcceptedCalls(this, in, current);
             }
             case 5:
             {
-                return com.zeroc.Ice.Object._iceD_ice_id(this, in, current);
+                return _iceD_getPendingEndedCalls(this, in, current);
             }
             case 6:
             {
-                return com.zeroc.Ice.Object._iceD_ice_ids(this, in, current);
+                return _iceD_getPendingIncomingCalls(this, in, current);
             }
             case 7:
             {
-                return com.zeroc.Ice.Object._iceD_ice_isA(this, in, current);
+                return _iceD_getPendingRejectedCalls(this, in, current);
             }
             case 8:
             {
-                return com.zeroc.Ice.Object._iceD_ice_ping(this, in, current);
+                return _iceD_hangup(this, in, current);
             }
             case 9:
             {
-                return _iceD_rejectCall(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_id(this, in, current);
             }
             case 10:
             {
-                return _iceD_sendAudio(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_ids(this, in, current);
             }
             case 11:
+            {
+                return com.zeroc.Ice.Object._iceD_ice_isA(this, in, current);
+            }
+            case 12:
+            {
+                return com.zeroc.Ice.Object._iceD_ice_ping(this, in, current);
+            }
+            case 13:
+            {
+                return _iceD_rejectCall(this, in, current);
+            }
+            case 14:
+            {
+                return _iceD_sendAudio(this, in, current);
+            }
+            case 15:
             {
                 return _iceD_startCall(this, in, current);
             }

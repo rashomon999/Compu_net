@@ -228,64 +228,24 @@ class IceClientManager {
       }
       
       // ========================================
-      // 🔥 PASO 4: CREAR OBSERVER (CRÍTICO)
+      // 🔥 PASO 4: CREAR OBSERVER (COMO EL PROFESOR)
       // ========================================
-      console.log('   Creando Observer...');
+      console.log('   Creando Observer (patrón del profesor)...');
       
-      const observerObj = {
-        // ✅ RECIBE AUDIO (EXACTO como el profesor)
-        receiveAudio: (data, current) => {
-          console.log('🎵 [OBSERVER] Audio recibido:', data ? data.length : 0, 'bytes');
-          try {
-            // Convertir a Uint8Array si no lo es
-            const audioData = data instanceof Uint8Array ? data : new Uint8Array(data);
-            console.log('   Converted to Uint8Array:', audioData.length, 'bytes');
-            
-            if (observerCallbacks.receiveAudio) {
-              observerCallbacks.receiveAudio(audioData);
-            } else {
-              console.warn('   ⚠️ No hay callback receiveAudio');
-            }
-          } catch (error) {
-            console.error('   ❌ Error procesando audio:', error);
-          }
-        },
-        
-        incomingCall: (fromUser, current) => {
-          console.log('📞 [OBSERVER] Llamada entrante de:', fromUser);
-          if (observerCallbacks.incomingCall) {
-            observerCallbacks.incomingCall(fromUser);
-          }
-        },
-        
-        callAccepted: (fromUser, current) => {
-          console.log('✅ [OBSERVER] Llamada aceptada por:', fromUser);
-          if (observerCallbacks.callAccepted) {
-            observerCallbacks.callAccepted(fromUser);
-          }
-        },
-        
-        callRejected: (fromUser, current) => {
-          console.log('❌ [OBSERVER] Llamada rechazada por:', fromUser);
-          if (observerCallbacks.callRejected) {
-            observerCallbacks.callRejected(fromUser);
-          }
-        },
-        
-        callEnded: (fromUser, current) => {
-          console.log('📞 [OBSERVER] Llamada finalizada por:', fromUser);
-          if (observerCallbacks.callEnded) {
-            observerCallbacks.callEnded(fromUser);
-          }
-        }
-      };
+      // Importar el subscriber
+      const { default: AudioSubscriber } = await import('./subscriber.js');
       
-      console.log('   ✅ Observer object creado');
+      // Crear instancia del subscriber
+      const subscriber = new AudioSubscriber({
+        audioCallbacks: observerCallbacks
+      });
       
-      // PASO 5: Crear proxy del Observer
+      console.log('   ✅ AudioSubscriber creado');
+      
+      // PASO 5: Crear proxy del Observer (EXACTO como el profesor)
       console.log('   Creando proxy del Observer...');
       const observerProxy = this.audioAdapter.add(
-        new Ice.AudioSystem.AudioObserver(observerObj),
+        subscriber,
         new Ice.Identity(Ice.generateUUID(), "")
       );
       
