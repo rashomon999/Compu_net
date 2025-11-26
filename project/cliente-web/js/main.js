@@ -1,50 +1,108 @@
 // ============================================
-// js/main.js - Punto de entrada principal CORREGIDO
+// js/main.js - Punto de entrada COMPLETO
 // ============================================
+
+console.log('📦 main.js cargando...');
 
 // ⚡ IMPORTAR CSS
 import '../style.css';
 
-// Importar módulos del sistema
-import { login, logout } from './auth.js';
-import { openChat, loadRecentChats } from './chats.js';
-import { createGroup, joinGroup, loadGroupsFromICE } from './groups.js';
-import { sendMessage } from './messages.js';
-import { stopPolling } from './polling.js';
-import { state, resetState } from './state.js';
-import { showLoginInterface, resetMainContent, showError } from './ui.js';
-
-// 🎙️ Importar funcionalidad de audio
-import { 
-  toggleRecording, 
-  cancelRecording,
-  toggleAudioMenu,
-  showAudioControls,
-  hideAudioControls
-} from './audioUI.js';
-
-// ✅ CORREGIDO: Importar initiateCall desde callUI
-import { initiateCall, hideCallUI } from './callUI.js';
-
 // ========================================
-// FUNCIONES GLOBALES (para debugging)
+// PASO 1: Esperar a que Ice.js esté disponible
 // ========================================
-window._debug = {
-  login,
-  logout,
-  openChat,
-  createGroup,
-  joinGroup,
-  sendMessage,
-  toggleRecording,
-  cancelRecording,
-  initiateCall  // ✅ Agregar a globales para debugging
-};
+function waitForIce(timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    
+    const checkIce = () => {
+      if (typeof window.Ice !== 'undefined') {
+        console.log('✅ Ice.js disponible, continuando inicialización...');
+        resolve(window.Ice);
+      } else if (Date.now() - startTime > timeout) {
+        reject(new Error('Timeout esperando Ice.js'));
+      } else {
+        setTimeout(checkIce, 50);
+      }
+    };
+    
+    checkIce();
+  });
+}
 
 // ========================================
-// CAMBIO DE TABS
+// PASO 2: Inicializar módulos Ice
 // ========================================
-function switchTab(tab) {
+async function initializeIceModules() {
+  try {
+    const Ice = await waitForIce();
+    
+    console.log('🔧 Inicializando módulos Ice...');
+    
+    // Importar e inicializar ChatSystem
+    const { default: initChatSystem } = await import('./generated/ChatSystem.js');
+    if (typeof initChatSystem === 'function') {
+      initChatSystem();
+      console.log('✅ ChatSystem inicializado');
+    }
+    
+    // Verificar que ChatSystem se cargó
+    if (!Ice.ChatSystem) {
+      throw new Error('ChatSystem no se inicializó correctamente');
+    }
+    
+    // Importar e inicializar AudioSystem
+    const { default: initAudioSystem } = await import('./generated/AudioSubject.js');
+    if (typeof initAudioSystem === 'function') {
+      initAudioSystem();
+      console.log('✅ AudioSystem inicializado');
+    }
+    
+    // Verificar que AudioSystem se cargó
+    if (!Ice.AudioSystem) {
+      throw new Error('AudioSystem no se inicializó correctamente');
+    }
+    
+    console.log('✅ Todos los módulos Ice inicializados correctamente');
+    console.log('   - ChatSystem:', Object.keys(Ice.ChatSystem).length, 'elementos');
+    console.log('   - AudioSystem:', Object.keys(Ice.AudioSystem).length, 'elementos');
+    
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Error inicializando módulos Ice:', error);
+    throw error;
+  }
+}
+
+// ========================================
+// PASO 3: Importar módulos de la aplicación
+// ========================================
+let appModules = null;
+
+async function loadAppModules() {
+  if (appModules) return appModules; // Ya cargados
+  
+  appModules = {
+    auth: await import('./auth.js'),
+    chats: await import('./chats.js'),
+    groups: await import('./groups.js'),
+    messages: await import('./messages.js'),
+    ui: await import('./ui.js'),
+    state: await import('./state.js'),
+    audioUI: await import('./audioUI.js'),
+    callUI: await import('./callUI.js')
+  };
+  
+  return appModules;
+}
+
+// ========================================
+// FUNCIONES DE LA APLICACIÓN
+// ========================================
+async function switchTab(tab) {
+  const { loadRecentChats } = await import('./chats.js');
+  const { loadGroupsFromICE } = await import('./groups.js');
+  
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   
@@ -59,17 +117,27 @@ function switchTab(tab) {
   }
 }
 
-// ========================================
-// MENÚ DE LLAMADAS (SOLO AUDIO)
-// ========================================
-function showCallOptionsMenu() {
-  // ⚠️ Validar que CallService esté disponible
+async function showCallOptionsMenu() {
+  const { state } = await import('./state.js');
+  const { showError } = await import('./ui.js');
+  const { initiateCall } = await import('./callUI.js');
+  
   if (state.callsAvailable === false) {
-    showError('❌ Las llamadas no están disponibles - CallService no está en el servidor');
+    showError('❌ Las llamadas no están disponibles en el servidor');
     return;
   }
   
-  // Remover menú existente si hay
+  if (!state.currentChat) {
+    showError('⚠️ Selecciona un chat primero');
+    return;
+  }
+  
+  if (state.isGroup) {
+    showError('⚠️ Las llamadas solo están disponibles para chats privados');
+    return;
+  }
+  
+  // Remover menú existente
   const existingMenu = document.querySelector('.call-options-menu');
   if (existingMenu) {
     existingMenu.remove();
@@ -85,7 +153,6 @@ function showCallOptionsMenu() {
   
   document.body.appendChild(options);
   
-  // ✅ CORREGIDO: Usar initiateCall que ya está importado
   document.getElementById('audioCallBtn').onclick = async () => {
     options.remove();
     try {
@@ -110,67 +177,37 @@ function showCallOptionsMenu() {
 }
 
 // ========================================
-// EVENT LISTENERS
+// PASO 4: Configurar event listeners
 // ========================================
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🚀 Aplicación de chat inicializada');
+async function setupEventListeners() {
+  console.log('🎨 Configurando event listeners...');
   
-  // ✅ Esperar a que Ice.js esté disponible
-  if (window._iceLoadPromise) {
-    try {
-      await window._iceLoadPromise;
-      console.log('✅ Ice.js disponible, continuando inicialización...');
-    } catch (error) {
-      console.error('❌ Error cargando Ice.js:', error);
-      alert('Error: No se pudo cargar Ice.js. Por favor recarga la página.');
-      return;
-    }
-  }
+  const modules = await loadAppModules();
+  const { login, logout } = modules.auth;
+  const { openChat } = modules.chats;
+  const { createGroup, joinGroup } = modules.groups;
+  const { sendMessage } = modules.messages;
+  const { toggleRecording, cancelRecording, toggleAudioMenu } = modules.audioUI;
   
   // ========================================
-  // LLAMADAS
-  // ========================================
-  const callButton = document.getElementById('callButton');
-
-  if (callButton) {
-    callButton.addEventListener('click', () => {
-      console.log('📱 [MAIN] Click en botón de llamada');
-      
-      if (!state.currentChat) {
-        showError('Selecciona un chat primero');
-        return;
-      }
-      
-      if (state.isGroup) {
-        showError('Las llamadas solo están disponibles para chats privados');
-        return;
-      }
-      
-      // ✅ Mostrar opciones de llamada
-      showCallOptionsMenu();
-    });
-  }
-
-  // ========================================
-  // PANTALLA DE LOGIN
+  // LOGIN
   // ========================================
   const usernameInput = document.getElementById('usernameInput');
   const loginButton = document.getElementById('loginButton');
   
   if (usernameInput && loginButton) {
-    // Login con Enter
     usernameInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         login();
       }
     });
     
-    // Login con botón
     loginButton.addEventListener('click', () => {
       login();
     });
     
     usernameInput.focus();
+    console.log('  ✅ Login listeners');
   }
   
   // ========================================
@@ -181,6 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     logoutButton.addEventListener('click', () => {
       logout();
     });
+    console.log('  ✅ Logout listener');
   }
   
   // ========================================
@@ -194,6 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   });
+  console.log('  ✅ Tabs listeners');
   
   // ========================================
   // CHATS
@@ -214,6 +253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+  console.log('  ✅ Chats listeners');
   
   // ========================================
   // GRUPOS
@@ -251,6 +291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+  console.log('  ✅ Grupos listeners');
   
   // ========================================
   // MENSAJES
@@ -259,7 +300,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sendMessageButton = document.getElementById('sendMessageButton');
   
   if (messageInput) {
-    // Enviar mensaje con Enter (sin Shift)
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -273,6 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       sendMessage();
     });
   }
+  console.log('  ✅ Mensajes listeners');
   
   // ========================================
   // AUDIO (NOTAS DE VOZ)
@@ -298,10 +339,102 @@ document.addEventListener('DOMContentLoaded', async () => {
       toggleAudioMenu();
     });
   }
+  console.log('  ✅ Audio listeners');
+  
+  // ========================================
+  // LLAMADAS
+  // ========================================
+  const callButton = document.getElementById('callButton');
+  
+  if (callButton) {
+    callButton.addEventListener('click', () => {
+      console.log('📱 [MAIN] Click en botón de llamada');
+      showCallOptionsMenu();
+    });
+    console.log('  ✅ Llamadas listeners');
+  }
   
   console.log('✅ Event listeners registrados');
-});
+}
 
-// ✅ Exportar para uso global si es necesario
-window.initiateCall = initiateCall;
-window.hideCallUI = hideCallUI;
+// ========================================
+// PASO 5: Inicializar aplicación completa
+// ========================================
+async function initializeApp() {
+  try {
+    // 1. Inicializar módulos Ice
+    await initializeIceModules();
+    
+    // 2. Configurar event listeners
+    await setupEventListeners();
+    
+    console.log('✅ Aplicación lista');
+    
+    // 3. Exponer funciones para debugging
+    const modules = await loadAppModules();
+    window._debug = {
+      login: modules.auth.login,
+      logout: modules.auth.logout,
+      openChat: modules.chats.openChat,
+      createGroup: modules.groups.createGroup,
+      joinGroup: modules.groups.joinGroup,
+      sendMessage: modules.messages.sendMessage,
+      initiateCall: modules.callUI.initiateCall
+    };
+    
+  } catch (error) {
+    console.error('❌ Error inicializando aplicación:', error);
+    alert('Error al inicializar la aplicación. Revisa la consola para más detalles.');
+  }
+}
+
+// ========================================
+// PASO 6: Ejecutar cuando el DOM esté listo
+// ========================================
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  initializeApp();
+}
+
+// ========================================
+// Utilidades globales
+// ========================================
+window.updateConnectionStatus = (status) => {
+  const statusEl = document.getElementById('connectionStatus');
+  if (!statusEl) return;
+  
+  statusEl.classList.remove('hidden', 'connecting', 'connected', 'disconnected', 'error');
+  
+  const icon = statusEl.querySelector('.status-icon');
+  const text = statusEl.querySelector('.status-text');
+  
+  switch (status) {
+    case 'connecting':
+      statusEl.classList.add('connecting');
+      if (icon) icon.textContent = '🔄';
+      if (text) text.textContent = 'Conectando...';
+      break;
+      
+    case 'connected':
+      statusEl.classList.add('connected');
+      if (icon) icon.textContent = '✅';
+      if (text) text.textContent = 'Conectado';
+      setTimeout(() => statusEl.classList.add('hidden'), 2000);
+      break;
+      
+    case 'disconnected':
+      statusEl.classList.add('disconnected');
+      if (icon) icon.textContent = '⚠️';
+      if (text) text.textContent = 'Desconectado';
+      break;
+      
+    case 'error':
+      statusEl.classList.add('error');
+      if (icon) icon.textContent = '❌';
+      if (text) text.textContent = 'Error de conexión';
+      break;
+  }
+};
+
+console.log('✅ main.js cargado, esperando DOM...');

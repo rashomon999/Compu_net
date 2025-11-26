@@ -2,6 +2,7 @@ package ice;
 
 import com.zeroc.Ice.*;
 import ice.services.*;
+import main.java.ice.services.AudioSubjectImpl;
 import tcp.*;
 import utils.HistoryManager;
 
@@ -65,6 +66,10 @@ public class IceServer {
             CallServiceI callServiceImpl = new CallServiceI();
             adapter.add(callServiceImpl, Util.stringToIdentity("CallService"));
             System.out.println("   ✓ CallService registrado");
+            
+            AudioSubjectImpl audioSubjectImpl = new AudioSubjectImpl();
+            adapter.add(audioSubjectImpl, Util.stringToIdentity("AudioService"));
+            System.out.println("   ✓ AudioService registrado");
             
             System.out.println("\n[4/4] Activando servidor...");
             

@@ -1,12 +1,9 @@
 // ============================================
-// js/audioStreamManager.js - Audio Streaming PCM Directo por ICE
-// Filosofía del profesor: NO WebRTC, solo PCM16 raw
+// js/simpleAudioStream.js - Audio Streaming SIMPLIFICADO
+// Filosofía del Profesor: PCM16 directo, sin WebRTC
 // ============================================
 
-import { iceClient } from './iceClient.js';
-import { state } from './state.js';
-
-class AudioStreamManager {
+class SimpleAudioStreamManager {
   constructor() {
     this.audioContext = null;
     this.mediaStream = null;
@@ -17,24 +14,38 @@ class AudioStreamManager {
     this.isPlaying = false;
     this.gainNode = null;
     this.isMuted = false;
+    this.audioSubject = null;
+    this.username = null;
     
-    console.log('🎵 [AUDIO STREAM] Inicializado (modo PCM directo)');
+    console.log('🎵 [SIMPLE AUDIO] Inicializado');
   }
-
+  
   // ========================================
-  // INICIAR CAPTURA DE AUDIO (del micrófono)
+  // CONFIGURACIÓN INICIAL
+  // ========================================
+  
+  setAudioSubject(audioSubject, username) {
+    this.audioSubject = audioSubject;
+    this.username = username;
+    console.log('✅ [SIMPLE AUDIO] AudioSubject configurado para:', username);
+  }
+  
+  // ========================================
+  // INICIAR CAPTURA DE AUDIO
   // ========================================
   
   async startStreaming() {
     try {
-      console.log('🎤 [STREAM] Iniciando captura de audio...');
-      console.log('   Usuario:', state.currentUsername);
-      console.log('   isStreaming actual:', this.isStreaming);
+      console.log('🎤 [SIMPLE AUDIO] Iniciando captura...');
       
-      // Crear AudioContext si no existe
+      if (!this.audioSubject || !this.username) {
+        throw new Error('AudioSubject no configurado');
+      }
+      
+      // Crear AudioContext
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-          sampleRate: 44100 // Igual que el proyecto del profesor
+          sampleRate: 44100
         });
         console.log('   AudioContext creado: 44.1kHz');
       }
@@ -44,7 +55,7 @@ class AudioStreamManager {
         await this.audioContext.resume();
       }
       
-      // Solicitar acceso al micrófono
+      // Solicitar micrófono
       console.log('   Solicitando micrófono...');
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -57,62 +68,62 @@ class AudioStreamManager {
       
       console.log('   ✅ Micrófono accedido');
       
-      // Crear pipeline de audio (IGUAL que el proyecto del profesor)
+      // Crear pipeline de audio (IGUAL QUE EL PROFESOR)
       const audioInput = this.audioContext.createMediaStreamSource(this.mediaStream);
       
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = 0.5; // Volumen 50%
+      this.gainNode.gain.value = 0.5;
       
-      // ScriptProcessor (mismo que usa el profesor en web)
+      // ScriptProcessor (2048 samples = ~46ms de latencia)
       this.scriptProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
       
       audioInput.connect(this.gainNode);
       this.gainNode.connect(this.scriptProcessor);
       this.scriptProcessor.connect(this.audioContext.destination);
       
-      // Handler de procesamiento (CRÍTICO - igual que el profesor)
+      // Handler de procesamiento (CRÍTICO)
       this.scriptProcessor.onaudioprocess = (e) => {
         if (!this.isStreaming) return;
         
         // PASO 1: Obtener datos Float32
         const input = e.inputBuffer.getChannelData(0);
         
-        // PASO 2: Aplicar compresión suave (igual que el profesor)
+        // PASO 2: Aplicar compresión suave
         const compressed = this.applySoftCompression(input);
         
-        // PASO 3: Convertir a PCM16 (CRÍTICO)
+        // PASO 3: Convertir a PCM16
         const pcm16 = this.floatToPCM16(compressed);
         
         // PASO 4: Acumular en buffer
         this.sendBuffer.push(pcm16);
         
-        // PASO 5: Enviar cuando hay suficientes chunks (igual que el profesor)
+        // PASO 5: Enviar cuando hay suficientes chunks
         if (this.sendBuffer.length >= 8) {
           const merged = this.mergePCM(this.sendBuffer);
           this.sendBuffer = [];
           
-          // ✅ ENVIAR DIRECTAMENTE AL SERVIDOR (sin WebRTC)
+          // Enviar al servidor
           this.sendAudioToServer(new Uint8Array(merged.buffer));
         }
       };
       
       this.isStreaming = true;
-      console.log('✅ [STREAM] Captura de audio ACTIVA');
+      console.log('✅ [SIMPLE AUDIO] Captura ACTIVA');
       
       return true;
       
     } catch (error) {
-      console.error('❌ [STREAM] Error:', error);
+      console.error('❌ [SIMPLE AUDIO] Error:', error);
       throw error;
     }
   }
-
+  
   // ========================================
   // DETENER CAPTURA
   // ========================================
   
   stopStreaming() {
-    console.log('🛑 [STREAM] Deteniendo captura...');
+    console.log('🛑 [SIMPLE AUDIO] Deteniendo captura...');
     
     this.isStreaming = false;
     
@@ -127,53 +138,34 @@ class AudioStreamManager {
     }
     
     this.sendBuffer = [];
-    console.log('✅ [STREAM] Captura detenida');
+    console.log('✅ [SIMPLE AUDIO] Captura detenida');
   }
-
+  
   // ========================================
-  // ENVIAR AUDIO AL SERVIDOR (CRÍTICO)
+  // ENVIAR AUDIO AL SERVIDOR
   // ========================================
   
   async sendAudioToServer(audioData) {
     try {
-      if (!this.isStreaming) return;
+      if (!this.isStreaming || !this.audioSubject) return;
       
-      // ✅ DEBUG: Log cada 50 paquetes
-      if (!this._audioPacketCount) this._audioPacketCount = 0;
-      this._audioPacketCount++;
-      
-      if (this._audioPacketCount % 50 === 0) {
-        console.log(`📤 [STREAM] Enviados ${this._audioPacketCount} paquetes de audio`);
-        console.log(`   Último paquete: ${audioData.byteLength} bytes`);
-        console.log(`   Usuario: ${state.currentUsername}`);
-      }
-      
-      // ✅ Enviar via Ice (igual que el profesor en sendAudio)
-      await iceClient.sendAudioChunk(state.currentUsername, audioData);
+      // Enviar via Ice (método del profesor)
+      await this.audioSubject.sendAudio(this.username, audioData);
       
     } catch (error) {
-      // Silenciar errores de timeout para no saturar consola
+      // Silenciar errores de timeout
       if (!error.message.includes('timeout')) {
-        console.warn('⚠️ [STREAM] Error enviando:', error.message);
+        console.warn('⚠️ [SIMPLE AUDIO] Error enviando:', error.message);
       }
     }
   }
-
+  
   // ========================================
   // RECIBIR Y REPRODUCIR AUDIO
   // ========================================
   
   async receiveAudioChunk(audioData) {
     try {
-      // ✅ DEBUG: Contar paquetes recibidos
-      if (!this._receivePacketCount) this._receivePacketCount = 0;
-      this._receivePacketCount++;
-      
-      if (this._receivePacketCount % 50 === 0) {
-        console.log(`📥 [STREAM] Recibidos ${this._receivePacketCount} paquetes de audio`);
-        console.log(`   Último paquete: ${audioData.byteLength} bytes`);
-      }
-      
       // Validar AudioContext
       if (!this.audioContext) {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
@@ -186,7 +178,7 @@ class AudioStreamManager {
         await this.audioContext.resume();
       }
       
-      // ✅ Convertir PCM16 a Float32 (igual que el profesor)
+      // Convertir PCM16 a Float32
       const floatArray = this.convertPCM16ToFloat32(audioData);
       
       // Agregar a la cola
@@ -198,10 +190,10 @@ class AudioStreamManager {
       }
       
     } catch (error) {
-      console.error('❌ [STREAM] Error recibiendo:', error);
+      console.error('❌ [SIMPLE AUDIO] Error recibiendo:', error);
     }
   }
-
+  
   processReceiveQueue() {
     if (this.receiveQueue.length === 0) {
       this.isPlaying = false;
@@ -213,12 +205,8 @@ class AudioStreamManager {
     // Extraer siguiente buffer
     const data = this.receiveQueue.shift();
     
-    // Crear AudioBuffer (igual que el profesor)
-    const audioBuffer = this.audioContext.createBuffer(
-      1, 
-      data.length, 
-      44100
-    );
+    // Crear AudioBuffer
+    const audioBuffer = this.audioContext.createBuffer(1, data.length, 44100);
     audioBuffer.getChannelData(0).set(data);
     
     // Crear source y reproducir
@@ -231,9 +219,9 @@ class AudioStreamManager {
     // Cuando termina, procesar el siguiente
     source.onended = () => this.processReceiveQueue();
   }
-
+  
   // ========================================
-  // PROCESAMIENTO DE AUDIO (IGUAL QUE EL PROFESOR)
+  // PROCESAMIENTO DE AUDIO (DEL PROFESOR)
   // ========================================
   
   applySoftCompression(buffer) {
@@ -251,7 +239,7 @@ class AudioStreamManager {
     
     return out;
   }
-
+  
   mergePCM(chunks) {
     const total = chunks.reduce((acc, c) => acc + c.length, 0);
     const merged = new Int16Array(total);
@@ -264,7 +252,7 @@ class AudioStreamManager {
     
     return merged;
   }
-
+  
   floatToPCM16(float32) {
     const pcm16 = new Int16Array(float32.length);
     
@@ -275,19 +263,18 @@ class AudioStreamManager {
     
     return pcm16;
   }
-
+  
   convertPCM16ToFloat32(byteArray) {
     const view = new DataView(byteArray.buffer);
     const floatBuffer = new Float32Array(byteArray.byteLength / 2);
     
     for (let i = 0; i < floatBuffer.length; i++) {
-      // Little-endian, igual que el profesor
       floatBuffer[i] = view.getInt16(i * 2, true) / 32768;
     }
     
     return floatBuffer;
   }
-
+  
   // ========================================
   // CONTROLES
   // ========================================
@@ -296,28 +283,28 @@ class AudioStreamManager {
     this.isMuted = muted;
     if (this.gainNode) {
       this.gainNode.gain.value = muted ? 0 : 0.5;
-      console.log('🎤 [STREAM]', muted ? 'SILENCIADO' : 'ACTIVO');
+      console.log('🎤 [SIMPLE AUDIO]', muted ? 'SILENCIADO' : 'ACTIVO');
     }
   }
-
+  
   // ========================================
   // LIMPIAR
   // ========================================
   
   cleanup() {
-    console.log('🧹 [STREAM] Limpiando...');
+    console.log('🧹 [SIMPLE AUDIO] Limpiando...');
     
     this.stopStreaming();
     this.receiveQueue = [];
     this.isPlaying = false;
     this.isMuted = false;
     
-    console.log('✅ [STREAM] Limpieza completada');
+    console.log('✅ [SIMPLE AUDIO] Limpieza completada');
   }
-
+  
   isActive() {
     return this.isStreaming;
   }
 }
 
-export const audioStreamManager = new AudioStreamManager();
+export const simpleAudioStream = new SimpleAudioStreamManager();

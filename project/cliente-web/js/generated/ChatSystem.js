@@ -5,13 +5,12 @@
 /* eslint-disable */
 /* jshint ignore: start */
 
-// ✅ ESPERAR a que Ice.js esté disponible
 const initChatSystem = () => {
     const Ice = window.Ice;
     
     if (!Ice) {
-        console.error('❌ Ice.js no está disponible');
-        return;
+        console.error('❌ Ice.js no está disponible en ChatSystem.js');
+        return null;
     }
 
     const _ModuleRegistry = Ice._ModuleRegistry;
@@ -404,15 +403,13 @@ const initChatSystem = () => {
     // Exportar a window.Ice
     window.Ice.ChatSystem = ChatSystem;
     
-    console.log('✅ ChatSystem cargado correctamente');
+    console.log('✅ ChatSystem cargado y exportado correctamente');
     
     return ChatSystem;
 };
 
-// ✅ Exportar para uso con import
+// ✅ CRÍTICO: Exportar como default
 export default initChatSystem;
 
-// ✅ Auto-inicializar si Ice.js ya está disponible
-if (typeof window !== 'undefined' && window.Ice) {
-    initChatSystem();
-}
+// NO auto-inicializar, dejamos que main.js lo haga
+console.log('📦 ChatSystem.js módulo cargado, esperando inicialización...');

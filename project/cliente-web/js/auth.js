@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación CORREGIDA
+// js/auth.js - Autenticación con AudioSubject
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -8,7 +8,8 @@ import { showError, showChatInterface } from './ui.js';
 import { loadRecentChatsFromICE } from './chats.js';
 import { loadGroupsFromICE } from './groups.js';
 import { subscribeToRealTimeNotifications } from './notifications.js';
-import { callManager } from './callManager.js';
+import { simpleCallManager } from './simpleCallManager.js';
+import { simpleAudioStream } from './simpleAudioStream.js';
 
 export async function login() {
   const username = document.getElementById('usernameInput').value.trim();
@@ -40,27 +41,92 @@ export async function login() {
 
   try {
     console.log(`🔌 Conectando a ${serverHost}:${serverPort}`);
-    await iceClient.connect(username, serverHost, serverPort);
     
+    // PASO 1: Conectar servicios básicos (Chat, Groups, etc.)
+    await iceClient.connect(username, serverHost, serverPort);
     state.currentUsername = username;
     
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
     }
     
-    // Suscribirse a notificaciones
+    // PASO 2: Suscribirse a notificaciones
     await subscribeToRealTimeNotifications(username);
     
-    // ✅ SUSCRIBIRSE A EVENTOS DE LLAMADA
+    // ========================================
+    // PASO 3: CONECTAR AUDIOSUBJECT (LLAMADAS)
+    // ========================================
     try {
-      await subscribeToCallEvents(username);
-      console.log('✅ Eventos de llamadas habilitados');
+      console.log('📞 Conectando a AudioSubject...');
+      
+      if (statusEl) {
+        statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
+      }
+      
+      // 3.1: Conectar al servidor AudioService
+      const audioSubject = await iceClient.connectToAudioSubject(
+        serverHost,
+        serverPort,
+        username,
+        {
+          // Callbacks del Observer
+          receiveAudio: (audioData) => {
+            simpleAudioStream.receiveAudioChunk(audioData);
+          },
+          
+          incomingCall: async (fromUser) => {
+            console.log('📞 [AUTH] Llamada entrante de:', fromUser);
+            await simpleCallManager.receiveIncomingCall(fromUser);
+            
+            const { showIncomingCallUI } = await import('./callUI.js');
+            showIncomingCallUI({ caller: fromUser });
+          },
+          
+          callAccepted: async (fromUser) => {
+            console.log('✅ [AUTH] Llamada aceptada por:', fromUser);
+            await simpleCallManager.handleCallAccepted(fromUser);
+            
+            const { showActiveCallUI } = await import('./callUI.js');
+            showActiveCallUI(fromUser);
+          },
+          
+          callRejected: async (fromUser) => {
+            console.log('❌ [AUTH] Llamada rechazada por:', fromUser);
+            
+            const { hideCallUI } = await import('./callUI.js');
+            hideCallUI();
+            showError(`${fromUser} rechazó la llamada`);
+            simpleCallManager.cleanup();
+          },
+          
+          callEnded: async (fromUser) => {
+            console.log('📞 [AUTH] Llamada finalizada por:', fromUser);
+            
+            simpleAudioStream.cleanup();
+            simpleCallManager.cleanup();
+            
+            const { hideCallUI } = await import('./callUI.js');
+            hideCallUI();
+            showError(`${fromUser} finalizó la llamada`);
+          }
+        }
+      );
+      
+      // 3.2: Configurar managers
+      simpleCallManager.setAudioSubject(audioSubject, username);
+      simpleAudioStream.setAudioSubject(audioSubject, username);
+      
+      console.log('✅ Sistema de llamadas ACTIVO');
       state.callsAvailable = true;
+      
     } catch (err) {
-      console.warn('⚠️ CallService no disponible:', err.message);
+      console.warn('⚠️ AudioService no disponible:', err.message);
       state.callsAvailable = false;
     }
     
+    // ========================================
+    // PASO 4: FINALIZAR LOGIN
+    // ========================================
     if (statusEl) {
       statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
     }
@@ -105,135 +171,20 @@ export async function login() {
 
 export async function logout() {
   try {
-    if (callManager.isCallActive()) {
-      await callManager.endCall();
+    // Limpiar llamada activa si existe
+    if (simpleCallManager.isCallActive()) {
+      await simpleCallManager.endCall();
     }
     
+    // Desconectar AudioSubject
+    await iceClient.disconnectFromAudioSubject(state.currentUsername);
+    
+    // Desconectar Ice
     await iceClient.disconnect();
+    
     console.log('👋 Logout exitoso');
+    
   } catch (err) {
     console.error('Error en logout:', err);
-  }
-}
-
-// ========================================
-// SUSCRIPCIÓN A EVENTOS DE LLAMADA
-// ========================================
-
-async function subscribeToCallEvents(username) {
-  try {
-    console.log('📞 Suscribiendo a eventos de llamadas...');
-    
-    await iceClient.subscribeToCallEvents(username, {
-      
-      // ✅ LLAMADA ENTRANTE
-      onIncomingCall: async (offer) => {
-        console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!');
-        console.log('   De:', offer.caller);
-        console.log('   CallID:', offer.callId);
-        
-        try {
-          const { showIncomingCallUI } = await import('./callUI.js');
-          await showIncomingCallUI(offer);
-        } catch (error) {
-          console.error('❌ [AUTH] Error mostrando UI de llamada:', error);
-        }
-      },
-      
-      // ✅ RESPUESTA DE LLAMADA (MUY IMPORTANTE)
-      onCallAnswer: async (answer) => {
-  console.log('📞 [AUTH] RESPUESTA DE LLAMADA RECIBIDA');
-  console.log('   CallID:', answer.callId);
-  console.log('   Status RAW:', answer.status);
-  
-  try {
-    // ✅ Usar instancia global
-    const callManager = window._callManager;
-    
-    if (!callManager) {
-      console.error('❌ [AUTH] callManager no está inicializado');
-      return;
-    }
-    
-    // ✅ Verificar activeCall
-    const activeCall = callManager.getActiveCall();
-    
-    if (!activeCall) {
-      console.warn('⚠️ [AUTH] No hay activeCall - La llamada se canceló o finalizó');
-      return;
-    }
-    
-    if (activeCall.id !== answer.callId) {
-      console.warn('⚠️ [AUTH] CallID no coincide:', activeCall.id, '!==', answer.callId);
-      return;
-    }
-    
-    console.log('   ✅ activeCall válido:', activeCall);
-    
-    // Procesar respuesta
-    await callManager.handleCallAnswer(answer);
-    
-    // ✅ ACTUALIZAR UI
-    if (activeCall.type === 'OUTGOING' && activeCall.status === 'CONNECTED') {
-      console.log('✅ [AUTH] Mostrando UI de llamada activa');
-      const { showActiveCallUI } = await import('./callUI.js');
-      showActiveCallUI(activeCall.calleeId);
-    }
-    
-  } catch (error) {
-    console.error('❌ [AUTH] Error:', error);
-    const { hideCallUI } = await import('./callUI.js');
-    hideCallUI();
-    showError('Error en la llamada');
-  }
-},
-      
-      // ✅ AUDIO CHUNKS (NUEVO)
-      onAudioChunk: async (chunk) => {
-        if (!chunk || !chunk.data) {
-          console.warn('⚠️ [AUTH] Chunk de audio inválido');
-          return;
-        }
-        
-        try {
-          const { audioStreamManager } = await import('./audioStreamManager.js');
-          
-          // Convertir a Uint8Array si es necesario
-          const audioData = chunk.data instanceof Uint8Array 
-            ? chunk.data 
-            : new Uint8Array(chunk.data);
-          
-          await audioStreamManager.receiveAudioChunk(audioData);
-        } catch (error) {
-          console.error('❌ [AUTH] Error procesando audio:', error);
-        }
-      },
-      
-      // RTC Candidate (ya no se usa pero mantener)
-      onRtcCandidate: async (candidate) => {
-        console.log('⚠️ [AUTH] RTC candidate (ignorado)');
-      },
-      
-      // ✅ LLAMADA FINALIZADA
-      onCallEnded: async (callId, reason) => {
-        console.log('📞 [AUTH] Llamada finalizada:', reason);
-        
-        try {
-          const { hideCallUI } = await import('./callUI.js');
-          const { audioStreamManager } = await import('./audioStreamManager.js');
-          
-          audioStreamManager.cleanup();
-          await callManager.endCall();
-          hideCallUI();
-          
-          showError(`Llamada finalizada: ${reason}`);
-        } catch (error) {
-          console.error('Error limpiando llamada:', error);
-        }
-      }
-    });
-    
-  } catch (error) {
-    throw new Error('CallService no disponible: ' + error.message);
   }
 }

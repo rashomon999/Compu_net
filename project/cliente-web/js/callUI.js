@@ -1,8 +1,7 @@
 // ============================================
-// js/callUI.js - UI de Llamadas (COMPLETO)
+// js/callUI.js - UI de Llamadas CORREGIDO
 // ============================================
 
-// ✅ EXPORTAR initiateCall AL INICIO
 export async function initiateCall(targetUser) {
   if (!targetUser) {
     const { showError } = await import('./ui.js');
@@ -40,8 +39,8 @@ export async function initiateCall(targetUser) {
     
     updateCallStatus('Estableciendo conexión...');
     
-    const { callManager } = await import('./callManager.js');
-    await callManager.initiateOutgoingCall(targetUser);
+    const { simpleCallManager } = await import('./simpleCallManager.js');
+    await simpleCallManager.initiateOutgoingCall(targetUser);
     
     if (!document.getElementById('outgoingCallModal')) {
       console.warn('⚠️ Modal desapareció durante iniciación');
@@ -64,7 +63,7 @@ export async function initiateCall(targetUser) {
       showError('❌ Permiso de micrófono denegado');
     } else if (error.name === 'NotFoundError') {
       showError('❌ No se encontró ningún micrófono');
-    } else if (error.message.includes('CallService')) {
+    } else if (error.message.includes('AudioSubject')) {
       showError('❌ El servidor no soporta llamadas');
       state.callsAvailable = false;
     } else if (error.message.includes('User not found')) {
@@ -77,13 +76,12 @@ export async function initiateCall(targetUser) {
   }
 }
 
-// ✅ EXPORTAR showIncomingCallUI
 export async function showIncomingCallUI(offer) {
   try {
     console.log('📞 [UI] Mostrando llamada entrante de:', offer.caller);
     
-    const { callManager } = await import('./callManager.js');
-    await callManager.receiveIncomingCall(offer);
+    const { simpleCallManager } = await import('./simpleCallManager.js');
+    await simpleCallManager.receiveIncomingCall(offer.caller);
     
     const modal = document.createElement('div');
     modal.id = 'incomingCallModal';
@@ -114,7 +112,7 @@ export async function showIncomingCallUI(offer) {
       console.log('✅ [UI] Usuario aceptó');
       
       try {
-        await callManager.acceptCall();
+        await simpleCallManager.acceptCall();
         hideIncomingCallUI();
         showActiveCallUI(offer.caller);
       } catch (error) {
@@ -129,7 +127,7 @@ export async function showIncomingCallUI(offer) {
       console.log('❌ [UI] Usuario rechazó');
       
       try {
-        await callManager.rejectCall('USER_REJECTED');
+        await simpleCallManager.rejectCall();
         hideIncomingCallUI();
       } catch (error) {
         console.error('Error rechazando:', error);
@@ -146,7 +144,6 @@ export async function showIncomingCallUI(offer) {
   }
 }
 
-// ✅ EXPORTAR showActiveCallUI
 export function showActiveCallUI(otherUser) {
   console.log('📞 [UI] Mostrando llamada activa con:', otherUser);
   
@@ -184,22 +181,22 @@ export function showActiveCallUI(otherUser) {
   const muteBtn = document.getElementById('muteBtn');
   let isMuted = false;
   
+  // ✅ CORREGIDO: Usar simpleAudioStream
   muteBtn.onclick = async () => {
-    const { audioStreamManager } = await import('./audioStreamManager.js');
+    const { simpleAudioStream } = await import('./simpleAudioStream.js');
     isMuted = !isMuted;
-    audioStreamManager.toggleMute(isMuted);
+    simpleAudioStream.toggleMute(isMuted);
     muteBtn.textContent = isMuted ? '🔇 Silenciado' : '🎤 Micrófono';
   };
   
   document.getElementById('endCallBtn').onclick = async () => {
     console.log('🔚 [UI] Finalizando llamada');
-    const { callManager } = await import('./callManager.js');
-    await callManager.endCall();
+    const { simpleCallManager } = await import('./simpleCallManager.js');
+    await simpleCallManager.endCall();
     hideCallUI();
   };
 }
 
-// ✅ EXPORTAR hideCallUI
 export function hideCallUI() {
   console.log('🧹 [UI] Limpiando todas las UIs');
   
@@ -214,10 +211,6 @@ export function hideCallUI() {
   stopRingtone();
   console.log('✅ [UI] Limpieza completa');
 }
-
-// ========================================
-// FUNCIONES INTERNAS (no exportadas)
-// ========================================
 
 function showOutgoingCallUI(targetUser) {
   console.log('🎨 [CALL UI] Mostrando modal de llamada saliente');
@@ -260,8 +253,8 @@ function showOutgoingCallUI(targetUser) {
     cancelBtn.onclick = async () => {
       console.log('🚫 [CALL UI] Usuario canceló la llamada');
       try {
-        const { callManager } = await import('./callManager.js');
-        await callManager.endCall();
+        const { simpleCallManager } = await import('./simpleCallManager.js');
+        await simpleCallManager.endCall();
       } catch (error) {
         console.error('Error cancelando:', error);
       } finally {
@@ -336,7 +329,6 @@ function stopRingtone() {
   }
 }
 
-// ✅ EXPORTAR updateCallDuration para uso global
 window.updateCallDuration = (seconds) => {
   const timerEl = document.getElementById('callTimer');
   if (timerEl) {
