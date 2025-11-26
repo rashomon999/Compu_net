@@ -2,6 +2,7 @@
 // js/simpleCallManager.js - Gestor de Llamadas SIMPLIFICADO
 // Sin WebRTC, solo Subject/Observer
 // ============================================
+//project\cliente-web\js\subscriber.js
 
 import { simpleAudioStream } from './simpleAudioStream.js';
 

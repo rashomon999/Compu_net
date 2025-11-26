@@ -1,67 +1,50 @@
-// AudioSubject.ice - Sistema de llamadas VoIP
-// Exactamente como el profesor lo hizo
-
+// AudioSubject.ice
 module AudioSystem {
+    
     // Secuencia de bytes para audio
     sequence<byte> AudioData;
     
-    // Secuencia de strings para lista de usuarios
+    // Secuencia de strings
     sequence<string> StringSeq;
     
     // ============================================
-    // OBSERVER (Cliente)
+    // OBSERVER (Cliente - Recibe notificaciones)
     // ============================================
     interface AudioObserver {
-        // Recibe audio en tiempo real durante una llamada
+        // Recibe audio en tiempo real
         void receiveAudio(AudioData data);
         
-        // Notificación de llamada entrante
+        // Notificaciones de llamadas
         void incomingCall(string fromUser);
-        
-        // Notificación de que la llamada fue aceptada
         void callAccepted(string fromUser);
-        
-        // Notificación de que la llamada fue rechazada
         void callRejected(string fromUser);
-        
-        // Notificación de que la llamada fue finalizada
         void callEnded(string fromUser);
-    };
+    }
     
     // ============================================
-    // SUBJECT (Servidor)
+    // SUBJECT (Servidor - Gestiona llamadas)
     // ============================================
     interface AudioSubject {
-        // Registra un cliente con su Observer
+        // Gestión de conexiones
         void attach(string userId, AudioObserver* obs);
-        
-        // Desregistra un cliente
         void detach(string userId);
         
-        // Envía audio durante una llamada activa
+        // Envío de audio
         void sendAudio(string fromUser, AudioData data);
         
-        // Obtiene lista de usuarios conectados
-        StringSeq getConnectedUsers();
-        
-        // Inicia una llamada
+        // Gestión de llamadas
         void startCall(string fromUser, string toUser);
-        
-        // Acepta una llamada entrante
         void acceptCall(string fromUser, string toUser);
-        
-        // Rechaza una llamada entrante
         void rejectCall(string fromUser, string toUser);
-        
-        // Finaliza una llamada activa
         void hangup(string fromUser, string toUser);
         
-        // ============================================
-        // MÉTODOS DE POLLING (fallback para callbacks)
-        // ============================================
+        // Utilidades
+        StringSeq getConnectedUsers();
+        
+        // Polling (fallback cuando callbacks no funcionan)
         StringSeq getPendingIncomingCalls(string userId);
         StringSeq getPendingAcceptedCalls(string userId);
         StringSeq getPendingRejectedCalls(string userId);
         StringSeq getPendingEndedCalls(string userId);
-    };
-};
+    }
+}

@@ -32,6 +32,8 @@ function waitForIce(timeout = 10000) {
 // ========================================
 // PASO 2: Inicializar módulos Ice
 // ========================================
+// En main.js, en la función initializeIceModules():
+
 async function initializeIceModules() {
   try {
     const Ice = await waitForIce();
@@ -45,11 +47,7 @@ async function initializeIceModules() {
       console.log('✅ ChatSystem inicializado');
     }
     
-    // Verificar que ChatSystem se cargó
-    if (!Ice.ChatSystem) {
-      throw new Error('ChatSystem no se inicializó correctamente');
-    }
-    
+    // ⬅️ AGREGAR ESTO SI NO LO TIENES:
     // Importar e inicializar AudioSystem
     const { default: initAudioSystem } = await import('./generated/AudioSubject.js');
     if (typeof initAudioSystem === 'function') {
@@ -57,7 +55,11 @@ async function initializeIceModules() {
       console.log('✅ AudioSystem inicializado');
     }
     
-    // Verificar que AudioSystem se cargó
+    // Verificar que se cargaron correctamente
+    if (!Ice.ChatSystem) {
+      throw new Error('ChatSystem no se inicializó correctamente');
+    }
+    
     if (!Ice.AudioSystem) {
       throw new Error('AudioSystem no se inicializó correctamente');
     }

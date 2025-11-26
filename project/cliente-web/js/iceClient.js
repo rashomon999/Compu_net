@@ -629,6 +629,125 @@ class IceClientManager {
       connected: this.isConnected
     };
   }
+
+
+  // ============================================
+// MÉTODO CORREGIDO en iceClient.js
+// ============================================
+
+async connectToAudioSubject(host, port, username, observerCallbacks) {
+  try {
+    console.log('📞 [AUDIO] Conectando a AudioSubject...');
+    console.log('   Host:', host);
+    console.log('   Port:', port);
+    console.log('   Username:', username);
+    
+    const Ice = window.Ice;
+    
+    if (!Ice || !Ice.AudioSystem) {
+      throw new Error('AudioSystem no está disponible');
+    }
+    
+    console.log('   ✅ AudioSystem encontrado');
+    
+    // ========================================
+    // PASO 1: CONECTAR AL SERVIDOR (AudioSubject)
+    // ========================================
+    const audioProxyString = `AudioService:ws -h ${host} -p ${port}`;
+    console.log('   📡 Proxy string:', audioProxyString);
+    
+    const audioProxy = this.communicator.stringToProxy(audioProxyString);
+    this.audioSubject = await Ice.AudioSystem.AudioSubjectPrx.checkedCast(audioProxy);
+    
+    if (!this.audioSubject) {
+      throw new Error('checkedCast retornó null');
+    }
+    
+    console.log('   ✅ AudioSubject conectado');
+    
+    // ========================================
+    // 🔥 PASO 2: CREAR ADAPTADOR (COMO EL PROFESOR)
+    // ========================================
+    
+    // Guardar callbacks
+    this.audioCallbacks = observerCallbacks;
+    
+    // Crear adaptador vacío (sin endpoints explícitos)
+    console.log('   🔧 Creando adaptador...');
+    this.audioAdapter = await this.communicator.createObjectAdapter("");
+    console.log('   ✅ Adaptador creado');
+    
+    // ========================================
+    // 🔥 PASO 3: VINCULAR ADAPTADOR A LA CONEXIÓN
+    // (ESTO ES LO QUE FALTABA)
+    // ========================================
+    console.log('   🔗 Vinculando adaptador a la conexión...');
+    const connection = this.audioSubject.ice_getCachedConnection();
+    
+    if (!connection) {
+      throw new Error('No hay conexión activa al servidor');
+    }
+    
+    connection.setAdapter(this.audioAdapter);
+    console.log('   ✅ Adaptador vinculado a la conexión');
+    
+    // ========================================
+    // 🔥 PASO 4: CREAR Y REGISTRAR EL OBSERVER
+    // ========================================
+    console.log('   👤 Creando Observer...');
+    
+    // Importar subscriber
+    const { default: AudioSubscriber } = await import('./subscriber.js');
+    
+    // Crear instancia (pasando self como delegate)
+    const subscriber = new AudioSubscriber({
+      audioCallbacks: observerCallbacks
+    });
+    
+    console.log('   ✅ AudioSubscriber creado');
+    
+    // Agregar al adaptador con UUID
+    console.log('   📋 Registrando Observer en el adaptador...');
+    const observerProxy = this.audioAdapter.addWithUUID(subscriber);
+    console.log('   ✅ Observer registrado en adaptador');
+    
+    // ========================================
+    // 🔥 PASO 5: ACTIVAR ADAPTADOR
+    // ========================================
+    console.log('   ⚡ Activando adaptador...');
+    await this.audioAdapter.activate();
+    console.log('   ✅ Adaptador ACTIVO');
+    
+    // ========================================
+    // 🔥 PASO 6: REGISTRARSE EN EL SERVIDOR
+    // ========================================
+    console.log('   📤 Registrándose en servidor con attach()...');
+    await this.audioSubject.attach(username, observerProxy);
+    console.log('   ✅ REGISTRADO en servidor como:', username);
+    
+    // ========================================
+    // PASO 7: INICIAR POLLING (fallback)
+    // ========================================
+    console.log('   🔄 Iniciando polling (fallback)...');
+    this.startAudioPolling(username);
+    
+    console.log('');
+    console.log('╔════════════════════════════════════════╗');
+    console.log('║  ✅ SISTEMA DE LLAMADAS ACTIVO        ║');
+    console.log('╚════════════════════════════════════════╝');
+    console.log('   📡 Observer escuchando callbacks');
+    console.log('   🔄 Polling activo (fallback)');
+    console.log('');
+    
+    return this.audioSubject;
+    
+  } catch (error) {
+    console.error('❌ [AUDIO] Error fatal:', error);
+    console.error('   Stack:', error.stack);
+    throw error;
+  }
+}
+
 }
 
 // Exportar instancia única

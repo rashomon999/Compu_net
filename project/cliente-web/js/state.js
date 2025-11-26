@@ -1,6 +1,7 @@
 // ============================================
 // js/state.js - Estado global de la aplicación
 // ============================================
+//project\cliente-web\js\subscriber.js
 
 export const state = {
   // Autenticación

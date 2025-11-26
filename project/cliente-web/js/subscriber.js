@@ -1,66 +1,90 @@
 // ============================================
-// js/subscriber.js - Observer del cliente web
-// EXACTO como el profesor (Demo.Observer pattern)
+// js/subscriber.js - Observer CORREGIDO
+// EXACTO como Demo.Observer del profesor
 // ============================================
 
-// ✅ CRÍTICO: Heredar de Ice.AudioSystem.AudioObserver
 export default class AudioSubscriber extends window.Ice.AudioSystem.AudioObserver {
   constructor(delegate) {
     super();
     this.delegate = delegate;
+    console.log('🎤 [SUBSCRIBER] Inicializado');
   }
   
   // ============================================
-  // RECEPCIÓN DE AUDIO (como el profesor)
+  // ✅ CRÍTICO: Métodos deben coincidir con AudioSubject.ice
   // ============================================
   
   receiveAudio(data, current) {
-    console.log('[WEB] Audio recibido:', data ? data.length : 0, 'bytes');
+    console.log('🔊 [SUBSCRIBER] receiveAudio llamado:', data?.length || 0, 'bytes');
     
-    // Convertir a Uint8Array nativo de JS
-    const audioData = data instanceof Uint8Array ? data : new Uint8Array(data);
-    
-    // Notificar al delegate (que lo pasa al reproductor)
-    if (this.delegate.audioCallbacks && this.delegate.audioCallbacks.receiveAudio) {
-      this.delegate.audioCallbacks.receiveAudio(audioData);
-    } else {
-      console.warn('   ⚠️ No hay callback receiveAudio en delegate');
+    try {
+      // Convertir a Uint8Array nativo
+      const audioData = data instanceof Uint8Array ? data : new Uint8Array(data);
+      
+      // Notificar al simpleAudioStream para reproducir
+      if (this.delegate.audioCallbacks?.receiveAudio) {
+        this.delegate.audioCallbacks.receiveAudio(audioData);
+      } else {
+        console.warn('   ⚠️ No hay callback receiveAudio');
+      }
+    } catch (error) {
+      console.error('❌ [SUBSCRIBER] Error en receiveAudio:', error);
     }
   }
   
-  // ============================================
-  // EVENTOS DE LLAMADAS (como el profesor)
-  // ============================================
-  
   incomingCall(fromUser, current) {
-    console.log('📞 [WEB] Llamada entrante de:', fromUser);
+    console.log('📞 [SUBSCRIBER] incomingCall llamado:', fromUser);
     
-    if (this.delegate.audioCallbacks && this.delegate.audioCallbacks.incomingCall) {
-      this.delegate.audioCallbacks.incomingCall(fromUser);
+    try {
+      if (this.delegate.audioCallbacks?.incomingCall) {
+        this.delegate.audioCallbacks.incomingCall(fromUser);
+      } else {
+        console.warn('   ⚠️ No hay callback incomingCall');
+      }
+    } catch (error) {
+      console.error('❌ [SUBSCRIBER] Error en incomingCall:', error);
     }
   }
   
   callAccepted(fromUser, current) {
-    console.log('✅ [WEB] Llamada aceptada por:', fromUser);
+    console.log('✅ [SUBSCRIBER] callAccepted llamado:', fromUser);
     
-    if (this.delegate.audioCallbacks && this.delegate.audioCallbacks.callAccepted) {
-      this.delegate.audioCallbacks.callAccepted(fromUser);
+    try {
+      if (this.delegate.audioCallbacks?.callAccepted) {
+        this.delegate.audioCallbacks.callAccepted(fromUser);
+      } else {
+        console.warn('   ⚠️ No hay callback callAccepted');
+      }
+    } catch (error) {
+      console.error('❌ [SUBSCRIBER] Error en callAccepted:', error);
     }
   }
   
   callRejected(fromUser, current) {
-    console.log('❌ [WEB] Llamada rechazada por:', fromUser);
+    console.log('❌ [SUBSCRIBER] callRejected llamado:', fromUser);
     
-    if (this.delegate.audioCallbacks && this.delegate.audioCallbacks.callRejected) {
-      this.delegate.audioCallbacks.callRejected(fromUser);
+    try {
+      if (this.delegate.audioCallbacks?.callRejected) {
+        this.delegate.audioCallbacks.callRejected(fromUser);
+      } else {
+        console.warn('   ⚠️ No hay callback callRejected');
+      }
+    } catch (error) {
+      console.error('❌ [SUBSCRIBER] Error en callRejected:', error);
     }
   }
   
   callEnded(fromUser, current) {
-    console.log('📞 [WEB] Llamada finalizada por:', fromUser);
+    console.log('🔴 [SUBSCRIBER] callEnded llamado:', fromUser);
     
-    if (this.delegate.audioCallbacks && this.delegate.audioCallbacks.callEnded) {
-      this.delegate.audioCallbacks.callEnded(fromUser);
+    try {
+      if (this.delegate.audioCallbacks?.callEnded) {
+        this.delegate.audioCallbacks.callEnded(fromUser);
+      } else {
+        console.warn('   ⚠️ No hay callback callEnded');
+      }
+    } catch (error) {
+      console.error('❌ [SUBSCRIBER] Error en callEnded:', error);
     }
   }
 }

@@ -129,43 +129,6 @@ public interface AudioSubjectPrx extends com.zeroc.Ice.ObjectPrx
         return f;
     }
 
-    default String[] getConnectedUsers()
-    {
-        return getConnectedUsers(com.zeroc.Ice.ObjectPrx.noExplicitContext);
-    }
-
-    default String[] getConnectedUsers(java.util.Map<String, String> context)
-    {
-        return _iceI_getConnectedUsersAsync(context, true).waitForResponse();
-    }
-
-    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync()
-    {
-        return _iceI_getConnectedUsersAsync(com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
-    }
-
-    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync(java.util.Map<String, String> context)
-    {
-        return _iceI_getConnectedUsersAsync(context, false);
-    }
-
-    /**
-     * @hidden
-     * @param context -
-     * @param sync -
-     * @return -
-     **/
-    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getConnectedUsersAsync(java.util.Map<String, String> context, boolean sync)
-    {
-        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getConnectedUsers", null, sync, null);
-        f.invoke(true, context, null, null, istr -> {
-                     String[] ret;
-                     ret = istr.readStringSeq();
-                     return ret;
-                 });
-        return f;
-    }
-
     default void startCall(String fromUser, String toUser)
     {
         startCall(fromUser, toUser, com.zeroc.Ice.ObjectPrx.noExplicitContext);
@@ -315,6 +278,43 @@ public interface AudioSubjectPrx extends com.zeroc.Ice.ObjectPrx
                      ostr.writeString(iceP_fromUser);
                      ostr.writeString(iceP_toUser);
                  }, null);
+        return f;
+    }
+
+    default String[] getConnectedUsers()
+    {
+        return getConnectedUsers(com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getConnectedUsers(java.util.Map<String, String> context)
+    {
+        return _iceI_getConnectedUsersAsync(context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync()
+    {
+        return _iceI_getConnectedUsersAsync(com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getConnectedUsersAsync(java.util.Map<String, String> context)
+    {
+        return _iceI_getConnectedUsersAsync(context, false);
+    }
+
+    /**
+     * @hidden
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getConnectedUsersAsync(java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getConnectedUsers", null, sync, null);
+        f.invoke(true, context, null, null, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
         return f;
     }
 

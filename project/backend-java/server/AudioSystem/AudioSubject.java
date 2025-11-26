@@ -23,8 +23,6 @@ public interface AudioSubject extends com.zeroc.Ice.Object
 
     void sendAudio(String fromUser, byte[] data, com.zeroc.Ice.Current current);
 
-    String[] getConnectedUsers(com.zeroc.Ice.Current current);
-
     void startCall(String fromUser, String toUser, com.zeroc.Ice.Current current);
 
     void acceptCall(String fromUser, String toUser, com.zeroc.Ice.Current current);
@@ -32,6 +30,8 @@ public interface AudioSubject extends com.zeroc.Ice.Object
     void rejectCall(String fromUser, String toUser, com.zeroc.Ice.Current current);
 
     void hangup(String fromUser, String toUser, com.zeroc.Ice.Current current);
+
+    String[] getConnectedUsers(com.zeroc.Ice.Current current);
 
     String[] getPendingIncomingCalls(String userId, com.zeroc.Ice.Current current);
 
@@ -130,24 +130,6 @@ public interface AudioSubject extends com.zeroc.Ice.Object
      * @param current -
      * @return -
     **/
-    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getConnectedUsers(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
-    {
-        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
-        inS.readEmptyParams();
-        String[] ret = obj.getConnectedUsers(current);
-        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
-        ostr.writeStringSeq(ret);
-        inS.endWriteParams(ostr);
-        return inS.setResult(ostr);
-    }
-
-    /**
-     * @hidden
-     * @param obj -
-     * @param inS -
-     * @param current -
-     * @return -
-    **/
     static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_startCall(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
     {
         com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
@@ -219,6 +201,24 @@ public interface AudioSubject extends com.zeroc.Ice.Object
         inS.endReadParams();
         obj.hangup(iceP_fromUser, iceP_toUser, current);
         return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getConnectedUsers(AudioSubject obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        inS.readEmptyParams();
+        String[] ret = obj.getConnectedUsers(current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeStringSeq(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
     }
 
     /**

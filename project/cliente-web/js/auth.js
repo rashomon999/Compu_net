@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación con AudioSubject
+// js/auth.js - Autenticación con AudioSubject CORREGIDO
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -53,67 +53,35 @@ export async function login() {
     await subscribeToRealTimeNotifications(username);
     
     // ========================================
-    // 🆕 CONECTAR AL AUDIOSUBJECT (LLAMADAS)
+    // 🔥 CONECTAR AL AUDIOSUBJECT (LLAMADAS) - VERSIÓN CORREGIDA
     // ========================================
     try {
-      console.log('📞 Conectando a AudioSubject...');
+      console.log('📞 Configurando sistema de llamadas...');
       
       if (statusEl) {
         statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
       }
       
-      const Ice = window.Ice;
-      
-      // PASO 1: Verificar que AudioSystem esté disponible
-      if (!Ice.AudioSystem) {
-        throw new Error('AudioSystem.js no está cargado');
-      }
-      
-      // PASO 2: Conectar al AudioSubject (servidor)
-      const audioProxy = iceClient.communicator.stringToProxy(
-        `AudioService:ws -h ${serverHost} -p ${serverPort}`
-      );
-      
-      const audioSubject = await Ice.AudioSystem.AudioSubjectPrx.checkedCast(audioProxy);
-      
-      if (!audioSubject) {
-        throw new Error('No se pudo conectar a AudioService');
-      }
-      
-      console.log('   ✅ AudioSubject conectado');
-      
-      // PASO 3: Crear adaptador para recibir callbacks
-      const audioAdapter = await iceClient.communicator.createObjectAdapter("");
-      
-      console.log('   ✅ Adaptador creado');
-      
-      // PASO 4: Crear el Observer (callbacks del cliente)
-      const observerObj = {
+      // ✅ Callbacks para eventos de llamadas
+      const audioCallbacks = {
         // Recibir audio en tiempo real
-        receiveAudio: (data) => {
-          // Convertir a Uint8Array
-          const audioData = data instanceof Uint8Array 
-            ? data 
-            : new Uint8Array(data);
-          
-          // Enviar al stream manager para reproducir
+        receiveAudio: (audioData) => {
+          console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
           simpleAudioStream.receiveAudioChunk(audioData);
         },
         
         // Llamada entrante
         incomingCall: async (fromUser) => {
-          console.log('📞 [AUTH] ¡LLAMADA ENTRANTE de:', fromUser);
+          console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!', fromUser);
           
           try {
-            // Crear registro de llamada
             await simpleCallManager.receiveIncomingCall(fromUser);
             
-            // Mostrar UI
             const { showIncomingCallUI } = await import('./callUI.js');
             showIncomingCallUI({ caller: fromUser });
             
           } catch (error) {
-            console.error('❌ Error procesando llamada entrante:', error);
+            console.error('❌ Error procesando llamada:', error);
           }
         },
         
@@ -122,18 +90,16 @@ export async function login() {
           console.log('✅ [AUTH] Llamada ACEPTADA por:', fromUser);
           
           try {
-            // Procesar aceptación
             await simpleCallManager.handleCallAccepted(fromUser);
             
-            // Mostrar UI de llamada activa
             const { showActiveCallUI } = await import('./callUI.js');
             showActiveCallUI(fromUser);
             
           } catch (error) {
-            console.error('❌ Error procesando aceptación:', error);
+            console.error('❌ Error:', error);
             const { hideCallUI } = await import('./callUI.js');
             hideCallUI();
-            showError('Error al aceptar la llamada');
+            showError('Error al aceptar llamada');
           }
         },
         
@@ -144,55 +110,43 @@ export async function login() {
           const { hideCallUI } = await import('./callUI.js');
           hideCallUI();
           showError(`${fromUser} rechazó la llamada`);
-          
-          // Limpiar estado
           simpleCallManager.cleanup();
         },
         
         // Llamada finalizada
         callEnded: async (fromUser) => {
-          console.log('📞 [AUTH] Llamada FINALIZADA por:', fromUser);
+          console.log('🔴 [AUTH] Llamada FINALIZADA por:', fromUser);
           
           try {
-            // Limpiar audio
             simpleAudioStream.cleanup();
-            
-            // Limpiar estado de llamada
             simpleCallManager.cleanup();
             
-            // Ocultar UI
             const { hideCallUI } = await import('./callUI.js');
             hideCallUI();
             
             showError(`${fromUser} finalizó la llamada`);
             
           } catch (error) {
-            console.error('Error limpiando llamada:', error);
+            console.error('Error limpiando:', error);
           }
         }
       };
       
-      console.log('   ✅ Observer creado');
+      // ⬅️ AQUÍ: REEMPLAZAR TODO EL BLOQUE DESDE "PASO 1" HASTA "PASO 8"
+      // BORRAR DESDE LA LÍNEA QUE DICE "// PASO 1: Verificar que AudioSystem..."
+      // HASTA LA LÍNEA QUE DICE "console.log('   ✅ Registrado en servidor');"
+      // Y REEMPLAZAR CON ESTO:
       
-      // PASO 5: Crear proxy del Observer
-      const observerProxy = audioAdapter.add(
-        new Ice.AudioSystem.AudioObserver(observerObj),
-        new Ice.Identity(Ice.generateUUID(), "")
+      // ✅ CONECTAR con el método corregido de iceClient
+      await iceClient.connectToAudioSubject(
+        serverHost,
+        serverPort,
+        username,
+        audioCallbacks  // ⬅️ Pasar los callbacks aquí
       );
       
-      console.log('   ✅ Proxy creado');
-      
-      // PASO 6: Activar adaptador
-      await audioAdapter.activate();
-      
-      console.log('   ✅ Adaptador activado');
-      
-      // PASO 7: Registrarse en el servidor
-      await audioSubject.attach(username, observerProxy);
-      
-      console.log('   ✅ Registrado en servidor');
-      
-      // PASO 8: Configurar managers con el AudioSubject
+      // ✅ Configurar managers con el AudioSubject
+      const audioSubject = iceClient.audioSubject;  // ⬅️ Obtener desde iceClient
       simpleCallManager.setAudioSubject(audioSubject, username);
       simpleAudioStream.setAudioSubject(audioSubject, username);
       
@@ -201,7 +155,7 @@ export async function login() {
       
       // Guardar para cleanup
       state.audioSubject = audioSubject;
-      state.audioAdapter = audioAdapter;
+      state.audioAdapter = iceClient.audioAdapter;  // ⬅️ Obtener desde iceClient
       
     } catch (err) {
       console.warn('⚠️ AudioService no disponible:', err.message);
