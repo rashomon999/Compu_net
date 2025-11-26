@@ -330,6 +330,23 @@ class CallManager {
   }
 
   // ========================================
+// ENVÍO DE AUDIO AL SERVIDOR (FUNDAMENTAL)
+// ========================================
+async sendAudio(fromUser, audioData) {
+  try {
+    if (!iceClient || !iceClient.callService) {
+      console.warn('⚠️ CallService no disponible');
+      return;
+    }
+
+    await iceClient.callService.sendAudio(fromUser, audioData);
+  } catch (error) {
+    console.error('❌ [CALL] Error enviando audio:', error);
+  }
+}
+
+
+  // ========================================
   // FINALIZAR LLAMADA
   // ========================================
   async endCall() {

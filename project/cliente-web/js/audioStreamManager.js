@@ -4,6 +4,7 @@
 
 import { iceClient } from './iceClient.js';
 import { state } from './state.js';
+import { callManager } from './callManager.js';
 
 class AudioStreamManager {
   constructor() {
@@ -132,7 +133,8 @@ class AudioStreamManager {
   async sendAudioToServer(audioData) {
     try {
       if (!this.isStreaming) return;
-      await iceClient.sendAudioChunk(state.currentUsername, audioData);
+      
+      await callManager.sendAudio(state.currentUsername, audioData);
     } catch (error) {
       if (!error.message.includes('timeout')) {
         console.warn('⚠️ [STREAM] Error enviando audio:', error.message);
