@@ -103,10 +103,8 @@ class SimpleAudioStream {
     if (!this.audioSubject || !this.active) return;
 
     try {
-      // Convertir Uint8Array a Ice.ByteSeq
-      const iceByteSeq = Array.from(pcm8Data);
-      
-      await this.audioSubject.sendAudio(this.username, iceByteSeq);
+      // ✅ Ice.js requiere Uint8Array NATIVO (no Array)
+      await this.audioSubject.sendAudio(this.username, pcm8Data);
       
     } catch (error) {
       // Silenciar errores de red frecuentes
