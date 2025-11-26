@@ -586,6 +586,47 @@ class IceClientManager {
   isClientConnected() {
     return this.isConnected;
   }
+
+    // ========================================================================
+  // NOTAS DE VOZ
+  // ========================================================================
+
+  async saveVoiceNote(sender, target, audioDataBase64, isGroup) {
+    if (!this.voiceService) {
+      throw new Error('VoiceService no disponible');
+    }
+    try {
+      return await this.voiceService.saveVoiceNote(sender, target, audioDataBase64, isGroup);
+    } catch (error) {
+      console.error('Error guardando nota de voz:', error);
+      throw error;
+    }
+  }
+
+  async getVoiceNote(audioFileRef) {
+    if (!this.voiceService) {
+      throw new Error('VoiceService no disponible');
+    }
+    try {
+      return await this.voiceService.getVoiceNote(audioFileRef);
+    } catch (error) {
+      console.error('Error obteniendo nota de voz:', error);
+      throw error;
+    }
+  }
+
+  async getVoiceNotesHistory(user1, user2) {
+    if (!this.voiceService) {
+      throw new Error('VoiceService no disponible');
+    }
+    try {
+      return await this.voiceService.getVoiceNotesHistory(user1, user2);
+    } catch (error) {
+      console.error('Error obteniendo historial de voz:', error);
+      throw error;
+    }
+  }
+  
   
   getCurrentServerInfo() {
     return {
