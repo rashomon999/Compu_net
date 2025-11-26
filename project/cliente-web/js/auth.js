@@ -138,12 +138,13 @@ export async function login() {
       // Y REEMPLAZAR CON ESTO:
       
       // ✅ CONECTAR con el método corregido de iceClient
-      await iceClient.connectToAudioSubject(
-        serverHost,
-        serverPort,
-        username,
-        audioCallbacks  // ⬅️ Pasar los callbacks aquí
-      );
+      // En auth.js, línea ~140:
+await iceClient.connectToAudioSubject(
+  serverHost,
+  serverPort,
+  username,
+  audioCallbacks
+);
       
       // ✅ Configurar managers con el AudioSubject
       const audioSubject = iceClient.audioSubject;  // ⬅️ Obtener desde iceClient

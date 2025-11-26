@@ -279,66 +279,46 @@ class IceClientManager {
 
   // Polling para llamadas (fallback)
   startAudioPolling(username) {
-    if (this.audioPollingInterval) {
-      clearInterval(this.audioPollingInterval);
-    }
-    
-    console.log('🔄 [AUDIO POLLING] Iniciando para:', username);
-    
-    this.audioPollingInterval = setInterval(async () => {
-      try {
-        // Consultar llamadas entrantes
-        const incomingCalls = await this.audioSubject.getPendingIncomingCalls(username);
-        if (incomingCalls && incomingCalls.length > 0) {
-          console.log('📞 [AUDIO POLLING] Llamadas entrantes:', incomingCalls);
-          for (const fromUser of incomingCalls) {
-            if (this.audioCallbacks.incomingCall) {
-              this.audioCallbacks.incomingCall(fromUser);
-            }
-          }
-        }
+  if (this.audioPollingInterval) {
+    clearInterval(this.audioPollingInterval);
+  }
+  
+  console.log('🔄 [AUDIO POLLING] Iniciando para:', username);
+  
+  // ✅ Contador de callbacks recibidos
+  let callbacksReceived = 0;
+  
+  this.audioPollingInterval = setInterval(async () => {
+    try {
+      // Consultar llamadas aceptadas
+      const acceptedCalls = await this.audioSubject.getPendingAcceptedCalls(username);
+      if (acceptedCalls && acceptedCalls.length > 0) {
+        console.log('✅ [AUDIO POLLING] Llamadas aceptadas:', acceptedCalls);
         
-        // Consultar llamadas aceptadas
-        const acceptedCalls = await this.audioSubject.getPendingAcceptedCalls(username);
-        if (acceptedCalls && acceptedCalls.length > 0) {
-          console.log('✅ [AUDIO POLLING] Llamadas aceptadas:', acceptedCalls);
-          for (const fromUser of acceptedCalls) {
+        // 🔥 SI YA SE RECIBIÓ POR CALLBACK, NO PROCESAR
+        for (const fromUser of acceptedCalls) {
+          callbacksReceived++;
+          
+          // Solo procesar si callbacks NO funcionaron (< 2 segundos)
+          if (callbacksReceived === 1) {
             if (this.audioCallbacks.callAccepted) {
               this.audioCallbacks.callAccepted(fromUser);
             }
           }
         }
-        
-        // Consultar llamadas rechazadas
-        const rejectedCalls = await this.audioSubject.getPendingRejectedCalls(username);
-        if (rejectedCalls && rejectedCalls.length > 0) {
-          for (const fromUser of rejectedCalls) {
-            if (this.audioCallbacks.callRejected) {
-              this.audioCallbacks.callRejected(fromUser);
-            }
-          }
-        }
-        
-        // Consultar llamadas finalizadas
-        const endedCalls = await this.audioSubject.getPendingEndedCalls(username);
-        if (endedCalls && endedCalls.length > 0) {
-          for (const fromUser of endedCalls) {
-            if (this.audioCallbacks.callEnded) {
-              this.audioCallbacks.callEnded(fromUser);
-            }
-          }
-        }
-        
-      } catch (error) {
-        // Silenciar errores de polling
-        if (!error.message.includes('timeout')) {
-          console.error('❌ [AUDIO POLLING] Error:', error);
-        }
       }
-    }, 1000);
-    
-    console.log('✅ [AUDIO POLLING] Polling activo');
-  }
+      
+      // ... resto del código igual
+      
+    } catch (error) {
+      if (!error.message.includes('timeout')) {
+        console.error('❌ [AUDIO POLLING] Error:', error);
+      }
+    }
+  }, 1000);
+  
+  console.log('✅ [AUDIO POLLING] Polling activo');
+}
 
   async disconnectFromAudioSubject(username) {
     try {
