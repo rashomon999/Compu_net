@@ -310,5 +310,45 @@
     "content": "porque no me llega el mensaje enseguida?",
     "isGroup": false,
     "timestamp": "2025-11-25 12:27:47"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "funciona",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:17:39"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "arreglar mensajes",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:18:16"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:19:53"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:20:43"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "hola",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:20:54"
   }
 ]

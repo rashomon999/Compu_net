@@ -1,5 +1,6 @@
 // ============================================
-// js/notifications.js - Notificaciones en Tiempo Real con ICE
+// js/notifications.js - Notificaciones en Tiempo Real CORREGIDAS
+// ✅ CON LOGGING DETALLADO PARA DEBUG
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -13,65 +14,116 @@ import { loadGroupsFromICE } from './groups.js';
  */
 export async function subscribeToRealTimeNotifications(username) {
   try {
+    console.log('\n╔════════════════════════════════════════╗');
+    console.log('║  SUSCRIBIENDO A NOTIFICACIONES PUSH    ║');
+    console.log('╠════════════════════════════════════════╣');
+    console.log('║  Usuario:', username.padEnd(30), '║');
+    console.log('╚════════════════════════════════════════╝');
+    
     await iceClient.subscribeToNotifications(username, {
       
-      // Callback cuando llega un mensaje nuevo
-      onNewMessage: (msg) => {
-        console.log('🔔 Mensaje nuevo recibido:', msg);
+      // ════════════════════════════════════════
+      // 📬 CALLBACK: NUEVO MENSAJE
+      // ════════════════════════════════════════
+      onNewMessage: async (msg) => {
+        console.log('\n🔔 ════════════════════════════════════════');
+        console.log('📬 MENSAJE NUEVO RECIBIDO (PUSH)');
+        console.log('════════════════════════════════════════');
+        console.log('   De:        ', msg.sender);
+        console.log('   Para:      ', msg.recipient);
+        console.log('   Es grupo:  ', msg.isGroup);
+        console.log('   Contenido: ', msg.content.substring(0, 50));
+        console.log('════════════════════════════════════════\n');
         
-        // Si es el chat actual abierto, recargar automáticamente
+        // ✅ 1. ACTUALIZAR LISTAS DE CHATS/GRUPOS
+        console.log('   📋 Actualizando listas...');
+        if (!msg.isGroup) {
+          await loadRecentChatsFromICE();
+          console.log('   ✅ Lista de chats actualizada');
+        } else {
+          await loadGroupsFromICE();
+          console.log('   ✅ Lista de grupos actualizada');
+        }
+        
+        // ✅ 2. VERIFICAR SI ES EL CHAT ACTUAL
+        console.log('   🔍 Verificando chat actual...');
+        console.log('      state.currentChat:', state.currentChat);
+        console.log('      state.isGroup:    ', state.isGroup);
+        
+        let shouldReload = false;
+        let reloadReason = '';
+        
         if (state.currentChat) {
+          // CASO 1: Mensaje grupal Y estoy en ese grupo
           if (state.isGroup && msg.isGroup && msg.recipient === state.currentChat) {
-            // Mensaje del grupo actual
-            loadHistory(state.currentChat, true, false);
-          } else if (!state.isGroup && !msg.isGroup && msg.sender === state.currentChat) {
-            // Mensaje privado del chat actual
-            loadHistory(state.currentChat, false, false);
-          } else {
-            // Mensaje de otra conversación - mostrar notificación
-            showNotificationToast(msg);
+            shouldReload = true;
+            reloadReason = 'Mensaje del grupo actual';
+          }
+          
+          // CASO 2: Mensaje privado Y es de mi chat actual
+          else if (!state.isGroup && !msg.isGroup) {
+            // El mensaje es PARA MÍ desde el chat actual
+            // O el mensaje es MÍO hacia ese usuario (echo)
+            if (msg.sender === state.currentChat || msg.recipient === state.currentChat) {
+              shouldReload = true;
+              reloadReason = 'Mensaje del chat privado actual';
+            }
+          }
+        }
+        
+        // ✅ 3. RECARGAR HISTORIAL SI APLICA
+        if (shouldReload) {
+          console.log('   🔄 RECARGANDO HISTORIAL');
+          console.log('      Razón:', reloadReason);
+          
+          try {
+            await loadHistory(state.currentChat, state.isGroup, false);
+            console.log('   ✅ Historial actualizado automáticamente');
+          } catch (error) {
+            console.error('   ❌ Error recargando historial:', error);
           }
         } else {
-          // No hay chat abierto - solo notificar
+          console.log('   ℹ️ No es el chat actual, mostrando notificación toast');
           showNotificationToast(msg);
         }
         
-        // Actualizar listas de chats/grupos
-        if (!msg.isGroup) {
-          loadRecentChatsFromICE();
-        } else {
-          loadGroupsFromICE();
-        }
-        
-        // Reproducir sonido
+        // ✅ 4. REPRODUCIR SONIDO
         playNotificationSound();
+        
+        console.log('🔔 ════════════════════════════════════════\n');
       },
       
-      // Callback cuando se crea un grupo
-      onGroupCreated: (groupName, creator) => {
-        console.log('🔔 Grupo creado:', groupName);
+      // ════════════════════════════════════════
+      // 📢 CALLBACK: GRUPO CREADO
+      // ════════════════════════════════════════
+      onGroupCreated: async (groupName, creator) => {
+        console.log('📢 [NOTIF] Grupo creado:', groupName, 'por', creator);
         
         // Recargar lista de grupos
-        loadGroupsFromICE();
+        await loadGroupsFromICE();
         
         // Mostrar notificación
         showSystemNotification(`📁 Nuevo grupo: ${groupName}`, `Creado por ${creator}`);
       },
       
-      // Callback cuando alguien se une a un grupo
-      onUserJoinedGroup: (groupName, username) => {
-        console.log('🔔 Usuario se unió:', username, '→', groupName);
+      // ════════════════════════════════════════
+      // 👋 CALLBACK: USUARIO SE UNIÓ A GRUPO
+      // ════════════════════════════════════════
+      onUserJoinedGroup: async (groupName, username) => {
+        console.log('👋 [NOTIF] Usuario se unió:', username, '→', groupName);
         
         // Si estoy en ese grupo, recargar historial para ver el mensaje del sistema
         if (state.currentChat === groupName && state.isGroup) {
-          loadHistory(groupName, true, false);
+          console.log('   🔄 Recargando historial del grupo...');
+          await loadHistory(groupName, true, false);
         }
         
         showSystemNotification(`👋 ${username} se unió`, `Grupo: ${groupName}`);
       }
     });
     
-    console.log('✅ Notificaciones en tiempo real activadas');
+    console.log('✅ Notificaciones en tiempo real ACTIVAS');
+    console.log('   📡 Escuchando mensajes automáticamente...\n');
     
   } catch (error) {
     console.error('❌ Error activando notificaciones:', error);
@@ -94,14 +146,12 @@ function showNotificationToast(msg) {
   
   // Hacer clickeable para abrir el chat
   notifDiv.style.cursor = 'pointer';
-  notifDiv.onclick = () => {
+  notifDiv.onclick = async () => {
     if (msg.isGroup) {
-      // Abrir grupo
-      const openGroupChat = require('./groups.js').openGroupChat;
+      const { openGroupChat } = await import('./groups.js');
       openGroupChat(msg.recipient);
     } else {
-      // Abrir chat privado
-      const openChatFromList = require('./chats.js').openChatFromList;
+      const { openChatFromList } = await import('./chats.js');
       openChatFromList(msg.sender);
     }
     notifDiv.remove();

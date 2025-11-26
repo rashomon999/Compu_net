@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * Implementación ICE del servicio de chat
- * Reutiliza la lógica existente de MessageService y HistoryService
+ * ✅ CON NOTIFICACIONES EN TIEMPO REAL
  */
 public class ChatServiceI implements ChatService {
     private final MessageService messageService;
@@ -27,27 +27,52 @@ public class ChatServiceI implements ChatService {
      */
     public void setNotificationService(NotificationServiceI notificationService) {
         this.notificationService = notificationService;
+        System.out.println("✅ NotificationService inyectado en ChatServiceI");
     }
 
     @Override
     public String sendPrivateMessage(String sender, String recipient, String message, Current current) {
-        System.out.println("[ICE] 💬 Mensaje privado: " + sender + " → " + recipient);
+        System.out.println("\n╔════════════════════════════════════════╗");
+        System.out.println("║   MENSAJE PRIVADO                      ║");
+        System.out.println("╠════════════════════════════════════════╣");
+        System.out.println("║  De:      " + sender);
+        System.out.println("║  Para:    " + recipient);
+        System.out.println("║  Mensaje: " + message.substring(0, Math.min(message.length(), 50)));
+        System.out.println("╚════════════════════════════════════════╝");
         
-        // Enviar mensaje usando lógica existente
+        // 1. Guardar mensaje usando lógica existente
         String result = messageService.sendPrivateMessage(sender, recipient, message);
         
-        // Si fue exitoso y hay servicio de notificaciones, enviar push
-        if (result.startsWith("SUCCESS") && notificationService != null) {
-            Message msg = new Message();
-            msg.sender = sender;
-            msg.recipient = recipient;
-            msg.content = message;
-            msg.type = "TEXT";
-            msg.timestamp = java.time.LocalDateTime.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            msg.isGroup = false;
+        // 2. Si fue exitoso Y hay servicio de notificaciones, enviar push
+        if (result.startsWith("SUCCESS")) {
+            System.out.println("   ✅ Mensaje guardado en historial");
             
-            notificationService.notifyNewMessage(recipient, msg);
+            if (notificationService != null) {
+                try {
+                    // Crear objeto Message
+                    Message msg = new Message();
+                    msg.sender = sender;
+                    msg.recipient = recipient;
+                    msg.content = message;
+                    msg.type = "TEXT";
+                    msg.timestamp = java.time.LocalDateTime.now()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    msg.isGroup = false;
+                    
+                    // 🔥 ENVIAR NOTIFICACIÓN AL DESTINATARIO
+                    System.out.println("   📢 Enviando notificación push a: " + recipient);
+                    notificationService.notifyNewMessage(recipient, msg);
+                    System.out.println("   ✅ Notificación enviada exitosamente");
+                    
+                } catch (Exception e) {
+                    System.err.println("   ⚠️ Error enviando notificación: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("   ⚠️ NotificationService NO está disponible (sin push)");
+            }
+        } else {
+            System.err.println("   ❌ Error guardando mensaje: " + result);
         }
         
         return result;
@@ -55,28 +80,51 @@ public class ChatServiceI implements ChatService {
 
     @Override
     public String sendGroupMessage(String sender, String groupName, String message, Current current) {
-        System.out.println("[ICE] 👥 Mensaje grupal: " + sender + " → " + groupName);
+        System.out.println("\n╔════════════════════════════════════════╗");
+        System.out.println("║   MENSAJE GRUPAL                       ║");
+        System.out.println("╠════════════════════════════════════════╣");
+        System.out.println("║  De:    " + sender);
+        System.out.println("║  Grupo: " + groupName);
+        System.out.println("║  Msg:   " + message.substring(0, Math.min(message.length(), 50)));
+        System.out.println("╚════════════════════════════════════════╝");
         
+        // 1. Guardar mensaje
         String result = messageService.sendGroupMessage(sender, groupName, message);
         
-        // Notificar a todos los miembros del grupo
+        // 2. Notificar a todos los miembros del grupo (excepto al emisor)
         if (result.startsWith("SUCCESS") && notificationService != null) {
-            Message msg = new Message();
-            msg.sender = sender;
-            msg.recipient = groupName;
-            msg.content = message;
-            msg.type = "TEXT";
-            msg.timestamp = java.time.LocalDateTime.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            msg.isGroup = true;
-            
-            // Obtener miembros y notificar a cada uno (excepto al emisor)
-            List<String> members = historyService.getHistoryManager().getGroupMembers(groupName);
-            for (String member : members) {
-                if (!member.equals(sender)) {
-                    notificationService.notifyNewMessage(member, msg);
+            try {
+                // Crear objeto Message
+                Message msg = new Message();
+                msg.sender = sender;
+                msg.recipient = groupName;
+                msg.content = message;
+                msg.type = "TEXT";
+                msg.timestamp = java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                msg.isGroup = true;
+                
+                // Obtener miembros y notificar a cada uno (excepto al emisor)
+                List<String> members = historyService.getHistoryManager().getGroupMembers(groupName);
+                System.out.println("   👥 Miembros del grupo: " + members.size());
+                
+                int notified = 0;
+                for (String member : members) {
+                    if (!member.equals(sender)) {
+                        System.out.println("   📢 Notificando a: " + member);
+                        notificationService.notifyNewMessage(member, msg);
+                        notified++;
+                    }
                 }
+                
+                System.out.println("   ✅ " + notified + " notificaciones enviadas");
+                
+            } catch (Exception e) {
+                System.err.println("   ⚠️ Error enviando notificaciones: " + e.getMessage());
+                e.printStackTrace();
             }
+        } else if (notificationService == null) {
+            System.out.println("   ⚠️ NotificationService NO disponible");
         }
         
         return result;
