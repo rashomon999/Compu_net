@@ -166,33 +166,35 @@ public class AudioSubjectImpl implements AudioSubject {
     }
     
     @Override
-    public synchronized void acceptCall(String fromUser, String toUser, Current current) {
-        System.out.println("[AUDIO] acceptCall: " + fromUser + " → " + toUser);
+public synchronized void acceptCall(String fromUser, String toUser, Current current) {
+    System.out.println("[AUDIO] acceptCall: " + fromUser + " (acepta) → " + toUser + " (llamante)");
+    
+    // ✅ CORRECTO: fromUser es quien ACEPTA, toUser es quien LLAMÓ
+    // Debemos notificar al LLAMANTE (toUser) que su llamada fue aceptada
+    AudioObserverPrx llamante = observers.get(toUser);
+    
+    if (llamante != null) {
+        // Notificar al llamante que la llamada fue aceptada
+        // Le pasamos el nombre de quien aceptó (fromUser)
+        llamante.callAcceptedAsync(fromUser);
+        System.out.println("   ✅ Notificación enviada a " + toUser + " (llamante)");
         
-        // Buscar el Observer del llamante original
-        AudioObserverPrx caller = observers.get(fromUser);
+        // CRÍTICO: Marca la llamada como activa (BIDIRECCIONAL)
+        activeCalls.put(fromUser, toUser);  // quien acepta → llamante
+        activeCalls.put(toUser, fromUser);  // llamante → quien acepta
         
-        if (caller != null) {
-            // Notificar al llamante que la llamada fue aceptada
-            caller.callAcceptedAsync(toUser);
-            System.out.println("   ✅ Llamada aceptada enviada a " + fromUser);
-            
-            // CRÍTICO: Marca la llamada como activa (BIDIRECCIONAL)
-            activeCalls.put(fromUser, toUser);
-            activeCalls.put(toUser, fromUser);
-            
-            System.out.println("   📞 Llamada activa: " + fromUser + " ↔ " + toUser);
-            
-            // Inicializar contadores
-            audioPacketCount.put(fromUser, 0L);
-            audioPacketCount.put(toUser, 0L);
-            
-            // También agregar a cola de polling (fallback)
-            addPendingAcceptedCall(fromUser, toUser);
-        } else {
-            System.out.println("   ❌ No se encontró al llamante: " + fromUser);
-        }
+        System.out.println("   📞 Llamada activa: " + fromUser + " ↔ " + toUser);
+        
+        // Inicializar contadores
+        audioPacketCount.put(fromUser, 0L);
+        audioPacketCount.put(toUser, 0L);
+        
+        // También agregar a cola de polling (fallback)
+        addPendingAcceptedCall(toUser, fromUser);  // Notificar al LLAMANTE
+    } else {
+        System.out.println("   ❌ No se encontró al llamante: " + toUser);
     }
+}
     
     @Override
     public synchronized void rejectCall(String fromUser, String toUser, Current current) {

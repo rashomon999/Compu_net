@@ -122,15 +122,19 @@ class SimpleCallManager {
     
     this.clearRingTimer();
     
-    // ✅ PARÁMETROS EN ORDEN CORRECTO
+    // ✅ CORREGIDO: Parámetros en el orden del profesor
+    // acceptCall(fromUser, toUser) donde:
+    // - fromUser = quien ACEPTA (yo)
+    // - toUser = quien LLAMÓ originalmente
     await this.audioSubject.acceptCall(
-      this.activeCall.callerId,    // Maria (quien LLAMÓ)
-      this.username                // Luis (quien ACEPTA)
+      this.username,                // YO (quien acepta)
+      this.activeCall.callerId      // Quien me llamó
     );
     
     console.log('   ✅ Aceptación enviada al servidor');
+    console.log('   📝 Parámetros: acceptCall(' + this.username + ', ' + this.activeCall.callerId + ')');
     
-    // ✅ NO BORRES activeCall, úsalo
+    // ✅ Actualizar estado
     this.activeCall.status = 'CONNECTED';
     this.activeCall.answerTime = Date.now();
     
@@ -149,23 +153,32 @@ class SimpleCallManager {
     throw error;
   }
 }
-  
   // ========================================
   // MANEJAR RESPUESTA DE LLAMADA
   // ========================================
-  async handleCallAccepted(fromUser) {
+ async handleCallAccepted(fromUser) {
   try {
     console.log('📥 [SIMPLE CALL] Llamada ACEPTADA por:', fromUser);
     
-    // ✅ NO VALIDAR que activeCall exista - simplemente procesar
-    
     this.clearRingTimer();
     
-    // Actualizar estado (sin borrar activeCall)
-    if (this.activeCall) {
+    // ✅ Crear activeCall si no existe (por si llegó antes que startCall complete)
+    if (!this.activeCall) {
+      this.activeCall = {
+        type: 'OUTGOING',
+        callerId: this.username,
+        calleeId: fromUser,
+        startTime: Date.now(),
+        status: 'CONNECTED',
+        answerTime: Date.now()
+      };
+    } else {
+      // Actualizar estado existente
       this.activeCall.status = 'CONNECTED';
       this.activeCall.answerTime = Date.now();
     }
+    
+    console.log('   📝 Estado de llamada:', this.activeCall);
     
     // Iniciar audio
     console.log('   🎤 Iniciando audio...');

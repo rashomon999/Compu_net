@@ -121,6 +121,8 @@ export async function showIncomingCallUI(offer) {
     document.getElementById('acceptCallBtn').onclick = async () => {
       console.log('✅ [UI] Usuario aceptó');
       
+      stopRingtone();
+      
       try {
         await simpleCallManager.acceptCall();
         hideAllCallModals();
