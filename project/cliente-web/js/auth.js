@@ -66,10 +66,9 @@ export async function login() {
       const audioCallbacks = {
         // Recibir audio en tiempo real
         receiveAudio: (audioData) => {
-          console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
-          simpleAudioStream.receiveAudioChunk(audioData);
-        },
-        
+    console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
+    simpleAudioStream.receiveAudio(audioData);  // ✅ CORRECTO
+  },
         // Llamada entrante
         incomingCall: async (fromUser) => {
           console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!', fromUser);
