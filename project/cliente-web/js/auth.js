@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - CON DEBUG DE SUSCRIPCIÓN
+// js/auth.js - NOTIFICACIONES PRIORITARIAS
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -44,108 +44,130 @@ export async function login() {
     await iceClient.connect(username, serverHost, serverPort);
     
     state.currentUsername = username;
+    console.log('✅ Conectado a ICE');
+    
+    // ========================================
+    // 🔥 PASO 1: NOTIFICACIONES - PRIMERO Y OBLIGATORIO
+    // ========================================
     
     if (statusEl) {
-      statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
+      statusEl.querySelector('.status-text').textContent = 'Suscribiendo a notificaciones...';
     }
     
-    // ========================================
-    // 🔥 SUSCRIBIRSE A NOTIFICACIONES - CON WAIT
-    // ========================================
     console.log('\n╔═══════════════════════════════════════════╗');
-    console.log('║  PASO CRÍTICO: SUSCRIPCIÓN A NOTIF       ║');
+    console.log('║  PASO 1: SUSCRIPCIÓN A NOTIFICACIONES    ║');
     console.log('╚═══════════════════════════════════════════╝');
     
+    let notificationsOk = false;
     try {
       console.log('📡 Iniciando subscribeToRealTimeNotifications()...');
       await subscribeToRealTimeNotifications(username);
-      console.log('✅ subscribeToRealTimeNotifications() completado');
+      console.log('✅ subscribeToRealTimeNotifications() COMPLETADO');
+      notificationsOk = true;
       
-      // ⚠️ ESPERAR UN POCO para asegurar que el servidor recibió
-      await new Promise(r => setTimeout(r, 500));
+      // Pequeña pausa para asegurar que llegó al servidor
+      await new Promise(r => setTimeout(r, 300));
+      console.log('✅ Pausa completada, usuario debería estar suscrito');
       
-      console.log('✅ Usuario debería estar suscrito ahora');
     } catch (err) {
       console.error('❌ ERROR en subscribeToRealTimeNotifications:', err);
       console.error('   Stack:', err.stack);
-      showError('Error suscribiéndose a notificaciones: ' + err.message);
-      throw err;
+      
+      // ⚠️ NO FALLAR COMPLETAMENTE, solo advertencia
+      showError('Advertencia: Error en notificaciones: ' + err.message);
+      notificationsOk = false;
     }
     
+    console.log('');
+    
     // ========================================
-    // 🔥 CONECTAR AL AUDIOSUBJECT (LLAMADAS)
+    // PASO 2: CARGAR DATOS (chats, grupos)
     // ========================================
-    try {
-      console.log('\n📞 Configurando sistema de llamadas...');
-      
-      if (statusEl) {
-        statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
-      }
-      
-      // ✅ Callbacks para eventos de llamadas
-      const audioCallbacks = {
-        receiveAudio: (audioData) => {
-          console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
-          simpleAudioStream.receiveAudio(audioData);
-        },
-        incomingCall: async (fromUser) => {
-          console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!', fromUser);
-          
-          try {
-            await simpleCallManager.receiveIncomingCall(fromUser);
-            
-            const { showIncomingCallUI } = await import('./callUI.js');
-            showIncomingCallUI({ caller: fromUser });
-            
-          } catch (error) {
-            console.error('❌ Error procesando llamada:', error);
-          }
-        },
+    
+    if (statusEl) {
+      statusEl.querySelector('.status-text').textContent = 'Cargando chats y grupos...';
+    }
+    
+    console.log('📋 Cargando chats y grupos...');
+    await loadRecentChatsFromICE();
+    await loadGroupsFromICE();
+    console.log('✅ Chats y grupos cargados');
+    
+    // ========================================
+    // PASO 3: LLAMADAS (OPCIONAL - si falla, no bloquea)
+    // ========================================
+    
+    if (statusEl) {
+      statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
+    }
+    
+    console.log('\n📞 Configurando sistema de llamadas...');
+    
+    const audioCallbacks = {
+      receiveAudio: (audioData) => {
+        console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
+        simpleAudioStream.receiveAudio(audioData);
+      },
+      incomingCall: async (fromUser) => {
+        console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!', fromUser);
         
-        callAccepted: async (fromUser) => {
-          console.log('✅ [AUTH] Llamada ACEPTADA por:', fromUser);
+        try {
+          await simpleCallManager.receiveIncomingCall(fromUser);
           
-          try {
-            await simpleCallManager.handleCallAccepted(fromUser);
-            
-            const { showActiveCallUI } = await import('./callUI.js');
-            showActiveCallUI(fromUser);
-            
-          } catch (error) {
-            console.error('❌ Error:', error);
-            const { hideCallUI } = await import('./callUI.js');
-            hideCallUI();
-            showError('Error al aceptar llamada');
-          }
-        },
+          const { showIncomingCallUI } = await import('./callUI.js');
+          showIncomingCallUI({ caller: fromUser });
+          
+        } catch (error) {
+          console.error('❌ Error procesando llamada:', error);
+        }
+      },
+      
+      callAccepted: async (fromUser) => {
+        console.log('✅ [AUTH] Llamada ACEPTADA por:', fromUser);
         
-        callRejected: async (fromUser) => {
-          console.log('❌ [AUTH] Llamada RECHAZADA por:', fromUser);
+        try {
+          await simpleCallManager.handleCallAccepted(fromUser);
+          
+          const { showActiveCallUI } = await import('./callUI.js');
+          showActiveCallUI(fromUser);
+          
+        } catch (error) {
+          console.error('❌ Error:', error);
+          const { hideCallUI } = await import('./callUI.js');
+          hideCallUI();
+          showError('Error al aceptar llamada');
+        }
+      },
+      
+      callRejected: async (fromUser) => {
+        console.log('❌ [AUTH] Llamada RECHAZADA por:', fromUser);
+        
+        const { hideCallUI } = await import('./callUI.js');
+        hideCallUI();
+        showError(`${fromUser} rechazó la llamada`);
+        simpleCallManager.cleanup();
+      },
+      
+      callEnded: async (fromUser) => {
+        console.log('🔴 [AUTH] Llamada FINALIZADA por:', fromUser);
+        
+        try {
+          simpleAudioStream.cleanup();
+          simpleCallManager.cleanup();
           
           const { hideCallUI } = await import('./callUI.js');
           hideCallUI();
-          showError(`${fromUser} rechazó la llamada`);
-          simpleCallManager.cleanup();
-        },
-        
-        callEnded: async (fromUser) => {
-          console.log('🔴 [AUTH] Llamada FINALIZADA por:', fromUser);
           
-          try {
-            simpleAudioStream.cleanup();
-            simpleCallManager.cleanup();
-            
-            const { hideCallUI } = await import('./callUI.js');
-            hideCallUI();
-            
-            showError(`${fromUser} finalizó la llamada`);
-            
-          } catch (error) {
-            console.error('Error limpiando:', error);
-          }
+          showError(`${fromUser} finalizó la llamada`);
+          
+        } catch (error) {
+          console.error('Error limpiando:', error);
         }
-      };
-      
+      }
+    };
+    
+    let callsOk = false;
+    try {
       await iceClient.connectToAudioSubject(
         serverHost,
         serverPort,
@@ -157,41 +179,35 @@ export async function login() {
       simpleCallManager.setAudioSubject(audioSubject, username);
       simpleAudioStream.setAudioSubject(audioSubject, username);
       
-      console.log('✅ Sistema de llamadas ACTIVO');
+      console.log('✅ Sistema de llamadas configurado');
       state.callsAvailable = true;
+      callsOk = true;
       
       state.audioSubject = audioSubject;
       state.audioAdapter = iceClient.audioAdapter;
       
     } catch (err) {
       console.warn('⚠️ AudioService no disponible:', err.message);
-      console.warn('   Las llamadas no estarán disponibles');
       state.callsAvailable = false;
+      callsOk = false;
     }
     
     // ========================================
-    // FINALIZAR LOGIN
+    // FINALIZAR: MOSTRAR UI
     // ========================================
-    
-    if (statusEl) {
-      statusEl.querySelector('.status-text').textContent = 'Cargando datos...';
-    }
     
     showChatInterface();
     
-    await loadRecentChatsFromICE();
-    await loadGroupsFromICE();
-    
     console.log('\n╔═══════════════════════════════════════════╗');
-    console.log('║  ✅ LOGIN EXITOSO                        ║');
+    console.log('║  ✅ LOGIN COMPLETADO                    ║');
     console.log('╠═══════════════════════════════════════════╣');
-    console.log('║  Usuario:', username.padEnd(32), '║');
-    console.log('║  Notificaciones: ✅ ACTIVAS              ║');
-    console.log('║  Llamadas: ' + (state.callsAvailable ? '✅' : '❌') + ' ' + (state.callsAvailable ? 'ACTIVAS' : 'INACTIVAS').padEnd(24) + '║');
+    console.log('║  Usuario: ' + username.padEnd(32) + '║');
+    console.log('║  Notificaciones: ' + (notificationsOk ? '✅ ACTIVAS' : '❌ ERROR').padEnd(30) + '║');
+    console.log('║  Llamadas: ' + (callsOk ? '✅ ACTIVAS' : '❌ NO DISPONIBLES').padEnd(30) + '║');
     console.log('╚═══════════════════════════════════════════╝\n');
     
   } catch (err) {
-    console.error('❌ Error en login:', err);
+    console.error('❌ Error crítico en login:', err);
     
     let errorMsg = 'No se pudo conectar al servidor ICE';
     
