@@ -1,6 +1,6 @@
-
 // ============================================
 // js/messages.js - Mensajería con ICE + Audio
+// ✅ RECARGA AUTOMÁTICA AL ENVIAR
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -16,7 +16,7 @@ function parseHistoryWithAudio(historyText) {
   const messages = [];
   
   for (const line of lines) {
-    const match = line.match(/^\[([^\]]+)\]\s*([←→])\s*([^:]+):\s*(.+)$/);
+    const match = line.match(/^\[([^\]]+)\]\s*([\u2192\u2190])\s*([^:]+):\s*(.+)$/);
     
     if (match) {
       const [, timestamp, direction, sender, content] = match;
@@ -58,7 +58,7 @@ function renderHistory(historyText) {
       container.appendChild(header);
     } else if (msg.isAudio) {
       const messageDiv = document.createElement('div');
-      messageDiv.className = `message ${msg.direction === '→' ? 'sent' : 'received'}`;
+      messageDiv.className = `message ${msg.direction === '\u2192' ? 'sent' : 'received'}`;
       
       messageDiv.innerHTML = `
         <div class="message-info">
@@ -95,7 +95,7 @@ function renderHistory(historyText) {
       container.appendChild(messageDiv);
     } else {
       const messageDiv = document.createElement('div');
-      messageDiv.className = `message ${msg.direction === '→' ? 'sent' : 'received'}`;
+      messageDiv.className = `message ${msg.direction === '\u2192' ? 'sent' : 'received'}`;
       
       messageDiv.innerHTML = `
         <div class="message-info">
@@ -132,7 +132,6 @@ function isNearBottom(container, threshold = 150) {
 function scrollToBottom(container, smooth = false) {
   if (!container) return;
   
-  // Usar requestAnimationFrame para asegurar que el DOM se ha actualizado
   requestAnimationFrame(() => {
     if (smooth) {
       container.scrollTo({
@@ -287,7 +286,7 @@ export async function loadHistory(target, isGroup, showLoading = false) {
 }
 
 /**
- * Envía un mensaje de texto
+ * ✅ Envía un mensaje de texto Y RECARGA AUTOMÁTICAMENTE
  */
 export async function sendMessage() {
   const textarea = document.getElementById('messageText');
@@ -323,17 +322,22 @@ export async function sendMessage() {
     }
     
     if (result.startsWith('SUCCESS')) {
+      console.log('✅ Mensaje enviado exitosamente');
+      
       // Limpiar input
       textarea.value = '';
-      
-      // Ajustar altura del textarea
       textarea.style.height = 'auto';
       
-      // Recargar historial
+      // ✅ CRÍTICO: Esperar un momento para que el servidor procese
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      // ✅ RECARGAR HISTORIAL INMEDIATAMENTE
+      console.log('🔄 Recargando historial después de enviar...');
       await loadHistory(state.currentChat, state.isGroup, false);
       
       // Enfocar input
       textarea.focus();
+      
     } else {
       showError(result.replace('ERROR:', '').trim());
     }

@@ -478,5 +478,29 @@
     "content": "jhhhh",
     "isGroup": false,
     "timestamp": "2025-11-26 19:28:42"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "o que eu fez?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:33:08"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "nada",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:33:29"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ffhjfj",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:33:44"
   }
 ]

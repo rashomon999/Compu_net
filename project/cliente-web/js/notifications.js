@@ -1,6 +1,7 @@
 // ============================================
 // js/notifications.js - POLLING CON AUTO-RELOAD
 // ✅ Recarga automática al abrir un chat
+// ✅ Recarga cuando llega mensaje al chat actual
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -136,7 +137,7 @@ async function handleNewMessage(msg) {
     
     try {
       // Pequeño delay para que el servidor haya guardado
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 100));
       
       // Recargar historial del chat actual
       await loadHistory(state.currentChat, state.isGroup, false);
