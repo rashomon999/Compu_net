@@ -467,7 +467,7 @@ COMPU_NET/
     └──
 ```
 
-
+```
 // IceServer.java
 public static void main(String[] args) {
     // 1. Crear componentes
