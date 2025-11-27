@@ -436,7 +436,7 @@ COMPU_NET/
 │   │   │
 │   │   └── utils/
 │   │       └── HistoryManager.java            # ⭐ Persistencia JSON
-│   │
+│   │       |__AudioFileManager.java  
 │   ├── slice/                                 # Definiciones IDL
 │   │   ├── ChatSystem.ice
 │   │   └── AudioSubject.ice
