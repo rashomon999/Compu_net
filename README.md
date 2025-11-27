@@ -467,75 +467,6 @@ COMPU_NET/
     └──
 ```
 
----
-
-## 🔧 Solución de Problemas
-
-### Error: "Cannot connect to localhost:10000"
-
-**1. Verificar que el servidor está corriendo:**
-```bash
-netstat -an | grep 10000
-```
-
-**Salida esperada:**
-```
-tcp6  0  0  :::10000  :::*  LISTEN
-```
-
-**Si no aparece:**
-```bash
-cd project/backend-java/server
-./gradlew run
-```
-
-### Audio no se escucha en llamadas
-
-**1. Verificar permisos de micrófono:**
-- Chrome/Edge: `chrome://settings/content/microphone`
-- Firefox: `about:preferences#privacy` → Permisos
-
-**2. Verificar logs del servidor:**
-```
-[AUDIO] acceptCall: Alice → Bob
-   📞 Llamada BIDIRECCIONAL activa:
-      Alice ↔ Bob
-   🔊 Enrutamiento de audio configurado
-```
-
-**3. En consola del navegador (F12):**
-```javascript
-console.log('Call active:', simpleCallManager.activeCall);
-console.log('Streaming:', simpleAudioStream.isActive());
-```
-
-**Esperado:**
-```
-Call active: {type: "OUTGOING", status: "CONNECTED", ...}
-Streaming: true
-```
-
-### Mensajes no se actualizan automáticamente
-
-**Verificar polling en consola:**
-```
-📬 [POLLING] Alice consultando mensajes...
-```
-
-**Si no aparece:**
-1. Verificar `notifications.js` está cargado
-2. Revisar errores en Network tab (F12)
-3. Reiniciar servidor
-
-
-
----
-
-```
-BACKEND COMPLETO = ice/services/ + tcp/ + utils/ + IceServer.java
-                   ↑               ↑      ↑       ↑
-                   Capa ICE       Negocio Utils   Main
-```
 
 // IceServer.java
 public static void main(String[] args) {
@@ -559,7 +490,7 @@ public static void main(String[] args) {
 
 ## 🌐 COMPONENTES DEL FRONTEND
 
-### 📁 cliente-web/
+### 📁 `cliente-web/`
 ```
 cliente-web/
 │
@@ -700,6 +631,77 @@ cliente-web/
 ├── js/               ← ✅ Lógica del cliente
 ├── index.html        ← ✅ UI
 └── style.css         ← ✅ Estilos
+
+---
+
+## 🔧 Solución de Problemas
+
+### Error: "Cannot connect to localhost:10000"
+
+**1. Verificar que el servidor está corriendo:**
+```bash
+netstat -an | grep 10000
+```
+
+**Salida esperada:**
+```
+tcp6  0  0  :::10000  :::*  LISTEN
+```
+
+**Si no aparece:**
+```bash
+cd project/backend-java/server
+./gradlew run
+```
+
+### Audio no se escucha en llamadas
+
+**1. Verificar permisos de micrófono:**
+- Chrome/Edge: `chrome://settings/content/microphone`
+- Firefox: `about:preferences#privacy` → Permisos
+
+**2. Verificar logs del servidor:**
+```
+[AUDIO] acceptCall: Alice → Bob
+   📞 Llamada BIDIRECCIONAL activa:
+      Alice ↔ Bob
+   🔊 Enrutamiento de audio configurado
+```
+
+**3. En consola del navegador (F12):**
+```javascript
+console.log('Call active:', simpleCallManager.activeCall);
+console.log('Streaming:', simpleAudioStream.isActive());
+```
+
+**Esperado:**
+```
+Call active: {type: "OUTGOING", status: "CONNECTED", ...}
+Streaming: true
+```
+
+### Mensajes no se actualizan automáticamente
+
+**Verificar polling en consola:**
+```
+📬 [POLLING] Alice consultando mensajes...
+```
+
+**Si no aparece:**
+1. Verificar `notifications.js` está cargado
+2. Revisar errores en Network tab (F12)
+3. Reiniciar servidor
+
+
+
+---
+
+```
+BACKEND COMPLETO = ice/services/ + tcp/ + utils/ + IceServer.java
+                   ↑               ↑      ↑       ↑
+                   Capa ICE       Negocio Utils   Main
+```
+
 
 ## 📝 Características Implementadas
 
