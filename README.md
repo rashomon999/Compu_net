@@ -559,7 +559,7 @@ public static void main(String[] args) {
 
 ## 🌐 COMPONENTES DEL FRONTEND
 
-### 📁 `cliente-web/`
+### 📁 cliente-web/
 ```
 cliente-web/
 │
