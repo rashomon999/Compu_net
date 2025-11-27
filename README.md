@@ -75,6 +75,20 @@ Los servicios ICE actúan como **adaptadores** que:
 - Delegan lógica de negocio a los servicios TCP
 - Retornan respuestas serializadas
 
+# 🧊 ¿Qué agrega Ice encima del WebSocket?
+
+Ice no reemplaza al WebSocket: **lo usa como transporte**.  
+Lo que agrega es una capa completa de llamadas remotas (RPC) estructuradas y tipadas.
+
+En resumen:
+
+- **WebSocket** = canal bidireccional básico donde tú envías y recibes mensajes.
+- **Ice** = un sistema completo que usa ese canal para:
+  - Serializar datos
+  - Llamar métodos remotos como si estuvieran en tu máquina
+  - Manejar tipos, contratos, objetos distribuidos
+  - Reintentos, timeouts, proxies, endpoints
+  
 **Ejemplo:**
 ```java
 // ice/services/ChatServiceI.java
