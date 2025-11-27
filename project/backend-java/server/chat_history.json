@@ -838,5 +838,53 @@
     "content": "dd",
     "isGroup": false,
     "timestamp": "2025-11-26 19:58:09"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "Hola",
+    "isGroup": false,
+    "timestamp": "2025-11-26 20:03:13"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ahora funciona?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 20:03:23"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "si",
+    "isGroup": false,
+    "timestamp": "2025-11-26 20:03:30"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "deus meu",
+    "isGroup": false,
+    "timestamp": "2025-11-26 20:03:37"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ass",
+    "isGroup": false,
+    "timestamp": "2025-11-26 20:03:47"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ahhhh",
+    "isGroup": false,
+    "timestamp": "2025-11-26 20:03:53"
   }
 ]
