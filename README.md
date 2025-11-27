@@ -301,6 +301,60 @@ activeCalls.put("Bob", "Alice");  // Bob → Alice
 // - Audio de Bob se enruta a Alice
 ```
 
+
+# 🔄 Ice en tu Sistema: ¿Qué hace diferente el polling?
+
+## HTTP + Polling normal
+
+    [Cliente]                              [Servidor]
+       |                                        |
+       |------ GET /messages (TCP new) -------> |
+       | <----- 200 OK (close) ---------------- |
+       |                                        |
+       ⏱️ 1 segundo
+       |                                        |
+       |------ GET /messages (TCP new) -------> |
+       | <----- 200 OK (close) ---------------- |
+
+➡️ **Cada request = una nueva conexión TCP**
+
+---
+
+## Ice + WebSocket Polling
+
+    [Cliente]                               [Servidor]
+       |                                         |
+       |====== WS Handshake ====================>|
+       |<===== Conexión WebSocket persistente ===|
+       |                                         |
+       |-- getNewMessages() [protocolo Ice] ---->|
+       |<-- Message[] [binario] -----------------|
+       |                                         |
+       ⏱️ 1 segundo (MISMA conexión)
+       |                                         |
+       |-- getNewMessages() [protocolo Ice] ---->|
+       |<-- Message[] [binario] -----------------|
+
+➡️ **Una sola conexión WebSocket para TODO**
+
+---
+
+## 💻 Ice + WebSocket (Código)
+
+```javascript
+// Cliente mantiene UNA conexión WebSocket persistente
+const proxy = await communicator.stringToProxy("ChatService:ws -h localhost -p 10000");
+const chatService = await Ice.ChatServicePrx.checkedCast(proxy);
+
+// Llamadas RPC sobre la MISMA conexión
+const result = await chatService.sendPrivateMessage("Maria", "Luis", "Hola");
+
+// Polling sobre conexión PERSISTENTE
+setInterval(async () => {
+    const newMessages = await notificationService.getNewMessages("Luis");
+    // Datos ya tipados, sin parsing JSON
+}, 1000);
+
 ---
 
 ## 💻 Requisitos del Sistema
