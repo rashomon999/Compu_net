@@ -1,6 +1,6 @@
 // ============================================
-// js/notifications.js - POLLING SIMPLE
-// ✅ Usa getNewMessages() de NotificationService
+// js/notifications.js - POLLING CON AUTO-RELOAD
+// ✅ Recarga automática al abrir un chat
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -78,7 +78,7 @@ export function stopNotificationPolling() {
  */
 async function handleNewMessage(msg) {
   console.log('\n🔔 ════════════════════════════════════════');
-  console.log('📬 MENSAJE NUEVO');
+  console.log('📬 MENSAJE NUEVO RECIBIDO');
   console.log('════════════════════════════════════════');
   console.log('   De:      ', msg.sender);
   console.log('   Para:    ', msg.recipient);
@@ -92,8 +92,10 @@ async function handleNewMessage(msg) {
   try {
     if (!msg.isGroup) {
       await loadRecentChatsFromICE();
+      console.log('   📋 Chats actualizados');
     } else {
       await loadGroupsFromICE();
+      console.log('   📋 Grupos actualizados');
     }
   } catch (err) {
     console.warn('⚠️ Error actualizando listas:', err.message);
@@ -103,58 +105,55 @@ async function handleNewMessage(msg) {
   // 2. VERIFICAR SI RECARGAR HISTORIAL
   // ========================================
   
-  if (!state.currentChat) {
-    // No hay chat abierto, mostrar notificación
-    console.log('   → No hay chat abierto, mostrando notificación');
-    showNotificationToast(msg);
-    playNotificationSound();
-    return;
-  }
+  // ⚠️ CRÍTICO: Determinar si es el chat actual
+  let isCurrentChat = false;
+  let chatName = '';
   
-  let shouldReload = false;
-  let reason = '';
-  
-  // Caso 1: Mensaje grupal
   if (msg.isGroup) {
-    if (state.isGroup && msg.recipient === state.currentChat) {
-      shouldReload = true;
-      reason = 'Mensaje nuevo en grupo ' + state.currentChat;
-    }
-  }
-  // Caso 2: Mensaje privado
-  else {
+    // Mensaje grupal
+    isCurrentChat = state.isGroup && msg.recipient === state.currentChat;
+    chatName = msg.recipient;
+  } else {
+    // Mensaje privado
     if (!state.isGroup) {
-      // Mensaje es DE alguien O PARA alguien (eco)
-      const isFrom = msg.sender === state.currentChat;
-      const isTo = msg.recipient === state.currentChat;
+      // El mensaje es DEL remitente O PARA el remitente (eco)
+      const isFromCurrentChat = msg.sender === state.currentChat;
+      const isToCurrentChat = msg.recipient === state.currentChat;
       
-      if (isFrom || isTo) {
-        shouldReload = true;
-        reason = 'Mensaje en chat con ' + state.currentChat;
-      }
+      isCurrentChat = isFromCurrentChat || isToCurrentChat;
+      chatName = msg.sender === state.currentUsername ? msg.recipient : msg.sender;
     }
   }
   
+  console.log('   → isCurrentChat:', isCurrentChat);
+  console.log('   → state.currentChat:', state.currentChat);
+  
   // ========================================
-  // 3. RECARGAR SI ES NECESARIO
+  // 3. RECARGAR SI ES EL CHAT ACTUAL
   // ========================================
-  if (shouldReload) {
-    console.log('   🔄 RECARGANDO HISTORIAL');
-    console.log('      Razón: ' + reason);
+  if (isCurrentChat && state.currentChat) {
+    console.log('   🔄 ¡ES EL CHAT ACTUAL! Recargando...');
     
     try {
       // Pequeño delay para que el servidor haya guardado
       await new Promise(r => setTimeout(r, 50));
       
+      // Recargar historial del chat actual
       await loadHistory(state.currentChat, state.isGroup, false);
-      console.log('   ✅ Historial actualizado');
+      console.log('   ✅ Historial recargado automáticamente');
       
     } catch (error) {
       console.error('   ❌ Error recargando:', error.message);
     }
+    
+  } else if (state.currentChat) {
+    // Hay un chat abierto pero NO es el actual
+    console.log('   💬 Mensaje de otro chat, mostrando notificación');
+    showNotificationToast(msg);
+    
   } else {
-    // No es el chat actual, mostrar toast
-    console.log('   → Notificación toast (no es chat actual)');
+    // NO hay chat abierto
+    console.log('   → Sin chat abierto, mostrando notificación');
     showNotificationToast(msg);
   }
   
@@ -176,15 +175,20 @@ function showNotificationToast(msg) {
     <p>${content}</p>
   `;
   
-  // Clickeable
+  // Clickeable para abrir el chat
   notifDiv.style.cursor = 'pointer';
   notifDiv.onclick = async () => {
-    if (msg.isGroup) {
-      const { openGroupChat } = await import('./groups.js');
-      openGroupChat(msg.recipient);
-    } else {
-      const { openChatFromList } = await import('./chats.js');
-      openChatFromList(msg.sender);
+    try {
+      if (msg.isGroup) {
+        const { openGroupChat } = await import('./groups.js');
+        openGroupChat(msg.recipient);
+      } else {
+        const { openChatFromList } = await import('./chats.js');
+        // Abrir chat con el remitente
+        openChatFromList(msg.sender);
+      }
+    } catch (error) {
+      console.error('Error abriendo chat:', error);
     }
     notifDiv.remove();
   };

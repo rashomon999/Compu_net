@@ -454,5 +454,29 @@
     "content": "ya lo estas",
     "isGroup": false,
     "timestamp": "2025-11-26 19:23:12"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "contesta por fa",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:27:52"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "jhhhh",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:28:42"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "jhhhh",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:28:42"
   }
 ]
