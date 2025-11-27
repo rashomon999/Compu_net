@@ -430,5 +430,21 @@
     "content": "que puta?",
     "isGroup": false,
     "timestamp": "2025-11-26 19:14:30"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "como asi?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:19:26"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "no estaba conectado",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:20:04"
   }
 ]

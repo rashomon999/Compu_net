@@ -451,11 +451,8 @@ class IceClientManager {
   // ========================================================================
 
  // ============================================
-// En iceClient.js - REEMPLAZA ESTA FUNCIÓN COMPLETA
-// ============================================
-// ============================================
 // REEMPLAZA SOLO LA FUNCIÓN subscribeToNotifications()
-// en iceClient.js
+// en iceClient.js - CON BIDIRECCIONALIDAD
 // ============================================
 
 async subscribeToNotifications(username, callbacks) {
@@ -468,6 +465,7 @@ async subscribeToNotifications(username, callbacks) {
   try {
     console.log('\n╔═══════════════════════════════════════════╗');
     console.log('║  subscribeToNotifications() EJECUTÁNDOSE  ║');
+    console.log('║  Configurando callbacks BIDIRECCIONALES  ║');
     console.log('╚═══════════════════════════════════════════╝');
     
     const Ice = window.Ice;
@@ -527,79 +525,95 @@ async subscribeToNotifications(username, callbacks) {
     console.log('✅ Clase creada');
     
     // ========================================
-    // PASO 2: Obtener/crear adaptador
+    // PASO 2: Obtener CONEXIÓN ACTIVA del NotificationService
     // ========================================
-    console.log('\n🔧 PASO 2: Obtener/crear adaptador');
+    console.log('\n🔌 PASO 2: Obtener conexión activa');
     
+    const connection = this.notificationService.ice_getCachedConnection();
+    
+    if (!connection) {
+      throw new Error('❌ No hay conexión activa con NotificationService');
+    }
+    
+    console.log('✅ Conexión obtenida');
+    
+    // ========================================
+    // PASO 3: Crear adaptador ESPECÍFICAMENTE para esta conexión
+    // ========================================
+    console.log('\n🔧 PASO 3: Crear adaptador para la conexión');
+    
+    // ⚠️ CRÍTICO: No usar adaptador vacío, especificar la conexión
     if (!this.notificationAdapter) {
-      console.log('   Creando adaptador nuevo...');
+      // Crear adaptador SIN endpoints (será bidireccional)
       this.notificationAdapter = await this.communicator.createObjectAdapter("");
-      console.log('   ✅ Adaptador creado');
+      console.log('   ✅ Adaptador creado (sin endpoints)');
       
-      // ⚠️ CRÍTICO: Vincular a la conexión AQUÍ
-      try {
-        const connection = this.notificationService.ice_getCachedConnection();
-        if (connection) {
-          connection.setAdapter(this.notificationAdapter);
-          console.log('   ✅ Vinculado a conexión');
-        }
-      } catch (err) {
-        console.warn('   ⚠️ No se pudo vincular (continuando)');
-      }
+      // ⚠️ AQUÍ ESTÁ LA MAGIA: Vincular a la CONEXIÓN ESPECÍFICA
+      console.log('   🔗 Vinculando a la conexión...');
+      connection.setAdapter(this.notificationAdapter);
+      console.log('   ✅ Vinculado a conexión (bidireccional)');
       
       // Activar
       await this.notificationAdapter.activate();
-      console.log('   ✅ Adaptador activado');
+      console.log('   ✅ Adaptador ACTIVO');
     } else {
       console.log('   ✅ Reutilizando adaptador existente');
     }
     
     // ========================================
-    // PASO 3: Crear instancia del callback
+    // PASO 4: Crear instancia del callback
     // ========================================
-    console.log('\n👷 PASO 3: Crear instancia del callback');
+    console.log('\n👷 PASO 4: Crear instancia del callback');
     
     const callbackImpl = new NotificationCallbackImpl(callbacks);
     console.log('✅ Instancia creada');
     
     // ========================================
-    // PASO 4: CRÍTICO - addWithUUID() SIN Identity manual
+    // PASO 5: Registrar con addWithUUID()
     // ========================================
-    console.log('\n📋 PASO 4: Registrar con addWithUUID()');
+    console.log('\n📋 PASO 5: Registrar callback en adaptador');
     
-    // ⚠️ ESTO ES LO MÁS IMPORTANTE:
-    // addWithUUID() crea automáticamente un Identity válido
-    // y vincula el endpoint correctamente
     const callbackProxy = this.notificationAdapter.addWithUUID(callbackImpl);
     
     console.log('✅ Registrado en adaptador');
     console.log('   Proxy:', callbackProxy.toString());
     
     // ========================================
-    // PASO 5: Cast a tipo correcto
+    // PASO 6: CRÍTICO - setConnection() al proxy
     // ========================================
-    console.log('\n🔄 PASO 5: Cast del proxy');
+    console.log('\n🔌 PASO 6: Vincular proxy a la conexión');
+    
+    // ⚠️ MUY IMPORTANTE: Esto le dice al proxy que use ESTA conexión
+    // para callbacks bidireccionales
+    callbackProxy.ice_getConnection = () => connection;
+    
+    console.log('✅ Proxy vinculado a conexión');
+    
+    // ========================================
+    // PASO 7: Cast a tipo correcto
+    // ========================================
+    console.log('\n🔄 PASO 7: Cast del proxy');
     
     const typedProxy = Ice.ChatSystem.NotificationCallbackPrx.uncheckedCast(callbackProxy);
     console.log('✅ Proxy tipado');
     
     // ========================================
-    // PASO 6: ENVIAR SUBSCRIBE AL SERVIDOR
+    // PASO 8: ENVIAR SUBSCRIBE AL SERVIDOR
     // ========================================
-    console.log('\n📡 PASO 6: Enviar subscribe() al servidor');
+    console.log('\n📡 PASO 8: Enviar subscribe() al servidor');
     console.log('   Usuario:', username);
-    console.log('   Proxy:', typedProxy.toString());
+    console.log('   Proxy con conexión bidireccional');
     
     await this.notificationService.subscribe(username, typedProxy);
     
     console.log('\n╔═══════════════════════════════════════════╗');
-    console.log('║  ✅ NOTIFICACIONES CONFIGURADAS          ║');
+    console.log('║  ✅ NOTIFICACIONES BIDIRECCIONALES       ║');
     console.log('║  Usuario suscrito correctamente          ║');
-    console.log('║  Callbacks listos para recibir mensajes  ║');
+    console.log('║  Callbacks listos en AMBAS direcciones   ║');
     console.log('╚═══════════════════════════════════════════╝\n');
     
   } catch (error) {
-    console.error('\n❌ ❌ ❌ ERROR EN subscribeToNotifications ❌ ❌ ❌');
+    console.error('\n❌ ERROR EN subscribeToNotifications');
     console.error('Mensaje:', error.message);
     console.error('Stack:', error.stack);
     throw error;
