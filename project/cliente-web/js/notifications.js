@@ -1,6 +1,6 @@
 // ============================================
-// js/notifications.js - Notificaciones en Tiempo Real CORREGIDAS
-// ✅ CON LOGGING DETALLADO PARA DEBUG
+// js/notifications.js - Notificaciones CORREGIDAS
+// ✅ Auto-recarga de mensajes sin F5
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -33,6 +33,9 @@ export async function subscribeToRealTimeNotifications(username) {
         console.log('   Para:      ', msg.recipient);
         console.log('   Es grupo:  ', msg.isGroup);
         console.log('   Contenido: ', msg.content.substring(0, 50));
+        console.log('   Estado actual:');
+        console.log('      currentChat:', state.currentChat);
+        console.log('      isGroup:    ', state.isGroup);
         console.log('════════════════════════════════════════\n');
         
         // ✅ 1. ACTUALIZAR LISTAS DE CHATS/GRUPOS
@@ -45,28 +48,39 @@ export async function subscribeToRealTimeNotifications(username) {
           console.log('   ✅ Lista de grupos actualizada');
         }
         
-        // ✅ 2. VERIFICAR SI ES EL CHAT ACTUAL
-        console.log('   🔍 Verificando chat actual...');
-        console.log('      state.currentChat:', state.currentChat);
-        console.log('      state.isGroup:    ', state.isGroup);
-        
+        // ✅ 2. LÓGICA CORREGIDA DE RELOAD
         let shouldReload = false;
         let reloadReason = '';
         
-        if (state.currentChat) {
-          // CASO 1: Mensaje grupal Y estoy en ese grupo
-          if (state.isGroup && msg.isGroup && msg.recipient === state.currentChat) {
+        if (!state.currentChat) {
+          console.log('   ℹ️ No hay chat abierto, mostrando notificación');
+          showNotificationToast(msg);
+          playNotificationSound();
+          console.log('🔔 ════════════════════════════════════════\n');
+          return;
+        }
+        
+        // CASO 1: Mensaje grupal
+        if (msg.isGroup) {
+          if (state.isGroup && msg.recipient === state.currentChat) {
             shouldReload = true;
-            reloadReason = 'Mensaje del grupo actual';
+            reloadReason = 'Mensaje nuevo en grupo actual';
           }
+        }
+        // CASO 2: Mensaje privado
+        else {
+          // ⚠️ CRÁTICO: El mensaje puede venir de DOS formas:
+          // A) msg.sender = usuario que envió, msg.recipient = yo (si recibí)
+          // B) msg.sender = yo, msg.recipient = usuario (eco del servidor)
           
-          // CASO 2: Mensaje privado Y es de mi chat actual
-          else if (!state.isGroup && !msg.isGroup) {
-            // El mensaje es PARA MÍ desde el chat actual
-            // O el mensaje es MÍO hacia ese usuario (echo)
-            if (msg.sender === state.currentChat || msg.recipient === state.currentChat) {
+          if (!state.isGroup) {
+            // Verificar si el chat actual es con el usuario que envió O con quien va dirigido
+            const isWithSender = msg.sender === state.currentChat;
+            const isWithRecipient = msg.recipient === state.currentChat;
+            
+            if (isWithSender || isWithRecipient) {
               shouldReload = true;
-              reloadReason = 'Mensaje del chat privado actual';
+              reloadReason = `Mensaje ${isWithSender ? 'de' : 'a'} ${state.currentChat}`;
             }
           }
         }
@@ -77,8 +91,12 @@ export async function subscribeToRealTimeNotifications(username) {
           console.log('      Razón:', reloadReason);
           
           try {
+            // Pequeño delay para asegurar que el servidor ya guardó
+            await new Promise(r => setTimeout(r, 100));
+            
             await loadHistory(state.currentChat, state.isGroup, false);
             console.log('   ✅ Historial actualizado automáticamente');
+            
           } catch (error) {
             console.error('   ❌ Error recargando historial:', error);
           }
@@ -115,6 +133,7 @@ export async function subscribeToRealTimeNotifications(username) {
         // Si estoy en ese grupo, recargar historial para ver el mensaje del sistema
         if (state.currentChat === groupName && state.isGroup) {
           console.log('   🔄 Recargando historial del grupo...');
+          await new Promise(r => setTimeout(r, 100));
           await loadHistory(groupName, true, false);
         }
         
@@ -152,6 +171,7 @@ function showNotificationToast(msg) {
       openGroupChat(msg.recipient);
     } else {
       const { openChatFromList } = await import('./chats.js');
+      // Usar msg.sender para abrir chat con quien envió el mensaje
       openChatFromList(msg.sender);
     }
     notifDiv.remove();

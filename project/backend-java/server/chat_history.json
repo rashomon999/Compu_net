@@ -382,5 +382,21 @@
     "content": "que?",
     "isGroup": false,
     "timestamp": "2025-11-26 18:45:42"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "Ate?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:51:29"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "puto",
+    "isGroup": false,
+    "timestamp": "2025-11-26 18:51:49"
   }
 ]
