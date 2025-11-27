@@ -10,29 +10,319 @@
 
 ## 📋 Descripción General
 
-Sistema de mensajería instantánea que implementa:
+Sistema de mensajería instantánea empresarial que implementa:
 
 - ✅ **Chat privado y grupal** en tiempo real
-- ✅ **Llamadas de voz VoIP** punto a punto
+- ✅ **Llamadas de voz VoIP** punto a punto con streaming de audio
 - ✅ **Notas de voz** con grabación y reproducción
-- ✅ **Notificaciones push** mediante polling
-- ✅ **Historial persistente** de conversaciones
+- ✅ **Notificaciones push** mediante callbacks ICE + polling (fallback)
+- ✅ **Historial persistente** de conversaciones en JSON
 
-**Tecnologías:**
-- **Backend**: Java + ZeroC Ice + WebSockets
-- **Frontend**: JavaScript (ES6+) + Web Audio API + Webpack
-- **Protocolo**: Ice RPC sobre WebSocket
+**Stack Tecnológico:**
+- **Backend**: Java 11+ con ZeroC Ice 3.7+ sobre WebSockets
+- **Frontend**: JavaScript ES6+ con Web Audio API y Vite
+- **Protocolo**: Ice RPC bidireccional (ws://)
+- **Persistencia**: JSON (HistoryManager)
+
+---
+
+## 🏗️ Arquitectura del Sistema
+
+### Visión General (3 Capas)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  CLIENTE WEB (JS)                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  UI Layer    │  │ Ice Proxies  │  │ Web Audio    │  │
+│  │ (HTML/CSS)   │  │ (Generated)  │  │ API          │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                          ↓ WebSocket (ws://)
+┌─────────────────────────────────────────────────────────┐
+│              SERVIDOR ICE (Java)                        │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  ICE SERVICES LAYER (Adaptadores)               │   │
+│  │  • ChatServiceI                                  │   │
+│  │  • GroupServiceI                                 │   │
+│  │  • NotificationServiceI (Callbacks + Polling)    │   │
+│  │  • VoiceServiceI                                 │   │
+│  │  • AudioSubjectImpl (VoIP - Patrón Observer)     │   │
+│  └──────────────────────────────────────────────────┘   │
+│                          ↓                               │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  TCP SERVICES LAYER (Lógica de Negocio)         │   │
+│  │  • MessageService (envío de mensajes)            │   │
+│  │  • GroupService (gestión de grupos)              │   │
+│  │  • HistoryService (consulta de historial)        │   │
+│  │  • UserService (gestión de conexiones)           │   │
+│  └──────────────────────────────────────────────────┘   │
+│                          ↓                               │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  STORAGE LAYER (Persistencia)                    │   │
+│  │  • HistoryManager (chat_history.json)            │   │
+│  │  • VoiceNoteStorage (archivos de audio)          │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Separación de Responsabilidades
+
+#### **Capa 1: ICE Services (Interfaz RPC)**
+Los servicios ICE actúan como **adaptadores** que:
+- Reciben llamadas RPC desde clientes web
+- Validan parámetros
+- Delegan lógica de negocio a los servicios TCP
+- Retornan respuestas serializadas
+
+**Ejemplo:**
+```java
+// ice/services/ChatServiceI.java
+public String sendPrivateMessage(String sender, String recipient, String msg, Current current) {
+    // ✅ Validación básica
+    // ✅ Delega a MessageService (TCP)
+    String result = messageService.sendPrivateMessage(sender, recipient, msg);
+    // ✅ Envía notificaciones si hay éxito
+    if (result.startsWith("SUCCESS") && notificationService != null) {
+        notificationService.notifyNewMessage(recipient, msg);
+    }
+    return result;
+}
+```
+
+#### **Capa 2: TCP Services (Lógica de Negocio)**
+Implementan la **lógica real** del sistema:
+- **MessageService**: Envío y entrega de mensajes
+- **GroupService**: Creación, unión, gestión de grupos
+- **HistoryService**: Consultas de historial y conversaciones recientes
+- **UserService**: Tracking de usuarios conectados (TCP legacy)
+
+**Ejemplo:**
+```java
+// tcp/MessageService.java
+public String sendPrivateMessage(String sender, String recipient, String message) {
+    // 1. Guardar en historial
+    history.saveMessage(sender, recipient, "TEXT", message, false);
+    
+    // 2. Intentar entrega en tiempo real (legacy TCP)
+    PrintWriter out = clients.get(recipient);
+    if (out != null) {
+        out.println("[" + sender + "]: " + message);
+    }
+    
+    return "SUCCESS: Mensaje enviado";
+}
+```
+
+#### **Capa 3: Storage (Persistencia)**
+- **HistoryManager**: Lee/escribe `chat_history.json`
+- **Thread-safe**: Usa `synchronized` para evitar corrupción
+- **Formato JSON**: Estructura de conversaciones privadas y grupales
+
+---
+
+## 🔄 Flujos de Comunicación
+
+### 1. Envío de Mensaje Privado (Completo)
+
+```
+┌─────────────┐                                 ┌─────────────┐
+│  Cliente A  │                                 │  Cliente B  │
+└──────┬──────┘                                 └──────┬──────┘
+       │                                               │
+       │  1. sendPrivateMessage("Alice", "Bob", "Hola")│
+       ├──────────────────────►┌──────────────────┐   │
+       │                       │  ChatServiceI    │   │
+       │                       └────────┬─────────┘   │
+       │                                │              │
+       │                       ┌────────▼─────────┐   │
+       │                       │  MessageService  │   │
+       │                       │  (TCP Layer)     │   │
+       │                       └────────┬─────────┘   │
+       │                                │              │
+       │                       ┌────────▼─────────┐   │
+       │                       │  HistoryManager  │   │
+       │                       │  (Guarda en JSON)│   │
+       │                       └────────┬─────────┘   │
+       │                                │              │
+       │  2. "SUCCESS"                  │              │
+       │◄───────────────────────────────┘              │
+       │                                               │
+       │  3. Notificación encolada                    │
+       │     notificationService.notifyNewMessage()   │
+       │                                ┌──────────────▼─┐
+       │                                │ Polling activo │
+       │                                │ cada 1 segundo │
+       │                                └──────────────┬─┘
+       │                                               │
+       │                        4. getNewMessages()   │
+       │                       ┌──────────────────────┤
+       │                       │ Retorna: [Message{}] │
+       │                       └──────────────────────►│
+       │                                               │
+       │                                5. Actualizar UI
+       │                                   + Notificación
+```
+
+**Detalles técnicos:**
+
+1. **Cliente A envía mensaje** via `iceClient.sendPrivateMessage()`
+2. **ChatServiceI** valida y delega a **MessageService**
+3. **MessageService** guarda en **HistoryManager** (JSON)
+4. **MessageService** retorna `"SUCCESS: ..."` a **ChatServiceI**
+5. **ChatServiceI** encola notificación para Cliente B
+6. **Cliente B** hace polling (`getNewMessages()`) cada 1 segundo
+7. **Cliente B** recibe mensaje, actualiza UI y recarga historial
+
+### 2. Arquitectura de Notificaciones (Doble Sistema)
+
+```
+SISTEMA PRIMARIO: Callbacks ICE (Bidireccional)
+┌────────────┐                        ┌────────────┐
+│  Cliente   │  ◄──── callback ─────  │  Servidor  │
+│            │  ─────► method call ──►│            │
+└────────────┘                        └────────────┘
+   ✅ Ventaja: Latencia baja (<100ms)
+   ⚠️ Problema: Puede fallar en redes restrictivas
+
+SISTEMA FALLBACK: Polling
+┌────────────┐                        ┌────────────┐
+│  Cliente   │  ────► getNewMessages()│  Servidor  │
+│ (cada 1s)  │  ◄──── Message[]  ─────│   (Cola)   │
+└────────────┘                        └────────────┘
+   ✅ Ventaja: 100% confiable
+   ⚠️ Problema: Latencia hasta 1 segundo
+```
+
+**Implementación:**
+
+```java
+// NotificationServiceI.java
+public synchronized void notifyNewMessage(String username, Message msg) {
+    // 1. Intentar callback (primario)
+    NotificationCallbackPrx callback = subscribers.get(username);
+    if (callback != null) {
+        try {
+            callback.onNewMessageAsync(msg); // ✅ Bidireccional
+            return;
+        } catch (Exception e) {
+            System.err.println("⚠️ Callback falló, usando polling");
+        }
+    }
+    
+    // 2. Fallback: Encolar para polling
+    messageQueues.computeIfAbsent(username, k -> new ArrayList<>()).add(msg);
+}
+
+public synchronized Message[] getNewMessages(String username, Current current) {
+    List<Message> msgs = messageQueues.remove(username);
+    return msgs != null ? msgs.toArray(new Message[0]) : new Message[0];
+}
+```
+
+### 3. Llamadas VoIP (Patrón Observer/Subject del Profesor)
+
+```
+FASE 1: INICIAR LLAMADA
+┌─────────────┐                                 ┌─────────────┐
+│  Usuario A  │                                 │  Usuario B  │
+└──────┬──────┘                                 └──────┬──────┘
+       │                                               │
+       │  startCall("Alice", "Bob")                    │
+       ├──────────────►┌───────────────────┐          │
+       │               │  AudioSubjectImpl │          │
+       │               │  activeCalls:     │          │
+       │               │  (vacío)          │          │
+       │               └─────────┬─────────┘          │
+       │                         │                    │
+       │                         │ obs.incomingCall() │
+       │                         └────────────────────►│
+       │                                         ┌─────▼─────┐
+       │                                         │ Modal UI  │
+       │                                         │ Aceptar?  │
+       │                                         └─────┬─────┘
+       │                                               │
+       │  acceptCall("Alice", "Bob") ◄─────────────────┤
+       │◄──────────────┐                               │
+       │               │  AudioSubjectImpl             │
+       │               │  activeCalls.put("Alice","Bob")│
+       │               │  activeCalls.put("Bob","Alice")│
+       │               └───────────────────────────────┘
+       │                                               │
+       │  obs.callAccepted("Bob")                      │
+       ├───────────────────────────────────────────────►│
+       │                                               │
+       │        LLAMADA ACTIVA (BIDIRECCIONAL)         │
+       │◄──────────────────────────────────────────────►│
+       │                                               │
+
+FASE 2: STREAMING DE AUDIO (durante llamada)
+       │                                               │
+       │  sendAudio(bytes)                             │
+       ├──────────────►┌───────────────────┐          │
+       │               │  AudioSubjectImpl │          │
+       │               │  target = active  │          │
+       │               │  Calls.get("Alice")          │
+       │               │  = "Bob"          │          │
+       │               └─────────┬─────────┘          │
+       │                         │                    │
+       │                         │ obs.receiveAudio() │
+       │                         └────────────────────►│
+       │                                         ┌─────▼─────┐
+       │                                         │ Web Audio │
+       │                                         │ reproduce │
+       │                                         └───────────┘
+       │                                               │
+       │  sendAudio(bytes) ◄───────────────────────────┤
+       │◄─────────────────────────────────────────────┐
+       │                         │                    │
+       │  obs.receiveAudio()     │                    │
+       │◄────────────────────────┘                    │
+  ┌────▼─────┐                                        │
+  │ Reproduce│                                        │
+  └──────────┘                                        │
+```
+
+**Clave del diseño:**
+
+```java
+// AudioSubjectImpl.java - Enrutamiento O(1)
+public void sendAudio(String fromUser, byte[] data, Current current) {
+    // PASO 1: Lookup instantáneo en mapa bidireccional
+    String target = activeCalls.get(fromUser); // O(1)
+    
+    // PASO 2: Obtener proxy del destinatario
+    AudioObserverPrx prx = observers.get(target); // O(1)
+    
+    // PASO 3: Enviar audio de forma asíncrona
+    if (prx != null) {
+        prx.receiveAudioAsync(data); // No bloquea
+    }
+}
+```
+
+**Por qué es bidireccional:**
+```java
+// acceptCall() establece AMBAS direcciones
+activeCalls.put("Alice", "Bob");  // Alice → Bob
+activeCalls.put("Bob", "Alice");  // Bob → Alice
+
+// Ahora sendAudio() funciona en ambos sentidos:
+// - Audio de Alice se enruta a Bob
+// - Audio de Bob se enruta a Alice
+```
 
 ---
 
 ## 💻 Requisitos del Sistema
 
-| Componente | Versión Mínima |
-|------------|----------------|
-| **Java JDK** | 11+ |
-| **Node.js** | 14.x+ |
-| **npm** | 6.x+ |
-| **Gradle** | 7.x+ |
+| Componente | Versión Mínima | Propósito |
+|------------|----------------|-----------|
+| **Java JDK** | 11+ | Compilación del backend ICE |
+| **Gradle** | 7.x+ | Build automation |
+| **Node.js** | 14.x+ | Cliente web (Vite) |
+| **npm** | 6.x+ | Gestión de dependencias JS |
+| **ZeroC Ice** | 3.7+ | Middleware RPC (incluido en Gradle) |
 
 ---
 
@@ -50,17 +340,29 @@ cd project/backend-java/server
 ./gradlew build
 ```
 
+**¿Qué hace esto?**
+- Descarga ZeroC Ice 3.7
+- Compila archivos `.ice` a Java
+- Genera clases `ChatSystem.*` y `AudioSystem.*`
+- Compila servicios ICE
+
 ### 3. Instalar Dependencias del Cliente
 ```bash
 cd ../../../cliente-web
 npm install
 ```
 
+**¿Qué hace esto?**
+- Instala Vite (bundler)
+- Instala Ice.js (cliente RPC para navegador)
+- Configura WebSocket bindings
+
 ---
 
 ## ▶️ Ejecución del Sistema
 
-### Servidor Ice (Ejecutar una sola vez)
+### Paso 1: Iniciar Servidor ICE (Una sola vez)
+
 ```bash
 cd project/backend-java/server
 ./gradlew run
@@ -90,9 +392,9 @@ cd project/backend-java/server
 📡 WebSocket: ws://localhost:10000
 ```
 
-### Cliente Web (Múltiples instancias)
+### Paso 2: Iniciar Cliente(s) Web (Múltiples instancias)
 
-En otra terminal:
+**En otra(s) terminal(es):**
 ```bash
 cd cliente-web
 npm run dev
@@ -105,217 +407,65 @@ VITE v5.x.x  ready in xxx ms
 ➜  Local:   http://localhost:3000/
 ```
 
-Abre tu navegador en **http://localhost:3000**
-
-**Nota:** Puedes abrir múltiples pestañas o navegadores para simular varios usuarios conectándose al mismo servidor.
-
----
-
-## 🔄 Flujo de Comunicación Cliente-Servidor
-
-### 1. Conexión Inicial
-```
-CLIENTE                                    SERVIDOR
-  │                                           │
-  │  1. Ice.initialize()                      │
-  │     ws://localhost:10000                  │
-  ├──────────────────────────────────────────►│
-  │                                           │
-  │  2. Obtener proxies de servicios:         │
-  │     - ChatService                         │
-  │     - NotificationService                 │
-  │     - AudioService                        │
-  ├──────────────────────────────────────────►│
-  │                                           │
-  │  3. subscribe(username, callback)         │
-  ├──────────────────────────────────────────►│
-  │                                           │
-  │  4. attach(username, audioObserver)       │
-  ├──────────────────────────────────────────►│
-  │                                           │
-  │  ✅ CONEXIÓN ESTABLECIDA                  │
-  │◄──────────────────────────────────────────┤
-```
-
-### 2. Envío de Mensaje
-```
-CLIENTE A                    SERVIDOR                    CLIENTE B
-    │                           │                            │
-    │ sendPrivateMessage()      │                            │
-    ├──────────────────────────►│                            │
-    │  ("Alice", "Bob", "Hola") │                            │
-    │                           │                            │
-    │                           │  1. Guardar en             │
-    │                           │     chat_history.json      │
-    │                           │                            │
-    │  SUCCESS                  │                            │
-    │◄──────────────────────────┤                            │
-    │                           │                            │
-    │                           │  2. Encolar mensaje        │
-    │                           │     para "Bob"             │
-    │                           │                            │
-    │                           │  3. getNewMessages()       │
-    │                           │◄───────────────────────────┤
-    │                           │     (polling cada 1s)      │
-    │                           │                            │
-    │                           │  4. Devolver mensaje       │
-    │                           ├───────────────────────────►│
-    │                           │     [Message{...}]         │
-    │                           │                            │
-    │                           │  5. Mostrar en UI          │
-    │                           │                            ├─►💬
-```
-
-### 3. Sistema de Notificaciones (Polling)
-```
-CLIENTE                                    SERVIDOR
-  │                                           │
-  │  Cada 1 segundo:                          │
-  │  getNewMessages(username)                 │
-  ├──────────────────────────────────────────►│
-  │                                           │
-  │                                           │  Revisar cola
-  │                                           │  de mensajes
-  │                                           │  pendientes
-  │                                           │
-  │  Message[] (o vacío)                      │
-  │◄──────────────────────────────────────────┤
-  │                                           │
-  │  Si hay mensajes:                         │
-  │  - Actualizar lista de chats              │
-  │  - Recargar historial si es chat actual   │
-  │  - Mostrar notificación toast             │
-```
-
----
-
-## 🎯 Arquitectura de Llamadas VoIP
-
-### Patrón de Diseño: Observer/Subject (basado en ejemplo del profesor)
-
-Nuestra implementación sigue el patrón arquitectónico del proyecto de referencia:
-```
-Cliente 1 (Observer) ←→ Servidor (Subject) ←→ Cliente 2 (Observer)
-```
-
-**Componentes principales:**
-
-1. **AudioSubject (Servidor)**
-   - Mantiene mapa de `AudioObserverPrx` registrados
-   - Enruta audio entre usuarios en llamada activa
-   - Gestiona estado de llamadas con mapa bidireccional
-
-2. **AudioObserver (Cliente)**
-   - Recibe audio en tiempo real via `receiveAudio()`
-   - Recibe notificaciones de llamadas (incoming/accepted/rejected/ended)
-   - Implementado en `subscriber.js` (web) siguiendo el patrón del ejemplo
-
-### Flujo de Llamada
-```
-Usuario A                    Servidor                    Usuario B
-   │                            │                            │
-   │──startCall("B")────────────►│                            │
-   │                            │──incomingCall("A")────────►│
-   │                            │                            │ (Usuario acepta)
-   │                            │◄──acceptCall("A", "B")────│
-   │◄──callAccepted("B")────────│                            │
-   │                            │                            │
-   │                    [Llamada Activa]                     │
-   │──sendAudio(bytes)──────────►│──receiveAudio(bytes)──────►│
-   │◄─────────────────sendAudio(bytes)◄──────────────────────│
-   │                            │                            │
-   │──hangup("B")────────────────►│──callEnded("A")──────────►│
-```
-
-### Enrutamiento de Audio (O(1))
-```java
-// Servidor mantiene mapa bidireccional
-activeCalls.put("Alice", "Bob");   // Alice → Bob
-activeCalls.put("Bob", "Alice");   // Bob → Alice
-
-// Enrutamiento instantáneo
-String target = activeCalls.get(fromUser);  // O(1)
-AudioObserverPrx dest = observers.get(target);  // O(1)
-dest.receiveAudioAsync(audioData);
-```
-
-**Flujo Actual (Servidor ICE)**
-```java
-java// ice/IceServer.java
-public static void main(String[] args) {
-    // 1. Crear servicios de negocio (tcp/)
-    MessageService messageService = new MessageService(...);
-    GroupService groupService = new GroupService(...);
-    HistoryService historyService = new HistoryService(...);
-    
-    // 2. Crear servicios ICE que USAN los servicios de negocio
-    ChatServiceI chatService = new ChatServiceI(messageService, historyService);
-    GroupServiceI groupServiceICE = new GroupServiceI(groupService, ...);
-    
-    // 3. Registrar servicios ICE
-    adapter.add(chatService, "ChatService");
-    adapter.add(groupServiceICE, "GroupService");
-}
-```
-
-### Diferencias con el Ejemplo Original
-
-| Aspecto | Ejemplo Profesor | Nuestra Implementación |
-|---------|------------------|------------------------|
-| Cliente | Java Swing | JavaScript Web (HTML5 + Web Audio API) |
-| Callbacks | JOptionPane | Modal HTML personalizado |
-| Audio | javax.sound.sampled | Web Audio API (AudioContext) |
-| Thread-safety | HashMap + synchronized | ConcurrentHashMap |
-| Failsafe | Solo callbacks | Callbacks + polling (fallback) |
-| Estadísticas | No | Contador de paquetes de audio |
-
-### Mejoras Implementadas
-
-1. **Sistema de Polling Fallback**: Si los callbacks de Ice fallan, el cliente puede consultar manualmente
-2. **Estadísticas de Audio**: Tracking de paquetes enviados/recibidos para debugging
-3. **Thread-Safety Mejorado**: Uso de `ConcurrentHashMap` para mejor concurrencia
-4. **Limpieza Automática**: Desconexión detectada por `setCloseCallback()` limpia todos los recursos
+**Para simular múltiples usuarios:**
+- Abre varias pestañas del navegador
+- O usa varios navegadores
+- Todos se conectan al mismo servidor
 
 ---
 
 ## 📂 Estructura del Proyecto
+
 ```
 COMPU_NET/
-├── project/
-│   └── backend-java/
-│       └── server/
-│           ├── src/main/java/
-│           │   ├── ice/
-│           │   │   ├── IceServer.java              (Punto de entrada)
-│           │   │   └── services/
-│           │   │       ├── AudioSubjectImpl.java   (VoIP)
-│           │   │       ├── ChatServiceI.java       (Mensajería)
-│           │   │       ├── NotificationServiceI.java (Polling)
-│           │   │       ├── GroupServiceI.java
-│           │   │       └── VoiceServiceI.java
-│           │   └── utils/
-│           │       └── HistoryManager.java         (Persistencia)
-│           ├── AudioSubject.ice
-│           ├── ChatSystem.ice
-│           ├── build.gradle
-│           └── chat_history.json
+├── project/backend-java/server/
+│   ├── src/main/java/
+│   │   ├── ice/
+│   │   │   ├── IceServer.java                 # ⭐ Punto de entrada
+│   │   │   └── services/
+│   │   │       ├── ChatServiceI.java          # Adaptador de mensajería
+│   │   │       ├── GroupServiceI.java         # Adaptador de grupos
+│   │   │       ├── NotificationServiceI.java  # Sistema de notificaciones
+│   │   │       ├── VoiceServiceI.java         # Notas de voz
+│   │   │       └── AudioSubjectImpl.java      # ⭐ VoIP (patrón Observer)
+│   │   │
+│   │   ├── tcp/                               # ⭐ CAPA DE LÓGICA DE NEGOCIO
+│   │   │   ├── MessageService.java            # Envío de mensajes
+│   │   │   ├── GroupService.java              # Gestión de grupos
+│   │   │   ├── HistoryService.java            # Consultas de historial
+│   │   │   └── UserService.java               # Gestión de conexiones
+│   │   │
+│   │   └── utils/
+│   │       └── HistoryManager.java            # ⭐ Persistencia JSON
+│   │
+│   ├── slice/                                 # Definiciones IDL
+│   │   ├── ChatSystem.ice
+│   │   └── AudioSubject.ice
+│   │
+│   ├── build.gradle                           # Configuración del build
+│   └── chat_history.json                      # Base de datos
 │
 └── cliente-web/
     ├── js/
-    │   ├── generated/
-    │   │   ├── AudioSubject.js
-    │   │   └── ChatSystem.js
-    │   ├── iceClient.js         (Conexión Ice)
-    │   ├── subscriber.js         (AudioObserver)
-    │   ├── simpleAudioStream.js  (Captura/reproducción)
-    │   ├── simpleCallManager.js  (Gestión llamadas)
-    │   ├── notifications.js      (Polling)
-    │   ├── messages.js
-    │   ├── chats.js
-    │   └── groups.js
+    │   ├── generated/                         # Código generado de .ice
+    │   │   ├── ChatSystem.js
+    │   │   └── AudioSubject.js
+    │   │
+    │   ├── iceClient.js                       # ⭐ Gestor de conexión ICE
+    │   ├── subscriber.js                      # AudioObserver (cliente)
+    │   ├── simpleAudioStream.js               # Captura/reproducción de audio
+    │   ├── simpleCallManager.js               # Lógica de llamadas
+    │   ├── notifications.js                   # Sistema de polling
+    │   ├── auth.js                            # Login/logout
+    │   ├── messages.js                        # Historial y envío
+    │   ├── chats.js                           # Gestión de chats privados
+    │   ├── groups.js                          # Gestión de grupos
+    │   └── main.js                            # ⭐ Punto de entrada
+    │
     ├── index.html
     ├── style.css
-    └── package.json
+    ├── package.json
+    └── vite.config.js
 ```
 
 ---
@@ -324,12 +474,17 @@ COMPU_NET/
 
 ### Error: "Cannot connect to localhost:10000"
 
-**Verificar que el servidor está corriendo:**
+**1. Verificar que el servidor está corriendo:**
 ```bash
 netstat -an | grep 10000
 ```
 
-**Si no aparece, reiniciar el servidor:**
+**Salida esperada:**
+```
+tcp6  0  0  :::10000  :::*  LISTEN
+```
+
+**Si no aparece:**
 ```bash
 cd project/backend-java/server
 ./gradlew run
@@ -337,40 +492,91 @@ cd project/backend-java/server
 
 ### Audio no se escucha en llamadas
 
-**1. Verificar permisos de micrófono en el navegador**
+**1. Verificar permisos de micrófono:**
+- Chrome/Edge: `chrome://settings/content/microphone`
+- Firefox: `about:preferences#privacy` → Permisos
 
 **2. Verificar logs del servidor:**
 ```
 [AUDIO] acceptCall: Alice → Bob
    📞 Llamada BIDIRECCIONAL activa:
       Alice ↔ Bob
+   🔊 Enrutamiento de audio configurado
 ```
 
-**3. En consola del navegador:**
+**3. En consola del navegador (F12):**
 ```javascript
 console.log('Call active:', simpleCallManager.activeCall);
-console.log('Audio streaming:', simpleAudioStream.isActive());
+console.log('Streaming:', simpleAudioStream.isActive());
+```
+
+**Esperado:**
+```
+Call active: {type: "OUTGOING", status: "CONNECTED", ...}
+Streaming: true
 ```
 
 ### Mensajes no se actualizan automáticamente
 
-**Verificar que el polling está activo** (en consola del navegador):
+**Verificar polling en consola:**
 ```
 📬 [POLLING] Alice consultando mensajes...
 ```
+
+**Si no aparece:**
+1. Verificar `notifications.js` está cargado
+2. Revisar errores en Network tab (F12)
+3. Reiniciar servidor
 
 ---
 
 ## 📝 Características Implementadas
 
-- ✅ Comunicación bidireccional Ice sobre WebSocket
-- ✅ Patrón Observer/Subject para distribución de eventos
-- ✅ Streaming de audio PCM16 @ 44.1kHz con baja latencia (~46ms)
-- ✅ Sistema de notificaciones con polling (1 Hz)
-- ✅ Persistencia JSON para historial
-- ✅ Arquitectura modular cliente-servidor
+### ✅ Funcionalidades Core
+
+- **Mensajería**
+  - [x] Chat privado 1:1
+  - [x] Grupos multi-usuario
+  - [x] Historial persistente
+  - [x] Formato de timestamp
+
+- **Notificaciones**
+  - [x] Callbacks ICE bidireccionales (primario)
+  - [x] Polling cada 1 segundo (fallback)
+  - [x] Notificaciones toast en UI
+  - [x] Sonido de alerta
+
+- **Notas de Voz**
+  - [x] Grabación (Web Audio API)
+  - [x] Almacenamiento en Base64
+  - [x] Reproducción inline
+  - [x] Máximo 30 segundos
+
+- **Llamadas VoIP**
+  - [x] Patrón Observer/Subject
+  - [x] Streaming PCM16 @ 44.1kHz
+  - [x] Latencia < 50ms
+  - [x] Enrutamiento O(1)
+  - [x] Detección de desconexión
+
+### 🛠️ Tecnologías Clave
+
+- **Ice RPC sobre WebSocket**: Comunicación bidireccional
+- **Web Audio API**: Captura y reproducción de audio
+- **ScriptProcessor**: Procesamiento de audio en tiempo real
+- **ConcurrentHashMap**: Thread-safety en servidor
+- **JSON**: Persistencia simple y legible
+
+---
+
+## 📚 Referencias
+
+- [ZeroC Ice Documentation](https://doc.zeroc.com/ice/3.7)
+- [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+- Patrón Observer/Subject adaptado del proyecto de referencia del profesor
 
 ---
 
 **Versión:** 1.0.0  
-**Fecha:** Enero 2025
+**Fecha:** Enero 2025  
+**Licencia:** MIT

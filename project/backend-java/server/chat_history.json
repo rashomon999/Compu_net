@@ -886,5 +886,53 @@
     "content": "ahhhh",
     "isGroup": false,
     "timestamp": "2025-11-26 20:03:53"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ultimo",
+    "isGroup": false,
+    "timestamp": "2025-11-26 21:31:33"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ultimo? no funciona esta mierda",
+    "isGroup": false,
+    "timestamp": "2025-11-26 21:32:01"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "prueba",
+    "isGroup": false,
+    "timestamp": "2025-11-26 21:32:05"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "dd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 21:32:11"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ahora?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 21:32:28"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "cc",
+    "isGroup": false,
+    "timestamp": "2025-11-26 21:34:36"
   }
 ]
