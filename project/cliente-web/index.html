@@ -26,8 +26,8 @@
     });
   </script>
 
+  <!-- ✅ Estilos inline para configuración del servidor -->
   <style>
-    /* Estilos para la configuración del servidor */
     .server-config {
       margin-top: 20px;
       border-top: 1px solid #e0e0e0;
@@ -348,7 +348,7 @@
           <ul>
             <li>💬 Mensajes de texto en tiempo real</li>
             <li>🎤 Notas de voz (hasta 30 segundos)</li>
-            <li>📞 Llamadas de audio y video</li>
+            <li>📞 Llamadas de audio VoIP</li>
             <li>👥 Grupos de chat</li>
             <li>🔔 Notificaciones push automáticas</li>
           </ul>
@@ -417,6 +417,7 @@
     });
   </script>
 
-  <script src="/bundle.js"></script>
+  <!--  NO incluir bundle.js manualmente -->
+  <!-- Webpack lo inyecta automáticamente con HtmlWebpackPlugin -->
 </body>
 </html>

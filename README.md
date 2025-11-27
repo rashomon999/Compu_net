@@ -20,7 +20,7 @@ Sistema de mensajería instantánea empresarial que implementa:
 
 **Stack Tecnológico:**
 - **Backend**: Java 11+ con ZeroC Ice 3.7+ sobre WebSockets
-- **Frontend**: JavaScript ES6+ con Web Audio API y Vite
+- **Frontend**: JavaScript ES6+ con Web Audio API 
 - **Protocolo**: Ice RPC bidireccional (ws://)
 - **Persistencia**: JSON (HistoryManager)
 
@@ -320,7 +320,7 @@ activeCalls.put("Bob", "Alice");  // Bob → Alice
 |------------|----------------|-----------|
 | **Java JDK** | 11+ | Compilación del backend ICE |
 | **Gradle** | 7.x+ | Build automation |
-| **Node.js** | 14.x+ | Cliente web (Vite) |
+| **Node.js** | 14.x+ | Cliente web  |
 | **npm** | 6.x+ | Gestión de dependencias JS |
 | **ZeroC Ice** | 3.7+ | Middleware RPC (incluido en Gradle) |
 
@@ -353,7 +353,7 @@ npm install
 ```
 
 **¿Qué hace esto?**
-- Instala Vite (bundler)
+
 - Instala Ice.js (cliente RPC para navegador)
 - Configura WebSocket bindings
 
@@ -402,7 +402,6 @@ npm run dev
 
 **Salida esperada:**
 ```
-VITE v5.x.x  ready in xxx ms
 
 ➜  Local:   http://localhost:3000/
 ```
@@ -465,7 +464,7 @@ COMPU_NET/
     ├── index.html
     ├── style.css
     ├── package.json
-    └── vite.config.js
+    └──
 ```
 
 ---
