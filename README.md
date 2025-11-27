@@ -239,6 +239,25 @@ AudioObserverPrx dest = observers.get(target);  // O(1)
 dest.receiveAudioAsync(audioData);
 ```
 
+**Flujo Actual (Servidor ICE)**
+```java
+java// ice/IceServer.java
+public static void main(String[] args) {
+    // 1. Crear servicios de negocio (tcp/)
+    MessageService messageService = new MessageService(...);
+    GroupService groupService = new GroupService(...);
+    HistoryService historyService = new HistoryService(...);
+    
+    // 2. Crear servicios ICE que USAN los servicios de negocio
+    ChatServiceI chatService = new ChatServiceI(messageService, historyService);
+    GroupServiceI groupServiceICE = new GroupServiceI(groupService, ...);
+    
+    // 3. Registrar servicios ICE
+    adapter.add(chatService, "ChatService");
+    adapter.add(groupServiceICE, "GroupService");
+}
+```
+
 ### Diferencias con el Ejemplo Original
 
 | Aspecto | Ejemplo Profesor | Nuestra Implementación |
