@@ -1,7 +1,6 @@
-// start-all.js (C:\Users\luisg\Desktop\compunet\Compu_net\project\start-all.js)
+// start-all.js
 const { spawn } = require('child_process');
 const path = require('path');
-const http = require('http');
 
 const colors = {
   reset: '\x1b[0m',
@@ -9,33 +8,11 @@ const colors = {
   green: '\x1b[32m',
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
-  magenta: '\x1b[35m',
   cyan: '\x1b[36m'
 };
 
 function log(service, message, color = colors.reset) {
   console.log(`${color}[${service}]${colors.reset} ${message}`);
-}
-
-function waitForService(port, serviceName, maxAttempts = 30) {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      const req = http.get(`http://localhost:${port}`, (res) => {
-        clearInterval(interval);
-        log(serviceName, `✓ Servicio listo en puerto ${port}`, colors.green);
-        resolve();
-      });
-      req.on('error', () => {
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          reject(new Error(`Timeout esperando ${serviceName}`));
-        }
-      });
-      req.end();
-    }, 1000);
-  });
 }
 
 async function startAll() {
@@ -45,92 +22,57 @@ async function startAll() {
 
   const services = [];
 
-  // 1. Iniciar servidor Java TCP
-  log('Java Server', 'Iniciando servidor TCP (puerto 9090)...', colors.blue);
+  // 1. Iniciar servidor Ice (Java)
+  log('Ice Server', 'Iniciando servidor Ice (puerto 10000)...', colors.blue);
   
   const isWindows = process.platform === 'win32';
   const gradleCmd = isWindows ? 'gradlew.bat' : './gradlew';
   
-const javaServer = spawn(gradleCmd, [':server:run', '--console=plain'], {
-    cwd: path.join(__dirname, 'backend-java'),
+  const iceServer = spawn(gradleCmd, ['run'], {
+    cwd: path.join(__dirname, 'backend-java', 'server'),
     shell: true
-});
-
-  javaServer.stdout.on('data', (data) => {
-    const output = data.toString().trim();
-    if (output) log('Java Server', output, colors.blue);
   });
 
-  javaServer.stderr.on('data', (data) => {
+  iceServer.stdout.on('data', (data) => {
+    const output = data.toString().trim();
+    if (output) log('Ice Server', output, colors.blue);
+  });
+
+  iceServer.stderr.on('data', (data) => {
     const output = data.toString().trim();
     if (output && !output.includes('Picked up')) {
-      log('Java Server', output, colors.red);
+      log('Ice Server', output, colors.red);
     }
   });
 
-  services.push({ name: 'Java Server', process: javaServer });
+  services.push({ name: 'Ice Server', process: iceServer });
 
-  // Esperar a que el servidor Java inicie
-  log('Java Server', 'Esperando que el servidor inicie...', colors.yellow);
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Esperar 8 segundos para que Ice inicie completamente
+  log('Ice Server', 'Esperando que el servidor Ice inicie...', colors.yellow);
+  await new Promise(resolve => setTimeout(resolve, 8000));
 
-  // 2. Iniciar proxy HTTP
-  log('Proxy HTTP', 'Iniciando proxy HTTP (puerto 5000)...', colors.magenta);
+  // 2. Iniciar cliente web (Vite/Webpack)
+  log('Web Client', 'Iniciando cliente web (puerto 3000)...', colors.green);
   
-  const proxy = spawn('npm', ['start'], {
-    cwd: path.join(__dirname, 'proxy-http'),
+  const webClient = spawn('npm', ['run', 'dev'], {
+    cwd: path.join(__dirname, '..', 'cliente-web'),
     shell: true
   });
 
-  proxy.stdout.on('data', (data) => {
-    const output = data.toString().trim();
-    if (output) log('Proxy HTTP', output, colors.magenta);
-  });
-
-  proxy.stderr.on('data', (data) => {
-    const output = data.toString().trim();
-    if (output) log('Proxy HTTP', output, colors.red);
-  });
-
-  services.push({ name: 'Proxy HTTP', process: proxy });
-
-  // Esperar a que el proxy esté listo
-  try {
-    await waitForService(5000, 'Proxy HTTP');
-  } catch (error) {
-    log('Error', error.message, colors.red);
-    services.forEach(s => s.process.kill());
-    process.exit(1);
-  }
-
-  // 3. Iniciar servidor web para cliente
-  log('Web Client', 'Iniciando servidor web (puerto 3000)...', colors.green);
-  
-  const webServer = spawn('npx', ['http-server', 'cliente-web', '-p', '3000', '-c-1'], {
-    cwd: __dirname,
-    shell: true
-  });
-
-  webServer.stdout.on('data', (data) => {
+  webClient.stdout.on('data', (data) => {
     const output = data.toString().trim();
     if (output) log('Web Client', output, colors.green);
   });
 
-  webServer.stderr.on('data', (data) => {
+  webClient.stderr.on('data', (data) => {
     const output = data.toString().trim();
-    if (output) log('Web Client', output, colors.red);
+    if (output) log('Web Client', output, colors.green); // Vite usa stderr para logs normales
   });
 
-  services.push({ name: 'Web Client', process: webServer });
+  services.push({ name: 'Web Client', process: webClient });
 
-  // Esperar a que el servidor web esté listo
-  try {
-    await waitForService(3000, 'Web Client');
-  } catch (error) {
-    log('Error', error.message, colors.red);
-    services.forEach(s => s.process.kill());
-    process.exit(1);
-  }
+  // Esperar 3 segundos para que Vite compile
+  await new Promise(resolve => setTimeout(resolve, 3000));
 
   // Todo listo
   console.log('\n' + colors.green + '╔════════════════════════════════════════╗');
@@ -138,9 +80,8 @@ const javaServer = spawn(gradleCmd, [':server:run', '--console=plain'], {
   console.log('╚════════════════════════════════════════╝' + colors.reset);
   
   console.log('\n' + colors.cyan + '📡 Servicios activos:');
-  console.log('  • Java Server (TCP):  localhost:9090');
-  console.log('  • Proxy HTTP:         http://localhost:5000');
-  console.log('  • Cliente Web:        http://localhost:3000' + colors.reset);
+  console.log('  • Ice Server:   ws://localhost:10000');
+  console.log('  • Cliente Web:  http://localhost:3000' + colors.reset);
   
   console.log('\n' + colors.yellow + '🌐 Abre tu navegador en: ' + 
                colors.green + 'http://localhost:3000' + colors.reset);
