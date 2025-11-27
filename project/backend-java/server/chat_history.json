@@ -446,5 +446,13 @@
     "content": "no estaba conectado",
     "isGroup": false,
     "timestamp": "2025-11-26 19:20:04"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ya lo estas",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:23:12"
   }
 ]

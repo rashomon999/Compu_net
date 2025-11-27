@@ -43,37 +43,31 @@ public class ChatServiceI implements ChatService {
         // 1. Guardar mensaje usando lógica existente
         String result = messageService.sendPrivateMessage(sender, recipient, message);
         
-        // 2. Si fue exitoso Y hay servicio de notificaciones, enviar push
-        if (result.startsWith("SUCCESS")) {
-            System.out.println("   ✅ Mensaje guardado en historial");
+       // En ChatServiceI.java - sendPrivateMessage()
+
+if (result.startsWith("SUCCESS")) {
+    System.out.println("   ✅ Mensaje guardado");
+    
+    if (notificationService != null) {
+        try {
+            Message msg = new Message();
+            msg.sender = sender;
+            msg.recipient = recipient;
+            msg.content = message;
+            msg.type = "TEXT";
+            msg.timestamp = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            msg.isGroup = false;
             
-            if (notificationService != null) {
-                try {
-                    // Crear objeto Message
-                    Message msg = new Message();
-                    msg.sender = sender;
-                    msg.recipient = recipient;
-                    msg.content = message;
-                    msg.type = "TEXT";
-                    msg.timestamp = java.time.LocalDateTime.now()
-                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                    msg.isGroup = false;
-                    
-                    // 🔥 ENVIAR NOTIFICACIÓN AL DESTINATARIO
-                    System.out.println("   📢 Enviando notificación push a: " + recipient);
-                    notificationService.notifyNewMessage(recipient, msg);
-                    System.out.println("   ✅ Notificación enviada exitosamente");
-                    
-                } catch (Exception e) {
-                    System.err.println("   ⚠️ Error enviando notificación: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            } else {
-                System.out.println("   ⚠️ NotificationService NO está disponible (sin push)");
-            }
-        } else {
-            System.err.println("   ❌ Error guardando mensaje: " + result);
+            // ✅ Encolar el mensaje (NO llamar callback)
+            notificationService.notifyNewMessage(recipient, msg);
+            System.out.println("   ✅ Mensaje encolado para polling");
+            
+        } catch (Exception e) {
+            System.err.println("   ⚠️ Error: " + e.getMessage());
         }
+    }
+}
         
         return result;
     }

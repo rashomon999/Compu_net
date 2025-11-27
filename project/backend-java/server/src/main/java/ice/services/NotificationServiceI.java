@@ -1,18 +1,20 @@
 package ice.services;
-// Ubicación: backend-java/server/src/main/java/ice/services/NotificationServiceI.java
 
 import ChatSystem.*;
 import com.zeroc.Ice.Current;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Servicio de notificaciones push en tiempo real
- * ✅ CORREGIDO: Sin errores de compilación
+ * Servicio de notificaciones con POLLING
+ * ✅ getNewMessages() devuelve mensajes pendientes
  */
 public class NotificationServiceI implements NotificationService {
     
-    // Mapa de usuarios suscritos → callbacks
+    // Mapa: usuario → cola de mensajes pendientes
+    private final Map<String, Queue<Message>> pendingMessages = new ConcurrentHashMap<>();
+    
+    // Mapa: usuario → callbacks (opcional, para future use)
     private final Map<String, NotificationCallbackPrx> subscribers = new ConcurrentHashMap<>();
     
     public NotificationServiceI() {
@@ -20,139 +22,91 @@ public class NotificationServiceI implements NotificationService {
     }
     
     // ========================================
-    // SUSCRIPCIÓN
+    // SUSCRIPCIÓN (para future)
     // ========================================
     
     @Override
     public void subscribe(String username, NotificationCallbackPrx callback, Current current) {
-        System.out.println("\n╔════════════════════════════════════════╗");
-        System.out.println("║  NUEVA SUSCRIPCIÓN                     ║");
-        System.out.println("╠════════════════════════════════════════╣");
-        System.out.println("║  Usuario: " + String.format("%-28s", username) + "║");
-        System.out.println("╚════════════════════════════════════════╝");
+        System.out.println("\n╔════════════════════════════════════╗");
+        System.out.println("║  NUEVA SUSCRIPCIÓN                 ║");
+        System.out.println("╠════════════════════════════════════╣");
+        System.out.println("║  Usuario: " + String.format("%-24s", username) + "║");
+        System.out.println("╚════════════════════════════════════╝");
         
         if (callback == null) {
-            System.err.println("❌ Callback es null, no se puede suscribir");
+            System.err.println("❌ Callback es null");
             return;
         }
         
-        // Guardar el callback
         subscribers.put(username, callback);
-        
-        System.out.println("   ✅ Usuario suscrito a notificaciones");
+        System.out.println("   ✅ Suscrito (callbacks)");
         System.out.println("   📊 Total suscritos: " + subscribers.size());
-        System.out.println("   👥 Usuarios activos: " + subscribers.keySet());
         System.out.println("");
     }
     
     @Override
     public void unsubscribe(String username, Current current) {
-        System.out.println("📕 [NOTIF] Usuario desuscrito: " + username);
         subscribers.remove(username);
-        System.out.println("   📊 Total suscritos: " + subscribers.size());
+        System.out.println("👋 Usuario desuscrito: " + username);
     }
     
     // ========================================
-    // 🔥 NOTIFICAR MENSAJE (LLAMADO POR ChatServiceI)
-    // ========================================
-    
-    /**
-     * Notifica a UN usuario específico sobre un mensaje nuevo
-     * Este método es llamado por ChatServiceI cuando se envía un mensaje
-     */
-    public void notifyNewMessage(String targetUser, Message msg) {
-        System.out.println("\n🔔 ════════════════════════════════════════");
-        System.out.println("📢 NOTIFICANDO MENSAJE NUEVO");
-        System.out.println("════════════════════════════════════════");
-        System.out.println("   🎯 Para:    " + targetUser);
-        System.out.println("   📤 De:      " + msg.sender);
-        System.out.println("   📝 Mensaje: " + msg.content.substring(0, Math.min(msg.content.length(), 50)));
-        System.out.println("   👥 Grupo:   " + msg.isGroup);
-        System.out.println("════════════════════════════════════════");
-        
-        // 1. Verificar si el usuario está suscrito
-        NotificationCallbackPrx callback = subscribers.get(targetUser);
-        
-        if (callback == null) {
-            System.out.println("   ⚠️ Usuario NO está suscrito (sin callback)");
-            System.out.println("   📊 Usuarios suscritos actuales: " + subscribers.keySet());
-            System.out.println("🔔 ════════════════════════════════════════\n");
-            return;
-        }
-        
-        System.out.println("   ✅ Usuario SÍ está suscrito");
-        
-        // 2. Enviar notificación al callback
-        try {
-            System.out.println("   📡 Invocando callback.onNewMessage()...");
-            callback.onNewMessage(msg);
-            System.out.println("   ✅ Callback ejecutado exitosamente");
-            
-        } catch (Exception e) {
-            System.err.println("   ❌ Error enviando notificación:");
-            System.err.println("      " + e.getClass().getSimpleName() + ": " + e.getMessage());
-            e.printStackTrace();
-            
-            // Si el callback falló, remover al usuario
-            System.out.println("   🗑️ Removiendo callback inválido");
-            subscribers.remove(targetUser);
-        }
-        
-        System.out.println("🔔 ════════════════════════════════════════\n");
-    }
-    
-    /**
-     * Notifica creación de grupo a TODOS los usuarios suscritos
-     */
-    public void notifyGroupCreated(String groupName, String creator) {
-        System.out.println("📢 [NOTIF BROADCAST] Grupo creado: " + groupName + " por " + creator);
-        System.out.println("   👥 Notificando a " + subscribers.size() + " usuarios...");
-        
-        int notified = 0;
-        for (Map.Entry<String, NotificationCallbackPrx> entry : subscribers.entrySet()) {
-            try {
-                entry.getValue().onGroupCreated(groupName, creator);
-                notified++;
-            } catch (Exception e) {
-                System.err.println("   ⚠️ Error notificando a " + entry.getKey());
-                subscribers.remove(entry.getKey());
-            }
-        }
-        
-        System.out.println("   ✅ " + notified + " usuarios notificados");
-    }
-    
-    /**
-     * Notifica que un usuario se unió a un grupo
-     */
-    public void notifyUserJoinedGroup(String groupName, String username) {
-        System.out.println("📢 [NOTIF BROADCAST] " + username + " se unió a " + groupName);
-        System.out.println("   👥 Notificando a " + subscribers.size() + " usuarios...");
-        
-        int notified = 0;
-        for (Map.Entry<String, NotificationCallbackPrx> entry : subscribers.entrySet()) {
-            try {
-                entry.getValue().onUserJoinedGroup(groupName, username);
-                notified++;
-            } catch (Exception e) {
-                System.err.println("   ⚠️ Error notificando a " + entry.getKey());
-                subscribers.remove(entry.getKey());
-            }
-        }
-        
-        System.out.println("   ✅ " + notified + " usuarios notificados");
-    }
-    
-    // ========================================
-    // POLLING (FALLBACK - NO RECOMENDADO)
+    // ⭐ POLLING - MÉTODO PRINCIPAL
     // ========================================
     
     @Override
     public Message[] getNewMessages(String username, Current current) {
-        // Este método es para polling, no lo usamos
-        System.out.println("⚠️ [NOTIF] getNewMessages() llamado (polling no recomendado)");
-        return new Message[0];
+        // System.out.println("📬 [POLLING] " + username + " consultando mensajes...");
+        
+        Queue<Message> messages = pendingMessages.getOrDefault(username, new LinkedList<>());
+        
+        if (messages.isEmpty()) {
+            return new Message[0];
+        }
+        
+        // Obtener todos los mensajes pendientes
+        Message[] result = messages.toArray(new Message[0]);
+        
+        // Limpiar cola
+        messages.clear();
+        
+        if (result.length > 0) {
+            System.out.println("📬 [POLLING] " + username + " recibe " + result.length + " mensaje(s)");
+        }
+        
+        return result;
     }
+    
+    // ========================================
+    // AGREGAR MENSAJE A LA COLA
+    // ========================================
+    
+    /**
+     * Llamado por ChatServiceI para encolar un mensaje
+     */
+    public void notifyNewMessage(String targetUser, Message msg) {
+        System.out.println("\n🔔 ════════════════════════════════════");
+        System.out.println("📢 ENCOLANDO MENSAJE");
+        System.out.println("════════════════════════════════════");
+        System.out.println("   🎯 Para: " + targetUser);
+        System.out.println("   📤 De: " + msg.sender);
+        System.out.println("   📝 Msg: " + msg.content.substring(0, Math.min(msg.content.length(), 40)));
+        System.out.println("════════════════════════════════════");
+        
+        // Crear o obtener la cola del usuario
+        Queue<Message> queue = pendingMessages.computeIfAbsent(targetUser, k -> new LinkedList<>());
+        
+        // Agregar el mensaje
+        queue.add(msg);
+        
+        System.out.println("   ✅ Mensaje encolado");
+        System.out.println("   📊 Cola de " + targetUser + ": " + queue.size() + " mensaje(s)");
+        System.out.println("🔔 ════════════════════════════════════\n");
+    }
+    
+    // ========================================
+    // MÉTODOS NO USADOS (placeholder)
+    // ========================================
     
     @Override
     public void markAsRead(String username, Current current) {
@@ -163,22 +117,12 @@ public class NotificationServiceI implements NotificationService {
     // DEBUG
     // ========================================
     
-    /**
-     * Método de debug para verificar suscriptores
-     */
-    public void printSubscribers() {
-        System.out.println("\n📊 ════════ SUSCRIPTORES ACTIVOS ════════");
-        System.out.println("   Total: " + subscribers.size());
-        for (String user : subscribers.keySet()) {
-            System.out.println("   • " + user);
+    public void printStats() {
+        System.out.println("\n📊 ════════ ESTADÍSTICAS ════════");
+        System.out.println("   Usuarios con mensajes pendientes: " + pendingMessages.size());
+        for (Map.Entry<String, Queue<Message>> entry : pendingMessages.entrySet()) {
+            System.out.println("   • " + entry.getKey() + ": " + entry.getValue().size() + " msg");
         }
-        System.out.println("════════════════════════════════════════\n");
-    }
-    
-    /**
-     * Obtiene el número de usuarios suscritos
-     */
-    public int getSubscriberCount() {
-        return subscribers.size();
+        System.out.println("════════════════════════════════\n");
     }
 }
