@@ -1,5 +1,6 @@
 // ============================================
 // js/groups.js - Gestión de grupos con ICE
+// ✅ Sin desconexión visual del chat
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -19,7 +20,7 @@ export async function createGroup() {
     const result = await iceClient.createGroup(groupName, state.currentUsername);
     
     if (result.startsWith('SUCCESS')) {
-      alert('✓ Grupo creado: ' + groupName);
+      alert('✔ Grupo creado: ' + groupName);
       document.getElementById('newGroupName').value = '';
       
       if (!state.myGroups.includes(groupName)) {
@@ -49,7 +50,7 @@ export async function joinGroup() {
     const result = await iceClient.joinGroup(groupName, state.currentUsername);
     
     if (result.startsWith('SUCCESS')) {
-      alert('✓ Te uniste al grupo: ' + groupName);
+      alert('✔ Te uniste al grupo: ' + groupName);
       document.getElementById('joinGroupName').value = '';
       
       if (!state.myGroups.includes(groupName)) {
@@ -86,6 +87,7 @@ export async function loadGroupsFromICE() {
       const div = document.createElement('div');
       div.className = 'conversation-item';
       
+      // ✅ CRÍTICO: Marcar como activo solo si coincide exactamente
       if (state.currentChat === groupName && state.isGroup) {
         div.classList.add('active');
       }
@@ -95,7 +97,7 @@ export async function loadGroupsFromICE() {
       list.appendChild(div);
     });
     
-    console.log('✓ Grupos cargados:', groups);
+    console.log('✔ Grupos cargados:', groups);
     
   } catch (err) {
     console.error('❌ Error cargando grupos:', err);
@@ -105,6 +107,14 @@ export async function loadGroupsFromICE() {
 }
 
 export function openGroupChat(groupName) {
+  // ✅ CRÍTICO: Si ya estamos en este grupo, NO recargar
+  if (state.currentChat === groupName && state.isGroup) {
+    console.log('✅ Ya estás en este grupo, sin recargar');
+    return;
+  }
+  
+  console.log('📂 Abriendo grupo:', groupName);
+  
   if (!state.myGroups.includes(groupName)) {
     showError('No eres miembro de este grupo');
     console.warn('⚠️ Intento de acceder a grupo sin membresía:', groupName);
@@ -118,6 +128,7 @@ export function openGroupChat(groupName) {
   showMessageInput();
   loadHistory(groupName, true, true);
   
+  // ✅ Actualizar visualmente el grupo activo
   updateActiveGroupInUI(groupName);
 }
 

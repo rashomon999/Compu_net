@@ -1,5 +1,6 @@
 // ============================================
 // js/chats.js - Gestión de chats privados con ICE
+// ✅ Sin desconexión visual del chat
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -16,7 +17,7 @@ export async function loadRecentChatsFromICE() {
     state.recentChats = conversations;
     loadRecentChats(); // Actualizar UI
     
-    console.log('✓ Conversaciones cargadas desde ICE:', state.recentChats);
+    console.log('✔ Conversaciones cargadas desde ICE:', state.recentChats);
   } catch (err) {
     console.error('Error cargando conversaciones desde ICE:', err);
     // Fallar silenciosamente
@@ -41,9 +42,12 @@ export function loadRecentChats() {
   state.recentChats.forEach(chatUser => {
     const div = document.createElement('div');
     div.className = 'conversation-item';
+    
+    // ✅ CRÍTICO: Marcar como activo solo si coincide exactamente
     if (state.currentChat === chatUser && !state.isGroup) {
       div.classList.add('active');
     }
+    
     div.innerHTML = `<span>💬</span><strong>${chatUser}</strong>`;
     div.onclick = () => openChatFromList(chatUser);
     list.appendChild(div);
@@ -68,6 +72,14 @@ export function openChat() {
 }
 
 export function openChatFromList(user) {
+  // ✅ CRÍTICO: Si ya estamos en este chat, NO recargar
+  if (state.currentChat === user && !state.isGroup) {
+    console.log('✅ Ya estás en este chat, sin recargar');
+    return;
+  }
+  
+  console.log('📂 Abriendo chat con:', user);
+  
   // Agregar a la lista si no existe
   if (!state.recentChats.includes(user)) {
     state.recentChats.unshift(user);
@@ -81,7 +93,7 @@ export function openChatFromList(user) {
   showMessageInput();
   loadHistory(user, false, true);
   
-  // Actualizar visualmente el chat activo
+  // ✅ Actualizar visualmente el chat activo
   updateActiveChatInUI(user);
 }
 

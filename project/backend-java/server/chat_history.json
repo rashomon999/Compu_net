@@ -502,5 +502,341 @@
     "content": "ffhjfj",
     "isGroup": false,
     "timestamp": "2025-11-26 19:33:44"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "xd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:45:29"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "gracias",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:45:58"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:46:21"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "funciona o no?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:46:40"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "para mi?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:47:08"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "no",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:47:16"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "pero",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:47:22"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "no entiendo",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:47:42"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ah no",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:47:55"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ahora si",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:47:59"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "hola?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:49:47"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:49:55"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "funciona",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:01"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "pero no entiendo algo",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:20"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "pero no entiendo algo",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:20"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:27"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:27"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ahora envio mensajes dobles",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:41"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ahora envio mensajes dobles",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:50:41"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "hola?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:51:59"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:52:12"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "ahhh ya veo un error",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:52:29"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "Hola?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:53:49"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "estas bien?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:54:40"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ccc",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:55:57"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "estamos probando",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:28"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "que?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:32"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "si",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:35"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "bobo",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:38"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "ahhhh",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:41"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "claro, gracias",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:47"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "dsfds",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:50"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "sdfds",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:51"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "sdfsd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:54"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "sdfsd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:55"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "yytuyt",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:57:58"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "dddddddd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:58:05"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "dddddddd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:58:05"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "d",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:58:07"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "d",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:58:07"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "dd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:58:09"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "dd",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:58:09"
   }
 ]
