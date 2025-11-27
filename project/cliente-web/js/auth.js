@@ -1,5 +1,5 @@
 // ============================================
-// js/auth.js - Autenticación con AudioSubject CORREGIDO
+// js/auth.js - CON DEBUG DE SUSCRIPCIÓN
 // ============================================
 
 import { iceClient } from './iceClient.js';
@@ -49,14 +49,34 @@ export async function login() {
       statusEl.querySelector('.status-text').textContent = 'Configurando notificaciones...';
     }
     
-    // Suscribirse a notificaciones
-    await subscribeToRealTimeNotifications(username);
+    // ========================================
+    // 🔥 SUSCRIBIRSE A NOTIFICACIONES - CON WAIT
+    // ========================================
+    console.log('\n╔═══════════════════════════════════════════╗');
+    console.log('║  PASO CRÍTICO: SUSCRIPCIÓN A NOTIF       ║');
+    console.log('╚═══════════════════════════════════════════╝');
+    
+    try {
+      console.log('📡 Iniciando subscribeToRealTimeNotifications()...');
+      await subscribeToRealTimeNotifications(username);
+      console.log('✅ subscribeToRealTimeNotifications() completado');
+      
+      // ⚠️ ESPERAR UN POCO para asegurar que el servidor recibió
+      await new Promise(r => setTimeout(r, 500));
+      
+      console.log('✅ Usuario debería estar suscrito ahora');
+    } catch (err) {
+      console.error('❌ ERROR en subscribeToRealTimeNotifications:', err);
+      console.error('   Stack:', err.stack);
+      showError('Error suscribiéndose a notificaciones: ' + err.message);
+      throw err;
+    }
     
     // ========================================
-    // 🔥 CONECTAR AL AUDIOSUBJECT (LLAMADAS) - VERSIÓN CORREGIDA
+    // 🔥 CONECTAR AL AUDIOSUBJECT (LLAMADAS)
     // ========================================
     try {
-      console.log('📞 Configurando sistema de llamadas...');
+      console.log('\n📞 Configurando sistema de llamadas...');
       
       if (statusEl) {
         statusEl.querySelector('.status-text').textContent = 'Configurando llamadas...';
@@ -64,12 +84,10 @@ export async function login() {
       
       // ✅ Callbacks para eventos de llamadas
       const audioCallbacks = {
-        // Recibir audio en tiempo real
         receiveAudio: (audioData) => {
-    console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
-    simpleAudioStream.receiveAudio(audioData);  // ✅ CORRECTO
-  },
-        // Llamada entrante
+          console.log('🔊 [AUTH] Audio recibido:', audioData.length, 'bytes');
+          simpleAudioStream.receiveAudio(audioData);
+        },
         incomingCall: async (fromUser) => {
           console.log('📞 [AUTH] ¡LLAMADA ENTRANTE!', fromUser);
           
@@ -84,7 +102,6 @@ export async function login() {
           }
         },
         
-        // Llamada aceptada
         callAccepted: async (fromUser) => {
           console.log('✅ [AUTH] Llamada ACEPTADA por:', fromUser);
           
@@ -102,7 +119,6 @@ export async function login() {
           }
         },
         
-        // Llamada rechazada
         callRejected: async (fromUser) => {
           console.log('❌ [AUTH] Llamada RECHAZADA por:', fromUser);
           
@@ -112,7 +128,6 @@ export async function login() {
           simpleCallManager.cleanup();
         },
         
-        // Llamada finalizada
         callEnded: async (fromUser) => {
           console.log('🔴 [AUTH] Llamada FINALIZADA por:', fromUser);
           
@@ -131,31 +146,22 @@ export async function login() {
         }
       };
       
-      // ⬅️ AQUÍ: REEMPLAZAR TODO EL BLOQUE DESDE "PASO 1" HASTA "PASO 8"
-      // BORRAR DESDE LA LÍNEA QUE DICE "// PASO 1: Verificar que AudioSystem..."
-      // HASTA LA LÍNEA QUE DICE "console.log('   ✅ Registrado en servidor');"
-      // Y REEMPLAZAR CON ESTO:
+      await iceClient.connectToAudioSubject(
+        serverHost,
+        serverPort,
+        username,
+        audioCallbacks
+      );
       
-      // ✅ CONECTAR con el método corregido de iceClient
-      // En auth.js, línea ~140:
-await iceClient.connectToAudioSubject(
-  serverHost,
-  serverPort,
-  username,
-  audioCallbacks
-);
-      
-      // ✅ Configurar managers con el AudioSubject
-      const audioSubject = iceClient.audioSubject;  // ⬅️ Obtener desde iceClient
+      const audioSubject = iceClient.audioSubject;
       simpleCallManager.setAudioSubject(audioSubject, username);
       simpleAudioStream.setAudioSubject(audioSubject, username);
       
       console.log('✅ Sistema de llamadas ACTIVO');
       state.callsAvailable = true;
       
-      // Guardar para cleanup
       state.audioSubject = audioSubject;
-      state.audioAdapter = iceClient.audioAdapter;  // ⬅️ Obtener desde iceClient
+      state.audioAdapter = iceClient.audioAdapter;
       
     } catch (err) {
       console.warn('⚠️ AudioService no disponible:', err.message);
@@ -176,7 +182,13 @@ await iceClient.connectToAudioSubject(
     await loadRecentChatsFromICE();
     await loadGroupsFromICE();
     
-    console.log('✅ Login exitoso:', username);
+    console.log('\n╔═══════════════════════════════════════════╗');
+    console.log('║  ✅ LOGIN EXITOSO                        ║');
+    console.log('╠═══════════════════════════════════════════╣');
+    console.log('║  Usuario:', username.padEnd(32), '║');
+    console.log('║  Notificaciones: ✅ ACTIVAS              ║');
+    console.log('║  Llamadas: ' + (state.callsAvailable ? '✅' : '❌') + ' ' + (state.callsAvailable ? 'ACTIVAS' : 'INACTIVAS').padEnd(24) + '║');
+    console.log('╚═══════════════════════════════════════════╝\n');
     
   } catch (err) {
     console.error('❌ Error en login:', err);
@@ -211,12 +223,10 @@ await iceClient.connectToAudioSubject(
 
 export async function logout() {
   try {
-    // Limpiar llamada activa si existe
     if (simpleCallManager.isCallActive()) {
       await simpleCallManager.endCall();
     }
     
-    // Desconectar del AudioSubject
     if (state.audioSubject && state.currentUsername) {
       try {
         await state.audioSubject.detach(state.currentUsername);
@@ -226,7 +236,6 @@ export async function logout() {
       }
     }
     
-    // Destruir adaptador
     if (state.audioAdapter) {
       try {
         await state.audioAdapter.destroy();
@@ -235,11 +244,9 @@ export async function logout() {
       }
     }
     
-    // Limpiar estado
     state.audioSubject = null;
     state.audioAdapter = null;
     
-    // Desconectar Ice
     await iceClient.disconnect();
     
     console.log('👋 Logout exitoso');

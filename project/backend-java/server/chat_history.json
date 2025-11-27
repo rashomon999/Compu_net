@@ -398,5 +398,13 @@
     "content": "puto",
     "isGroup": false,
     "timestamp": "2025-11-26 18:51:49"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "dale",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:04:51"
   }
 ]
