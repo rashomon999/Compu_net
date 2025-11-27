@@ -414,5 +414,21 @@
     "content": "mmm",
     "isGroup": false,
     "timestamp": "2025-11-26 19:10:07"
+  },
+  {
+    "sender": "Maria",
+    "recipient": "Luis",
+    "type": "TEXT",
+    "content": "what?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:13:54"
+  },
+  {
+    "sender": "Luis",
+    "recipient": "Maria",
+    "type": "TEXT",
+    "content": "que puta?",
+    "isGroup": false,
+    "timestamp": "2025-11-26 19:14:30"
   }
 ]

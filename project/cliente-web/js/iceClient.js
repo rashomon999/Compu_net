@@ -453,79 +453,72 @@ class IceClientManager {
  // ============================================
 // En iceClient.js - REEMPLAZA ESTA FUNCIÓN COMPLETA
 // ============================================
+// ============================================
+// REEMPLAZA SOLO LA FUNCIÓN subscribeToNotifications()
+// en iceClient.js
+// ============================================
 
 async subscribeToNotifications(username, callbacks) {
   
-  console.log('\n╔════════════════════════════════════════════════════════╗');
-  console.log('║  subscribeToNotifications() LLAMADO                    ║');
-  console.log('║  Este es el método del SERVIDOR ICE                   ║');
-  console.log('╚════════════════════════════════════════════════════════╝');
-  
   if (!this.notificationService) {
-    console.error('❌ CRÍTICO: NotificationService NO está disponible');
-    console.error('   this.notificationService =', this.notificationService);
+    console.error('❌ NotificationService NO disponible');
     throw new Error('NotificationService no disponible');
   }
   
-  console.log('✅ NotificationService SÍ disponible');
-  
   try {
-    console.log('\n📋 Parámetros recibidos:');
-    console.log('   username:', username);
-    console.log('   callbacks:', Object.keys(callbacks));
+    console.log('\n╔═══════════════════════════════════════════╗');
+    console.log('║  subscribeToNotifications() EJECUTÁNDOSE  ║');
+    console.log('╚═══════════════════════════════════════════╝');
     
     const Ice = window.Ice;
     
     if (!Ice) {
-      throw new Error('Ice no está disponible');
+      throw new Error('Ice no disponible');
     }
     
-    console.log('✅ Ice disponible');
-    
     // ========================================
-    // PASO 1: Crear clase del callback
+    // PASO 1: Clase del callback
     // ========================================
-    console.log('\n🔧 PASO 1: Crear clase NotificationCallbackImpl');
+    console.log('\n📝 PASO 1: Crear clase NotificationCallbackImpl');
     
     class NotificationCallbackImpl {
       constructor(userCallbacks) {
-        console.log('   👷 Constructor de NotificationCallbackImpl ejecutado');
         this.userCallbacks = userCallbacks;
       }
       
       onNewMessage(msg, current) {
-        console.log('   📬 [SERVIDOR LLAMÓ] onNewMessage()');
-        console.log('      msg:', msg);
+        console.log('   📬 [CALLBACK] onNewMessage() llamado');
+        console.log('      De:', msg.sender, '→', msg.recipient);
         
         if (this.userCallbacks?.onNewMessage) {
           try {
             this.userCallbacks.onNewMessage(msg);
           } catch (err) {
-            console.error('   ❌ Error en callback:', err);
+            console.error('   ❌ Error:', err);
           }
         }
       }
       
       onGroupCreated(groupName, creator, current) {
-        console.log('   📢 [SERVIDOR LLAMÓ] onGroupCreated()');
+        console.log('   📢 [CALLBACK] onGroupCreated() llamado');
         
         if (this.userCallbacks?.onGroupCreated) {
           try {
             this.userCallbacks.onGroupCreated(groupName, creator);
           } catch (err) {
-            console.error('   ❌ Error en callback:', err);
+            console.error('   ❌ Error:', err);
           }
         }
       }
       
       onUserJoinedGroup(groupName, user, current) {
-        console.log('   👥 [SERVIDOR LLAMÓ] onUserJoinedGroup()');
+        console.log('   👥 [CALLBACK] onUserJoinedGroup() llamado');
         
         if (this.userCallbacks?.onUserJoinedGroup) {
           try {
             this.userCallbacks.onUserJoinedGroup(groupName, user);
           } catch (err) {
-            console.error('   ❌ Error en callback:', err);
+            console.error('   ❌ Error:', err);
           }
         }
       }
@@ -534,102 +527,79 @@ async subscribeToNotifications(username, callbacks) {
     console.log('✅ Clase creada');
     
     // ========================================
-    // PASO 2: Crear adaptador
+    // PASO 2: Obtener/crear adaptador
     // ========================================
-    console.log('\n🔧 PASO 2: Crear/obtener adaptador');
+    console.log('\n🔧 PASO 2: Obtener/crear adaptador');
     
     if (!this.notificationAdapter) {
-      console.log('   Creando NUEVO adaptador...');
+      console.log('   Creando adaptador nuevo...');
       this.notificationAdapter = await this.communicator.createObjectAdapter("");
-      console.log('   ✅ Nuevo adaptador creado');
+      console.log('   ✅ Adaptador creado');
+      
+      // ⚠️ CRÍTICO: Vincular a la conexión AQUÍ
+      try {
+        const connection = this.notificationService.ice_getCachedConnection();
+        if (connection) {
+          connection.setAdapter(this.notificationAdapter);
+          console.log('   ✅ Vinculado a conexión');
+        }
+      } catch (err) {
+        console.warn('   ⚠️ No se pudo vincular (continuando)');
+      }
+      
+      // Activar
+      await this.notificationAdapter.activate();
+      console.log('   ✅ Adaptador activado');
     } else {
       console.log('   ✅ Reutilizando adaptador existente');
     }
     
-    console.log('   Tipo:', this.notificationAdapter.constructor.name);
-    
     // ========================================
-    // PASO 3: Vincular a la conexión
+    // PASO 3: Crear instancia del callback
     // ========================================
-    console.log('\n🔧 PASO 3: Vincular adaptador a conexión');
-    
-    try {
-      const connection = this.notificationService.ice_getCachedConnection();
-      console.log('   Conexión obtenida:', connection ? '✅ SÍ' : '❌ NO');
-      
-      if (connection) {
-        connection.setAdapter(this.notificationAdapter);
-        console.log('   ✅ Adaptador vinculado');
-      }
-    } catch (err) {
-      console.warn('   ⚠️ No se pudo vincular (continuando):', err.message);
-    }
-    
-    // ========================================
-    // PASO 4: Activar adaptador
-    // ========================================
-    console.log('\n🔧 PASO 4: Activar adaptador');
-    
-    const isActive = this.notificationAdapter.isActive?.();
-    console.log('   Estado actual: ' + (isActive ? 'ACTIVO' : 'INACTIVO'));
-    
-    if (!isActive) {
-      console.log('   Activando...');
-      await this.notificationAdapter.activate();
-      console.log('   ✅ Activado');
-    }
-    
-    // ========================================
-    // PASO 5: Crear instancia del callback
-    // ========================================
-    console.log('\n🔧 PASO 5: Crear instancia del callback');
+    console.log('\n👷 PASO 3: Crear instancia del callback');
     
     const callbackImpl = new NotificationCallbackImpl(callbacks);
-    console.log('   ✅ Instancia creada:', callbackImpl.constructor.name);
+    console.log('✅ Instancia creada');
     
     // ========================================
-    // PASO 6: Registrar en adaptador
+    // PASO 4: CRÍTICO - addWithUUID() SIN Identity manual
     // ========================================
-    console.log('\n🔧 PASO 6: Registrar en adaptador');
+    console.log('\n📋 PASO 4: Registrar con addWithUUID()');
     
-    const identity = new Ice.Identity(Ice.generateUUID(), "");
-    console.log('   UUID:', identity.name);
+    // ⚠️ ESTO ES LO MÁS IMPORTANTE:
+    // addWithUUID() crea automáticamente un Identity válido
+    // y vincula el endpoint correctamente
+    const callbackProxy = this.notificationAdapter.addWithUUID(callbackImpl);
     
-    const callbackProxy = this.notificationAdapter.add(callbackImpl, identity);
-    console.log('   ✅ Registrado');
+    console.log('✅ Registrado en adaptador');
     console.log('   Proxy:', callbackProxy.toString());
     
     // ========================================
-    // PASO 7: Cast del proxy
+    // PASO 5: Cast a tipo correcto
     // ========================================
-    console.log('\n🔧 PASO 7: Cast del proxy');
+    console.log('\n🔄 PASO 5: Cast del proxy');
     
     const typedProxy = Ice.ChatSystem.NotificationCallbackPrx.uncheckedCast(callbackProxy);
-    console.log('   ✅ Cast realizado');
+    console.log('✅ Proxy tipado');
     
     // ========================================
-    // PASO 8: ENVIAR SUBSCRIBE AL SERVIDOR
+    // PASO 6: ENVIAR SUBSCRIBE AL SERVIDOR
     // ========================================
-    console.log('\n🔧 PASO 8: LLAMAR subscribe() en servidor');
-    console.log('   Enviando:');
-    console.log('      username:', username);
-    console.log('      proxy:', typedProxy.toString());
+    console.log('\n📡 PASO 6: Enviar subscribe() al servidor');
+    console.log('   Usuario:', username);
+    console.log('   Proxy:', typedProxy.toString());
     
-    console.log('   ⏳ Esperando respuesta del servidor...');
+    await this.notificationService.subscribe(username, typedProxy);
     
-    const result = await this.notificationService.subscribe(username, typedProxy);
-    
-    console.log('   ✅ RESPUESTA RECIBIDA');
-    console.log('   Resultado:', result);
-    
-    console.log('\n╔════════════════════════════════════════════════════════╗');
-    console.log('║  ✅ NOTIFICACIONES COMPLETAMENTE CONFIGURADAS          ║');
-    console.log('║  Usuario SUSCRITO en el servidor                       ║');
-    console.log('╚════════════════════════════════════════════════════════╝\n');
+    console.log('\n╔═══════════════════════════════════════════╗');
+    console.log('║  ✅ NOTIFICACIONES CONFIGURADAS          ║');
+    console.log('║  Usuario suscrito correctamente          ║');
+    console.log('║  Callbacks listos para recibir mensajes  ║');
+    console.log('╚═══════════════════════════════════════════╝\n');
     
   } catch (error) {
     console.error('\n❌ ❌ ❌ ERROR EN subscribeToNotifications ❌ ❌ ❌');
-    console.error('Tipo:', error.name);
     console.error('Mensaje:', error.message);
     console.error('Stack:', error.stack);
     throw error;
