@@ -222,65 +222,54 @@ public synchronized Message[] getNewMessages(String username, Current current) {
 
 ### 3. Llamadas VoIP (Patrón Observer/Subject del Profesor)
 
+### Secuencia Completa:
 ```
-FASE 1: INICIAR LLAMADA
-┌─────────────┐                                 ┌─────────────┐
-│  Usuario A  │                                 │  Usuario B  │
-└──────┬──────┘                                 └──────┬──────┘
-       │                                               │
-       │  startCall("Alice", "Bob")                    │
-       ├──────────────►┌───────────────────┐          │
-       │               │  AudioSubjectImpl │          │
-       │               │  activeCalls:     │          │
-       │               │  (vacío)          │          │
-       │               └─────────┬─────────┘          │
-       │                         │                    │
-       │                         │ obs.incomingCall() │
-       │                         └────────────────────►│
-       │                                         ┌─────▼─────┐
-       │                                         │ Modal UI  │
-       │                                         │ Aceptar?  │
-       │                                         └─────┬─────┘
-       │                                               │
-       │  acceptCall("Alice", "Bob") ◄─────────────────┤
-       │◄──────────────┐                               │
-       │               │  AudioSubjectImpl             │
-       │               │  activeCalls.put("Alice","Bob")│
-       │               │  activeCalls.put("Bob","Alice")│
-       │               └───────────────────────────────┘
-       │                                               │
-       │  obs.callAccepted("Bob")                      │
-       ├───────────────────────────────────────────────►│
-       │                                               │
-       │        LLAMADA ACTIVA (BIDIRECCIONAL)         │
-       │◄──────────────────────────────────────────────►│
-       │                                               │
-
-FASE 2: STREAMING DE AUDIO (durante llamada)
-       │                                               │
-       │  sendAudio(bytes)                             │
-       ├──────────────►┌───────────────────┐          │
-       │               │  AudioSubjectImpl │          │
-       │               │  target = active  │          │
-       │               │  Calls.get("Alice")          │
-       │               │  = "Bob"          │          │
-       │               └─────────┬─────────┘          │
-       │                         │                    │
-       │                         │ obs.receiveAudio() │
-       │                         └────────────────────►│
-       │                                         ┌─────▼─────┐
-       │                                         │ Web Audio │
-       │                                         │ reproduce │
-       │                                         └───────────┘
-       │                                               │
-       │  sendAudio(bytes) ◄───────────────────────────┤
-       │◄─────────────────────────────────────────────┐
-       │                         │                    │
-       │  obs.receiveAudio()     │                    │
-       │◄────────────────────────┘                    │
-  ┌────▼─────┐                                        │
-  │ Reproduce│                                        │
-  └──────────┘                                        │
+┌──────────┐                    ┌──────────┐                    ┌──────────┐
+│  Maria   │                    │ Servidor │                    │   Luis   │
+│ (Cliente)│                    │  (Java)  │                    │ (Cliente)│
+└────┬─────┘                    └────┬─────┘                    └────┬─────┘
+     │                               │                               │
+     │ 1. startCall("Luis")          │                               │
+     │─────────────────────────────>│                               │
+     │                               │                               │
+     │                               │ 2. incomingCall("Maria")      │
+     │                               │────────────────────────────>│
+     │                               │                               │
+     │                               │                  3. Usuario acepta
+     │                               │                               │
+     │                               │ 4. acceptCall("Maria", "Luis")│
+     │                               │◄──────────────────────────────│
+     │                               │                               │
+     │ 5. callAccepted("Luis")       │                               │
+     │◄─────────────────────────────│                               │
+     │                               │                               │
+     │ 6. Ambos inician streaming    │                               │
+     │ startStreaming()              │          startStreaming()     │
+     │                               │                               │
+     │════════════════════════════AUDIO BIDIRECCIONAL════════════════│
+     │                               │                               │
+     │ sendAudio(data)               │                               │
+     │─────────────────────────────>│                               │
+     │                               │ receiveAudio(data)            │
+     │                               │────────────────────────────>│
+     │                               │                               │
+     │                               │          sendAudio(data)      │
+     │                               │◄──────────────────────────────│
+     │ receiveAudio(data)            │                               │
+     │◄─────────────────────────────│                               │
+     │                               │                               │
+     │════════════════════════════FIN DE LLAMADA═════════════════════│
+     │                               │                               │
+     │ hangup("Luis")                │                               │
+     │─────────────────────────────>│                               │
+     │                               │                               │
+     │ callEnded("Maria")            │                               │
+     │◄─────────────────────────────│                               │
+     │                               │ callEnded("Maria")            │
+     │                               │────────────────────────────>│
+     │                               │                               │
+     │ cleanup()                     │ cleanup()                     │
+     │                               │                               │
 ```
 
 **Clave del diseño:**
