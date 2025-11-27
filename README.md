@@ -88,7 +88,38 @@ En resumen:
   - Llamar métodos remotos como si estuvieran en tu máquina
   - Manejar tipos, contratos, objetos distribuidos
   - Reintentos, timeouts, proxies, endpoints
-  
+
+# 📌 Endpoints en tu sistema Ice + WebSocket
+
+En Ice, un **endpoint** es la dirección donde un objeto remoto (servicio) está disponible.  
+En tu sistema, cada servicio se conecta usando un endpoint con **protocolo WebSocket**.
+
+---
+
+## 🚀 ¿Cómo se ven los endpoints en tu código?
+
+```js
+const chatProxy = communicator.stringToProxy(
+    "ChatService:ws -h localhost -p 10000"
+);
+
+const notificationProxy = communicator.stringToProxy(
+    "NotificationService:ws -h localhost -p 10000"
+);
+
+const voiceProxy = communicator.stringToProxy(
+    "VoiceService:ws -h localhost -p 10000"
+);
+
+const groupProxy = communicator.stringToProxy(
+    "GroupService:ws -h localhost -p 10000"
+);
+
+const audioSubjectProxy = communicator.stringToProxy(
+    "AudioSubject:ws -h localhost -p 10000"
+);
+```
+
 **Ejemplo:**
 ```java
 // ice/services/ChatServiceI.java
