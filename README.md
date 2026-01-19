@@ -464,8 +464,11 @@ COMPU_NET/
     ├── index.html
     ├── style.css
     ├── package.json
-    └──
-```
+    └── node_modules/
+        ├──.bin
+        ├── @babel
+```     ├── @discoveryjs/json-ext
+        .......
 
 ---
 
